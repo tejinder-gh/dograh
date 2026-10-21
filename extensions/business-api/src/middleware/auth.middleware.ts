@@ -2,7 +2,11 @@ import type { Context, Next } from 'hono';
 import { env } from '../config/env';
 import { resolveTenantContext } from '../services/tenant-mapping.service';
 import { verifyOrganizationActive, verifyUserOrganizationMembership } from '../adapters/dograh-api.adapter';
-import { verifyInternalAssertion, type InternalAssertionPayload } from '../config/signed-assertion';
+import {
+  verifyInternalAssertion,
+  consumeNonce,
+  type InternalAssertionPayload,
+} from '../config/signed-assertion';
 import type { TenantContext } from '../domain/tenant-mapping.types';
 
 declare module 'hono' {
@@ -19,32 +23,55 @@ export async function authMiddleware(c: Context, next: Next): Promise<Response |
     return c.json({ error: 'Unauthorized: Missing internal service assertion' }, 401);
   }
 
-  // 2. Validate cryptographic signature, audience, deployment, timestamp, and replay protection
+  // 2. Clone request stream to read raw body for cryptographic request-binding without consuming it
+  let rawBody = '';
+  try {
+    const method = c.req.method.toUpperCase();
+    if (method === 'POST' || method === 'PUT' || method === 'PATCH') {
+      const cloned = c.req.raw.clone();
+      rawBody = await cloned.text();
+    }
+  } catch {
+    rawBody = '';
+  }
+
+  const pathname = new URL(c.req.url).pathname;
+
+  // 3. Validate signature, deployment, expiry, and cryptographic request binding (method, uri, body)
   let payload: InternalAssertionPayload;
   try {
     payload = verifyInternalAssertion({
       assertion: assertionHeader,
       secret: env.BUSINESS_EXT_SECRET,
       expectedDeploymentId: env.DOGRAH_DEPLOYMENT_ID,
+      expectedMethod: c.req.method,
+      expectedPath: pathname,
+      expectedBody: rawBody,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Invalid assertion';
     return c.json({ error: `Unauthorized: ${message}` }, 401);
   }
 
-  // 3. Verify organization exists and is active in Dograh authoritative database
+  // 4. Atomic shared replay prevention across multiple workers/replicas
+  const nonceAccepted = await consumeNonce(payload.nonce, payload.exp);
+  if (!nonceAccepted) {
+    return c.json({ error: 'Unauthorized: Replay detected: Assertion nonce has already been consumed' }, 401);
+  }
+
+  // 5. Verify organization exists and is active in Dograh authoritative database
   const isActive = await verifyOrganizationActive(payload.org);
   if (!isActive) {
     return c.json({ error: 'Forbidden: Organization does not exist or is inactive' }, 403);
   }
 
-  // 4. Verify user membership in organization (defends against revoked membership or stale selection)
+  // 6. Verify user membership in organization (defends against revoked membership or stale selection)
   const isMember = await verifyUserOrganizationMembership(payload.sub, payload.org);
   if (!isMember) {
     return c.json({ error: 'Forbidden: User is not an active member of the specified organization' }, 403);
   }
 
-  // 5. Resolve durable tenant mapping using authoritative deployment and verified org ID
+  // 7. Resolve durable tenant mapping using authoritative deployment and verified org ID
   try {
     const tenantCtx = await resolveTenantContext(payload.org, payload.dep);
     c.set('tenantContext', tenantCtx);

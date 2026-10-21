@@ -7,6 +7,9 @@ export interface InternalAssertionPayload {
   sub: string;
   org: number;
   dep: string;
+  mth: string;
+  uri: string;
+  bdy: string;
   iat: number;
   exp: number;
   nonce: string;
@@ -27,11 +30,18 @@ function base64UrlEncode(strOrBuffer: string | Buffer): string {
   return buf.toString('base64url');
 }
 
+export function computeBodyHash(rawBody?: string | null): string {
+  return crypto.createHash('sha256').update(rawBody || '').digest('hex');
+}
+
 export function createInternalAssertion(params: {
   userId: string;
   orgId: number;
   deploymentId: string;
   secret: string;
+  method?: string;
+  path?: string;
+  body?: string | null;
   ttlSeconds?: number;
   customNonce?: string;
   customIat?: number;
@@ -42,6 +52,9 @@ export function createInternalAssertion(params: {
 
   const now = params.customIat ?? Math.floor(Date.now() / 1000);
   const ttl = params.ttlSeconds ?? 60;
+  const method = (params.method || 'GET').toUpperCase();
+  const uri = (params.path || '/').split('?')[0] || '/';
+  const bdy = computeBodyHash(params.body);
 
   const header = { alg: 'HS256', typ: 'JWT' };
   const payload: InternalAssertionPayload = {
@@ -51,6 +64,9 @@ export function createInternalAssertion(params: {
     sub: params.userId,
     org: params.orgId,
     dep: params.deploymentId,
+    mth: method,
+    uri,
+    bdy,
     iat: now,
     exp: now + ttl,
     nonce: params.customNonce ?? crypto.randomBytes(16).toString('hex'),

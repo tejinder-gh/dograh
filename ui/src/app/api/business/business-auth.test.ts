@@ -1,213 +1,304 @@
-import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
-import { NextRequest } from 'next/server';
-
-vi.mock('@/lib/auth/server', () => ({
-  getServerAccessToken: vi.fn(async () => null),
-  getServerUser: vi.fn(async () => null),
-}));
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import crypto from 'node:crypto';
+import { execSync } from 'node:child_process';
 import dotenv from 'dotenv';
 import path from 'path';
 
-// Ensure environment variables are loaded
+// Load local environment configuration
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 dotenv.config({ path: path.resolve(process.cwd(), '../extensions/business-api/.env') });
 
-import { GET as getContacts, POST as createContact } from './contacts/route';
-import { OSS_TOKEN_COOKIE, OSS_USER_COOKIE } from '@/lib/auth/cookies';
+const NEXTJS_URL = process.env.TEST_NEXTJS_URL || 'http://127.0.0.1:3000';
+const OSS_JWT_SECRET =
+  process.env.OSS_JWT_SECRET || '6492a2ab59b7edc5a21071720f29313b91f6ccc3289b60b998fcdb03be8108ff';
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
+function adminQuery(sql: string): string {
+  const cleanSql = sql.replace(/\$/g, '\\$');
+  return execSync(`docker exec -i mentize-dograh-postgres-1 psql -U postgres -d postgres -c "${cleanSql.replace(/"/g, '\\"')}"`, {
+    encoding: 'utf-8',
+  });
+}
 
-describe('Next.js Business API Route Boundary Authentication (A1 Attack Suite)', () => {
+function generateDograhToken(userId: number, email: string, expOffsetSec: number = 3600): string {
+  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+  const now = Math.floor(Date.now() / 1000);
+  const payload = Buffer.from(
+    JSON.stringify({
+      sub: String(userId),
+      email,
+      exp: now + expOffsetSec,
+      iat: now,
+    })
+  ).toString('base64url');
+  const data = `${header}.${payload}`;
+  const sig = crypto.createHmac('sha256', OSS_JWT_SECRET).update(data).digest('base64url');
+  return `${data}.${sig}`;
+}
+
+function checkLiveEnvironment(): boolean {
+  try {
+    execSync('docker inspect mentize-dograh-postgres-1', { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const isLiveReady = checkLiveEnvironment();
+
+describe.skipIf(!isLiveReady)('Next.js Real HTTP Proxy Route Boundary & Two-Account Isolation Suite (Blocker 2 Proof)', () => {
+  const orgAId = 501;
+  const orgBId = 502;
+  const userAId = 551;
+  const userBId = 552;
+  const userNoOrgId = 553;
+  const userRevokedId = 554;
+
   let tokenOrgA: string;
   let tokenOrgB: string;
-  let userAId: number;
-  let userBId: number;
-  const orgAId = 5;
-  const orgBId = 6;
+  let tokenNoOrg: string;
+  let tokenRevoked: string;
+  let createdContactAId: string;
 
   beforeAll(async () => {
-    // 1. Obtain real Dograh JWT tokens via /api/v1/auth/login for synthetic orgs
-    const resA = await fetch(`${BACKEND_URL}/api/v1/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email: 'synthetic-org-alpha@example.com',
-        password: 'ValidSecurePassword123!',
-      }),
-    });
-    if (!resA.ok) {
-      throw new Error(`Failed to login as Org Alpha user: ${resA.status} ${await resA.text()}`);
-    }
-    const dataA = (await resA.json()) as { token: string; user: { id: number; organization_id: number } };
-    tokenOrgA = dataA.token;
-    userAId = dataA.user.id;
+    // 1. Seed authoritative Dograh organizations in public.organizations
+    adminQuery(`
+      INSERT INTO public.organizations (id, provider_id)
+      VALUES (501, 'org_test_501'), (502, 'org_test_502')
+      ON CONFLICT (id) DO NOTHING;
+    `);
 
-    const resB = await fetch(`${BACKEND_URL}/api/v1/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email: 'synthetic-org-beta@example.com',
-        password: 'ValidSecurePassword123!',
-      }),
-    });
-    if (!resB.ok) {
-      throw new Error(`Failed to login as Org Beta user: ${resB.status} ${await resB.text()}`);
-    }
-    const dataB = (await resB.json()) as { token: string; user: { id: number; organization_id: number } };
-    tokenOrgB = dataB.token;
-    userBId = dataB.user.id;
+    // 2. Seed authoritative users in public.users
+    adminQuery(`
+      INSERT INTO public.users (id, email, provider_id, selected_organization_id)
+      VALUES 
+        (551, 'user551@example.com', 'user_551', 501),
+        (552, 'user552@example.com', 'user_552', 502),
+        (553, 'user553_no_org@example.com', 'user_553', NULL),
+        (554, 'user554_revoked@example.com', 'user_554', 501)
+      ON CONFLICT (id) DO UPDATE SET 
+        email = EXCLUDED.email, 
+        provider_id = EXCLUDED.provider_id, 
+        selected_organization_id = EXCLUDED.selected_organization_id;
+    `);
+
+    // 3. Seed memberships in public.organization_users
+    adminQuery(`
+      INSERT INTO public.organization_users (user_id, organization_id)
+      VALUES (551, 501), (552, 502)
+      ON CONFLICT (user_id, organization_id) DO NOTHING;
+
+      -- Explicitly ensure user 554 has NO membership (revoked state)
+      DELETE FROM public.organization_users WHERE user_id = 554;
+    `);
+
+    // 4. Generate genuine Dograh JWT tokens
+    tokenOrgA = generateDograhToken(userAId, 'user551@example.com');
+    tokenOrgB = generateDograhToken(userBId, 'user552@example.com');
+    tokenNoOrg = generateDograhToken(userNoOrgId, 'user553_no_org@example.com');
+    tokenRevoked = generateDograhToken(userRevokedId, 'user554_revoked@example.com');
+
+    // Clean any residual test contacts
+    adminQuery(`
+      DELETE FROM business_ext.contacts 
+      WHERE tenant_id IN (
+        SELECT business_tenant_id FROM business_ext.organization_mappings 
+        WHERE dograh_organization_id IN (501, 502)
+      );
+    `);
   });
 
-  // A1.1: Forged OSS_USER with no valid token -> denied
-  it('A1.1: Forged OSS_USER cookie with no valid token is rejected with 401 Unauthorized', async () => {
-    const forgedUser = JSON.stringify({
-      id: 999,
-      email: 'attacker@evil.com',
+  afterAll(async () => {
+    adminQuery(`
+      DELETE FROM business_ext.contacts 
+      WHERE tenant_id IN (
+        SELECT business_tenant_id FROM business_ext.organization_mappings 
+        WHERE dograh_organization_id IN (501, 502)
+      );
+    `);
+  });
+
+  // 1. Cookie Spoofing with Missing Token -> Rejected
+  it('rejects unauthenticated request containing forged OSS_USER cookie with 401 Unauthorized', async () => {
+    const forgedUserCookie = JSON.stringify({
+      id: userBId,
       organizationId: orgBId,
-      name: 'Attacker Impersonator',
+      email: 'attacker@evil.com',
     });
 
-    const req = new NextRequest('http://localhost:3000/api/business/contacts', {
+    const res = await fetch(`${NEXTJS_URL}/api/business/contacts`, {
       method: 'GET',
-      headers: new Headers({
-        cookie: `${OSS_USER_COOKIE}=${encodeURIComponent(forgedUser)}`,
-      }),
+      headers: {
+        Cookie: `OSS_USER=${encodeURIComponent(forgedUserCookie)}`,
+      },
     });
 
-    const res = await getContacts(req);
     expect(res.status).toBe(401);
-    const body = await res.json();
+    const body = (await res.json()) as { error: string };
     expect(body.error).toContain('Unauthorized');
   });
 
-  // A1.2: Valid Org A token with forged Org B cookie -> Org B inaccessible
-  it('A1.2: Valid Org A token with forged Org B cookie operates strictly on Org A and never Org B', async () => {
-    const runId = Date.now().toString(36);
-    const forgedUserOrgB = JSON.stringify({
+  // 2. Cookie Spoofing with Valid Token -> Forged Cookie Strictly Ignored
+  it('operates strictly on verified Dograh session and ignores forged OSS_USER cookie targeting Org B', async () => {
+    const forgedUserCookieOrgB = JSON.stringify({
       id: userAId,
-      email: 'synthetic-org-alpha@example.com',
       organizationId: orgBId, // Attacker attempts to target Org B by tampering OSS_USER cookie
     });
 
-    // 1. Create contact using Org A session with forged Org B cookie
-    const createReq = new NextRequest('http://localhost:3000/api/business/contacts', {
+    // Real HTTP POST through Next.js proxy
+    const res = await fetch(`${NEXTJS_URL}/api/business/contacts`, {
       method: 'POST',
-      headers: new Headers({
-        'content-type': 'application/json',
-        cookie: `${OSS_TOKEN_COOKIE}=${tokenOrgA}; ${OSS_USER_COOKIE}=${encodeURIComponent(forgedUserOrgB)}`,
-      }),
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${tokenOrgA}`,
+        Cookie: `OSS_USER=${encodeURIComponent(forgedUserCookieOrgB)}`,
+      },
       body: JSON.stringify({
-        name: `Org A Lead ${runId}`,
-        email: `lead.orga.${runId}@example.com`,
+        name: 'Alice Org A Lead',
+        email: `alice.${Date.now()}@orga.com`,
         phone: `+1555${Math.floor(1000000 + Math.random() * 9000000)}`,
         company: 'Org A Enterprise',
         status: 'new',
       }),
     });
 
-    const createRes = await createContact(createReq);
-    expect(createRes.status).toBe(201);
-    const createdData = await createRes.json();
-    expect(createdData.data.id).toBeDefined();
-
-    // 2. Org B legitimate request queries contacts: must NOT contain Org A lead!
-    const queryOrgBReq = new NextRequest('http://localhost:3000/api/business/contacts', {
-      method: 'GET',
-      headers: new Headers({
-        cookie: `${OSS_TOKEN_COOKIE}=${tokenOrgB}`,
-      }),
-    });
-
-    const listOrgBRes = await getContacts(queryOrgBReq);
-    expect(listOrgBRes.status).toBe(200);
-    const listOrgB = await listOrgBRes.json();
-    const leakedContact = listOrgB.data.find(
-      (c: { id: string }) => c.id === createdData.data.id
-    );
-    expect(leakedContact).toBeUndefined(); // Org B CANNOT see Org A data!
-  });
-
-  // A1.3: Expired or invalid token -> denied
-  it('A1.3: Expired or cryptographically invalid token is denied with 401 Unauthorized', async () => {
-    const invalidToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.invalidpayload.invalidsignature';
-
-    const req = new NextRequest('http://localhost:3000/api/business/contacts', {
-      method: 'GET',
-      headers: new Headers({
-        cookie: `${OSS_TOKEN_COOKIE}=${invalidToken}`,
-      }),
-    });
-
-    const res = await getContacts(req);
-    expect(res.status).toBe(401);
-    const body = await res.json();
-    expect(body.error).toContain('Unauthorized');
-  });
-
-  // A1.4: Stale organization selection -> cannot access an unauthorized organization
-  it('A1.4: Session without an active/selected organization is denied with 401 Unauthorized', async () => {
-    // Generate a synthetic token without organization_id claim or null org
-    const req = new NextRequest('http://localhost:3000/api/business/contacts', {
-      method: 'GET',
-      headers: new Headers({
-        cookie: `${OSS_TOKEN_COOKIE}=malformed-token-no-org`,
-      }),
-    });
-
-    const res = await getContacts(req);
-    expect(res.status).toBe(401);
-  });
-
-  // A1.5: Revoked membership -> denied
-  it('A1.5: User without membership in requested organization is denied access', async () => {
-    // Request with token from non-member user targeting an unassociated organization
-    // (Verified at business-api middleware with 403 Forbidden)
-    const req = new NextRequest('http://localhost:3000/api/business/contacts', {
-      method: 'GET',
-      headers: new Headers({
-        // Tampered Bearer token header pointing to revoked or non-existent token
-        authorization: 'Bearer revoked-or-unauthorized-token-12345',
-      }),
-    });
-
-    const res = await getContacts(req);
-    expect(res.status).toBe(401);
-  });
-
-  // A1.6: Missing session -> denied
-  it('A1.6: Completely missing session (no cookies, no headers) is denied with 401 Unauthorized', async () => {
-    const req = new NextRequest('http://localhost:3000/api/business/contacts', {
-      method: 'GET',
-    });
-
-    const res = await getContacts(req);
-    expect(res.status).toBe(401);
-    const body = await res.json();
-    expect(body.error).toContain('Unauthorized');
-  });
-
-  // A1.7: Valid Org A session -> authorized Org A operation works
-  it('A1.7: Valid Org A session successfully executes authorized operations', async () => {
-    const runId = Date.now().toString(36);
-    const req = new NextRequest('http://localhost:3000/api/business/contacts', {
-      method: 'POST',
-      headers: new Headers({
-        'content-type': 'application/json',
-        cookie: `${OSS_TOKEN_COOKIE}=${tokenOrgA}`,
-      }),
-      body: JSON.stringify({
-        name: `Authorized Org A Contact ${runId}`,
-        email: `auth.orga.${runId}@example.com`,
-        phone: `+1555${Math.floor(1000000 + Math.random() * 9000000)}`,
-        company: 'Authorized Enterprise A',
-        status: 'qualified',
-      }),
-    });
-
-    const res = await createContact(req);
     expect(res.status).toBe(201);
-    const data = await res.json();
-    expect(data.data.name).toBe(`Authorized Org A Contact ${runId}`);
-    expect(data.data.status).toBe('qualified');
+    const data = (await res.json()) as { data: { id: string; name: string } };
+    expect(data.data.id).toBeDefined();
+    expect(data.data.name).toBe('Alice Org A Lead');
+    createdContactAId = data.data.id;
+
+    // Org B legitimate query: Must NOT see Org A contact
+    const orgBRes = await fetch(`${NEXTJS_URL}/api/business/contacts`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${tokenOrgB}`,
+      },
+    });
+
+    expect(orgBRes.status).toBe(200);
+    const orgBData = (await orgBRes.json()) as { data: Array<{ id: string }> };
+    const leaked = orgBData.data.find((c) => c.id === createdContactAId);
+    expect(leaked).toBeUndefined(); // Org B cannot see Org A contact!
+  });
+
+  // 3. Malformed / Tampered Token -> Rejected
+  it('rejects malformed or cryptographically tampered Bearer token with 401 Unauthorized', async () => {
+    const res = await fetch(`${NEXTJS_URL}/api/business/contacts`, {
+      method: 'GET',
+      headers: {
+        Authorization: 'Bearer invalid.tampered.token.12345',
+      },
+    });
+
+    expect(res.status).toBe(401);
+  });
+
+  // 4. Genuine Session Without Selected Organization (A1.4)
+  it('rejects genuine user session without a selected organization with 401 Unauthorized', async () => {
+    // User 553 is a valid Dograh user in database, but selected_organization_id is NULL
+    const res = await fetch(`${NEXTJS_URL}/api/business/contacts`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${tokenNoOrg}`,
+      },
+    });
+
+    expect(res.status).toBe(401);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toContain('missing active organization');
+  });
+
+  // 5. Genuine Membership Revocation (A1.5)
+  it('rejects request with 403 Forbidden when user membership has been revoked from organization', async () => {
+    // User 554 has a valid Dograh token targeting Org 501, but is NOT in public.organization_users
+    const res = await fetch(`${NEXTJS_URL}/api/business/contacts`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${tokenRevoked}`,
+      },
+    });
+
+    expect(res.status).toBe(403);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toContain('User is not an active member of the specified organization');
+  });
+
+  // 6. Real Session Switching Across Organizations
+  it('correctly adapts trust boundary when a multi-org user switches active organization', async () => {
+    // Step A: Grant User 551 membership in Org 502 as well
+    adminQuery(`
+      INSERT INTO public.organization_users (user_id, organization_id)
+      VALUES (551, 502)
+      ON CONFLICT (user_id, organization_id) DO NOTHING;
+    `);
+
+    // Step B: Switch User 551's selected_organization_id to Org 502
+    adminQuery('UPDATE public.users SET selected_organization_id = 502 WHERE id = 551;');
+
+    // Step C: User 551 attempts to read Org 501 contact while switched into Org 502 -> 404 Not Found
+    const switchedGetRes = await fetch(`${NEXTJS_URL}/api/business/contacts/${createdContactAId}`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${tokenOrgA}`,
+      },
+    });
+    expect(switchedGetRes.status).toBe(404);
+
+    // Step D: Switch User 551 back to Org 501
+    adminQuery('UPDATE public.users SET selected_organization_id = 501 WHERE id = 551;');
+
+    // Step E: User 551 can now read Org 501 contact successfully -> 200 OK
+    const restoredGetRes = await fetch(`${NEXTJS_URL}/api/business/contacts/${createdContactAId}`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${tokenOrgA}`,
+      },
+    });
+    expect(restoredGetRes.status).toBe(200);
+    const restoredData = (await restoredGetRes.json()) as { data: { id: string } };
+    expect(restoredData.data.id).toBe(createdContactAId);
+  });
+
+  // 7. Real Cross-Tenant Isolation: Org B cannot read, mutate, or delete Org A contact
+  it('strictly prohibits Org B from reading, updating, or deleting Org A contact over HTTP', async () => {
+    // Direct GET by ID
+    const getRes = await fetch(`${NEXTJS_URL}/api/business/contacts/${createdContactAId}`, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${tokenOrgB}` },
+    });
+    expect(getRes.status).toBe(404);
+
+    // Direct PATCH mutation
+    const patchRes = await fetch(`${NEXTJS_URL}/api/business/contacts/${createdContactAId}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${tokenOrgB}`,
+      },
+      body: JSON.stringify({ name: 'Hacked by Org B' }),
+    });
+    expect(patchRes.status).toBe(404);
+
+    // Direct DELETE
+    const deleteRes = await fetch(`${NEXTJS_URL}/api/business/contacts/${createdContactAId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${tokenOrgB}` },
+    });
+    expect(deleteRes.status).toBe(404);
+  });
+
+  // 8. Caller-Supplied Internal Headers are Stripped at Edge
+  it('strips caller-supplied X-Internal-Assertion and X-Dograh-Organization-Id headers at Next.js edge', async () => {
+    const res = await fetch(`${NEXTJS_URL}/api/business/contacts`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${tokenOrgA}`,
+        'X-Internal-Assertion': 'malicious-caller-supplied-assertion',
+        'X-Dograh-Organization-Id': '99999',
+      },
+    });
+
+    expect(res.status).toBe(200); // Does NOT fail with assertion error; Next.js generated genuine assertion
   });
 });

@@ -28,9 +28,9 @@ export async function runMigrations(clientOverride?: PoolClient): Promise<void> 
   const shouldRelease = !clientOverride;
 
   try {
-    const migrationPath = path.resolve(__dirname, '../../migrations/001_business_ext_init.sql');
-    const sql = await fs.readFile(migrationPath, 'utf-8');
-    const migrationId = '001_business_ext_init';
+    const migrationsDir = path.resolve(__dirname, '../../migrations');
+    const files = await fs.readdir(migrationsDir);
+    const sqlFiles = files.filter((f) => f.endsWith('.sql')).sort();
 
     await client.query('BEGIN');
 
@@ -46,19 +46,23 @@ export async function runMigrations(clientOverride?: PoolClient): Promise<void> 
       );
     `);
 
-    // Check if migration has already been applied
-    const check = await client.query(
-      'SELECT id FROM business_ext.schema_migrations WHERE id = $1 FOR UPDATE',
-      [migrationId]
-    );
+    for (const file of sqlFiles) {
+      const migrationId = path.basename(file, '.sql');
+      const check = await client.query(
+        'SELECT id FROM business_ext.schema_migrations WHERE id = $1 FOR UPDATE',
+        [migrationId]
+      );
 
-    if (check.rows.length === 0) {
-      console.log(`[migrator] Applying migration: ${migrationId}...`);
-      await client.query(sql);
-      await client.query('INSERT INTO business_ext.schema_migrations (id) VALUES ($1)', [migrationId]);
-      console.log(`[migrator] Migration ${migrationId} applied successfully.`);
-    } else {
-      console.log(`[migrator] Migration ${migrationId} already applied. Skipping.`);
+      if (check.rows.length === 0) {
+        console.log(`[migrator] Applying migration: ${migrationId}...`);
+        const filePath = path.join(migrationsDir, file);
+        const sql = await fs.readFile(filePath, 'utf-8');
+        await client.query(sql);
+        await client.query('INSERT INTO business_ext.schema_migrations (id) VALUES ($1)', [migrationId]);
+        console.log(`[migrator] Migration ${migrationId} applied successfully.`);
+      } else {
+        // Skip already applied migration
+      }
     }
 
     await client.query('COMMIT');

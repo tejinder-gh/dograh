@@ -15,16 +15,51 @@ export interface VerifiedDograhSession {
   organizationId: number;
 }
 
-const BUSINESS_API_URL = process.env.BUSINESS_API_URL || 'http://127.0.0.1:4000';
+// Startup / initialization environment validation
+function validateConfiguration(): { apiUrl: string; secret: string; deploymentId: string } {
+  const isProd = process.env.NODE_ENV === 'production';
+  const secret = process.env.BUSINESS_EXT_SECRET;
+  const apiUrl = process.env.BUSINESS_API_URL;
+  const deploymentId = process.env.DOGRAH_DEPLOYMENT_ID || 'default';
+
+  if (isProd) {
+    if (!secret || secret.length < 32 || KNOWN_INSECURE_SECRETS.has(secret)) {
+      throw new Error(
+        'Fatal configuration error: BUSINESS_EXT_SECRET must be explicitly configured with at least 32 characters in production'
+      );
+    }
+    if (!apiUrl) {
+      throw new Error(
+        'Fatal configuration error: BUSINESS_API_URL must be explicitly configured in production (no localhost fallback permitted)'
+      );
+    }
+  }
+
+  return {
+    apiUrl: apiUrl || (isProd ? '' : 'http://127.0.0.1:4000'),
+    secret: secret || '',
+    deploymentId,
+  };
+}
+
+const config = validateConfiguration();
 
 function getBusinessExtSecret(): string {
-  const secret = process.env.BUSINESS_EXT_SECRET;
+  const secret = process.env.BUSINESS_EXT_SECRET || config.secret;
   if (!secret || secret.length < 32 || KNOWN_INSECURE_SECRETS.has(secret)) {
     throw new Error(
       'Fatal: BUSINESS_EXT_SECRET is not configured with a secure high-entropy value (min 32 chars)'
     );
   }
   return secret;
+}
+
+function getBusinessApiUrl(): string {
+  const url = process.env.BUSINESS_API_URL || config.apiUrl;
+  if (!url) {
+    throw new Error('Fatal: BUSINESS_API_URL is not configured');
+  }
+  return url;
 }
 
 /**
@@ -84,7 +119,7 @@ export async function getVerifiedSession(
     return null;
   }
 
-  // 4. Authoritatively validate the token against Dograh's /api/v1/auth/me
+  // 5. Authoritatively validate the token against Dograh's /api/v1/auth/me
   try {
     const backendUrl = getServerBackendUrl();
     const res = await fetch(`${backendUrl}/api/v1/auth/me`, {
@@ -129,7 +164,7 @@ export async function getAuthenticatedOrgId(req?: Request | NextRequest): Promis
 
 /**
  * Proxies request to the Business Extension API using a short-lived,
- * cryptographically signed internal service assertion.
+ * cryptographically signed and request-bound internal service assertion.
  */
 export async function callBusinessApi(
   path: string,
@@ -147,15 +182,23 @@ export async function callBusinessApi(
     );
   }
 
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  const method = (options.method || 'GET').toUpperCase();
+  const uri = normalizedPath.split('?')[0] || '/';
+  const bodyStr = typeof options.body === 'string' ? options.body : '';
+
   let assertion: string;
   try {
     const secret = getBusinessExtSecret();
-    const deploymentId = process.env.DOGRAH_DEPLOYMENT_ID || 'default';
+    const deploymentId = process.env.DOGRAH_DEPLOYMENT_ID || config.deploymentId;
     assertion = createInternalAssertion({
       userId: session.userId,
       orgId: session.organizationId,
       deploymentId,
       secret,
+      method,
+      path: uri,
+      body: bodyStr,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Internal assertion error';
@@ -174,15 +217,15 @@ export async function callBusinessApi(
   headers.delete('X-Dograh-Deployment-Id');
   headers.delete('X-Extension-Secret');
 
-  // Attach verified internal assertion
+  // Attach verified internal assertion with cryptographic request binding
   headers.set('X-Internal-Assertion', assertion);
 
   if (!headers.has('Content-Type') && options.body && typeof options.body === 'string') {
     headers.set('Content-Type', 'application/json');
   }
 
-  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-  const url = `${BUSINESS_API_URL}${normalizedPath}`;
+  const baseUrl = getBusinessApiUrl();
+  const url = `${baseUrl}${normalizedPath}`;
 
   try {
     return await fetch(url, {

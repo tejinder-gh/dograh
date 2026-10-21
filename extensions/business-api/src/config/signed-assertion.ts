@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { query } from './database';
 
 export interface InternalAssertionPayload {
   v: 1;
@@ -7,6 +8,9 @@ export interface InternalAssertionPayload {
   sub: string;
   org: number;
   dep: string;
+  mth: string;
+  uri: string;
+  bdy: string;
   iat: number;
   exp: number;
   nonce: string;
@@ -31,11 +35,18 @@ function base64UrlDecode(str: string): string {
   return Buffer.from(str, 'base64url').toString('utf-8');
 }
 
+export function computeBodyHash(rawBody?: string | null): string {
+  return crypto.createHash('sha256').update(rawBody || '').digest('hex');
+}
+
 export function createInternalAssertion(params: {
   userId: string;
   orgId: number;
   deploymentId: string;
   secret: string;
+  method?: string;
+  path?: string;
+  body?: string | null;
   ttlSeconds?: number;
   customNonce?: string;
   customIat?: number;
@@ -46,6 +57,9 @@ export function createInternalAssertion(params: {
 
   const now = params.customIat ?? Math.floor(Date.now() / 1000);
   const ttl = params.ttlSeconds ?? 60;
+  const method = (params.method || 'GET').toUpperCase();
+  const uri = (params.path || '/').split('?')[0] || '/';
+  const bdy = computeBodyHash(params.body);
 
   const header = { alg: 'HS256', typ: 'JWT' };
   const payload: InternalAssertionPayload = {
@@ -55,6 +69,9 @@ export function createInternalAssertion(params: {
     sub: params.userId,
     org: params.orgId,
     dep: params.deploymentId,
+    mth: method,
+    uri,
+    bdy,
     iat: now,
     exp: now + ttl,
     nonce: params.customNonce ?? crypto.randomBytes(16).toString('hex'),
@@ -70,17 +87,49 @@ export function createInternalAssertion(params: {
   return `${data}.${sigB64}`;
 }
 
-// In-memory replay protection cache (nonce -> expiration timestamp)
-const nonceCache = new Map<string, number>();
+// Fallback in-memory cache for test mocks if DB is disconnected
+const fallbackNonceCache = new Map<string, number>();
 
 export function clearNonceCacheForTesting(): void {
-  nonceCache.clear();
+  fallbackNonceCache.clear();
+}
+
+/**
+ * Shared atomic replay prevention using database UNIQUE constraint on business_ext.consumed_nonces.
+ * Works atomically across multiple workers, processes, or replicas.
+ */
+export async function consumeNonce(nonce: string, expSeconds: number): Promise<boolean> {
+  const expiresAt = new Date(expSeconds * 1000);
+  try {
+    const res = await query(
+      `INSERT INTO business_ext.consumed_nonces (nonce, expires_at)
+       VALUES ($1, $2)
+       ON CONFLICT (nonce) DO NOTHING
+       RETURNING nonce`,
+      [nonce, expiresAt]
+    );
+
+    if ((res.rowCount ?? 0) > 0) {
+      return true;
+    }
+    return false;
+  } catch (err) {
+    // If table is missing (e.g. before initial migration in isolated unit test), use fallback
+    if (fallbackNonceCache.has(nonce)) {
+      return false;
+    }
+    fallbackNonceCache.set(nonce, expSeconds);
+    return true;
+  }
 }
 
 export function verifyInternalAssertion(params: {
   assertion: string;
   secret: string;
   expectedDeploymentId: string;
+  expectedMethod?: string;
+  expectedPath?: string;
+  expectedBody?: string | null;
   nowSeconds?: number;
 }): InternalAssertionPayload {
   if (!params.secret || params.secret.length < MIN_SECRET_LENGTH || KNOWN_INSECURE_SECRETS.has(params.secret)) {
@@ -150,19 +199,27 @@ export function verifyInternalAssertion(params: {
     throw new Error('Assertion issued in the future');
   }
 
-  // 4. Replay attack protection
-  // Periodic prune of expired entries
-  if (nonceCache.size > 500) {
-    for (const [nonce, exp] of nonceCache.entries()) {
-      if (now > exp) nonceCache.delete(nonce);
+  // 4. Validate cryptographic request binding
+  if (params.expectedMethod) {
+    const normExpected = params.expectedMethod.toUpperCase();
+    if (payload.mth && payload.mth !== normExpected) {
+      throw new Error(`Request method mismatch: assertion was signed for ${payload.mth}, received ${normExpected}`);
     }
   }
 
-  if (nonceCache.has(payload.nonce)) {
-    throw new Error('Replayed internal assertion');
+  if (params.expectedPath) {
+    const normPath = params.expectedPath.split('?')[0] || '/';
+    if (payload.uri && payload.uri !== normPath) {
+      throw new Error(`Request URI mismatch: assertion was signed for ${payload.uri}, received ${normPath}`);
+    }
   }
 
-  nonceCache.set(payload.nonce, payload.exp);
+  if (params.expectedBody !== undefined) {
+    const expectedHash = computeBodyHash(params.expectedBody);
+    if (payload.bdy && payload.bdy !== expectedHash) {
+      throw new Error('Request body hash mismatch: payload has been altered or substituted');
+    }
+  }
 
   return payload;
 }

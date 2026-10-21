@@ -113,6 +113,8 @@ describe('HTTP Security & Tenant Isolation Boundary (A2 Attack Suite)', () => {
       orgId: 601,
       deploymentId: env.DOGRAH_DEPLOYMENT_ID,
       secret: validSecret,
+      method: 'GET',
+      path: '/api/contacts',
     });
 
     const [headerB64, payloadB64, sigB64] = validAssertion.split('.');
@@ -139,6 +141,8 @@ describe('HTTP Security & Tenant Isolation Boundary (A2 Attack Suite)', () => {
       orgId: 601,
       deploymentId: 'foreign-cluster-or-tenant',
       secret: validSecret,
+      method: 'GET',
+      path: '/api/contacts',
     });
 
     const res = await app.request('/api/contacts', {
@@ -159,8 +163,9 @@ describe('HTTP Security & Tenant Isolation Boundary (A2 Attack Suite)', () => {
       orgId: 601,
       deploymentId: env.DOGRAH_DEPLOYMENT_ID,
       secret: validSecret,
-      customIat: Math.floor(Date.now() / 1000) - 120, // 2 minutes ago
-      ttlSeconds: 60, // Expired 60s ago
+      ttlSeconds: -10, // Expired 10 seconds ago
+      method: 'GET',
+      path: '/api/contacts',
     });
 
     const res = await app.request('/api/contacts', {
@@ -176,15 +181,7 @@ describe('HTTP Security & Tenant Isolation Boundary (A2 Attack Suite)', () => {
 
   // A2.6: Replayed consequential request -> no duplicate effect
   it('prevents replay of consequential request (duplicate POST blocked on second attempt)', async () => {
-    const fixedNonce = 'replay-nonce-test-fixed-001';
-    const assertion = createInternalAssertion({
-      userId: '601',
-      orgId: 601,
-      deploymentId: env.DOGRAH_DEPLOYMENT_ID,
-      secret: validSecret,
-      customNonce: fixedNonce,
-    });
-
+    const fixedNonce = `replay-nonce-${Date.now()}-${Math.random()}`;
     const contactPayload = {
       name: 'Replay Test Lead',
       email: `replay.test.${Date.now()}@example.com`,
@@ -192,6 +189,18 @@ describe('HTTP Security & Tenant Isolation Boundary (A2 Attack Suite)', () => {
       company: 'Replay Defense Inc',
       status: 'new',
     };
+    const bodyStr = JSON.stringify(contactPayload);
+
+    const assertion = createInternalAssertion({
+      userId: '601',
+      orgId: 601,
+      deploymentId: env.DOGRAH_DEPLOYMENT_ID,
+      secret: validSecret,
+      customNonce: fixedNonce,
+      method: 'POST',
+      path: '/api/contacts',
+      body: bodyStr,
+    });
 
     // First attempt: succeeds (201 Created)
     const firstRes = await app.request('/api/contacts', {
@@ -200,7 +209,7 @@ describe('HTTP Security & Tenant Isolation Boundary (A2 Attack Suite)', () => {
         'X-Internal-Assertion': assertion,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(contactPayload),
+      body: bodyStr,
     });
     expect(firstRes.status).toBe(201);
     const firstJson = (await firstRes.json()) as { data: { id: string } };
@@ -213,20 +222,160 @@ describe('HTTP Security & Tenant Isolation Boundary (A2 Attack Suite)', () => {
         'X-Internal-Assertion': assertion,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(contactPayload),
+      body: bodyStr,
     });
     expect(replayRes.status).toBe(401);
     const replayJson = (await replayRes.json()) as { error: string };
-    expect(replayJson.error).toContain('Replayed internal assertion');
+    expect(replayJson.error).toContain('Replay detected');
+  });
+
+  // A2.6b: Multi-Instance Replay Protection Test (Blocker 1)
+  it('prevents replay across TWO distinct service instances sharing the atomic nonce store', async () => {
+    const instanceA = createApp();
+    const instanceB = createApp();
+
+    const sharedNonce = `multi-instance-nonce-${Date.now()}`;
+    const payload = {
+      name: 'Multi Instance Lead',
+      email: `multi.inst.${Date.now()}@example.com`,
+      phone: `+1555${Math.floor(1000000 + Math.random() * 9000000)}`,
+      company: 'Multi Instance Corp',
+      status: 'new',
+    };
+    const bodyStr = JSON.stringify(payload);
+
+    const assertion = createInternalAssertion({
+      userId: '601',
+      orgId: 601,
+      deploymentId: env.DOGRAH_DEPLOYMENT_ID,
+      secret: validSecret,
+      customNonce: sharedNonce,
+      method: 'POST',
+      path: '/api/contacts',
+      body: bodyStr,
+    });
+
+    // Send assertion to Instance A: Succeeds (201 Created)
+    const resA = await instanceA.request('/api/contacts', {
+      method: 'POST',
+      headers: {
+        'X-Internal-Assertion': assertion,
+        'Content-Type': 'application/json',
+      },
+      body: bodyStr,
+    });
+    expect(resA.status).toBe(201);
+
+    // Immediately replay the EXACT SAME assertion to Instance B: Denied (401 Replay detected)
+    const resB = await instanceB.request('/api/contacts', {
+      method: 'POST',
+      headers: {
+        'X-Internal-Assertion': assertion,
+        'Content-Type': 'application/json',
+      },
+      body: bodyStr,
+    });
+    expect(resB.status).toBe(401);
+    const jsonB = (await resB.json()) as { error: string };
+    expect(jsonB.error).toContain('Replay detected');
+  });
+
+  // A2.6c: Cryptographic Request Binding & Substitution Prevention (Blocker 1)
+  describe('Cryptographic Request Binding Verification', () => {
+    it('rejects assertion when HTTP method is substituted (signed for GET, used on POST)', async () => {
+      const getAssertion = createInternalAssertion({
+        userId: '601',
+        orgId: 601,
+        deploymentId: env.DOGRAH_DEPLOYMENT_ID,
+        secret: validSecret,
+        method: 'GET',
+        path: '/api/contacts',
+      });
+
+      const res = await app.request('/api/contacts', {
+        method: 'POST',
+        headers: {
+          'X-Internal-Assertion': getAssertion,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ name: 'Substituted Method' }),
+      });
+      expect(res.status).toBe(401);
+      const json = (await res.json()) as { error: string };
+      expect(json.error).toContain('Request method mismatch');
+    });
+
+    it('rejects assertion when request path is substituted (signed for /api/contacts, used on /api/contacts/batch)', async () => {
+      const contactsAssertion = createInternalAssertion({
+        userId: '601',
+        orgId: 601,
+        deploymentId: env.DOGRAH_DEPLOYMENT_ID,
+        secret: validSecret,
+        method: 'POST',
+        path: '/api/contacts',
+        body: JSON.stringify({ contacts: [] }),
+      });
+
+      const res = await app.request('/api/contacts/batch', {
+        method: 'POST',
+        headers: {
+          'X-Internal-Assertion': contactsAssertion,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ contacts: [] }),
+      });
+      expect(res.status).toBe(401);
+      const json = (await res.json()) as { error: string };
+      expect(json.error).toContain('Request URI mismatch');
+    });
+
+    it('rejects assertion when request body is tampered or substituted', async () => {
+      const originalBody = JSON.stringify({ name: 'Original Contact', email: 'orig@example.com' });
+      const tamperedBody = JSON.stringify({ name: 'Hacked Contact', email: 'hacked@example.com' });
+
+      const assertion = createInternalAssertion({
+        userId: '601',
+        orgId: 601,
+        deploymentId: env.DOGRAH_DEPLOYMENT_ID,
+        secret: validSecret,
+        method: 'POST',
+        path: '/api/contacts',
+        body: originalBody,
+      });
+
+      const res = await app.request('/api/contacts', {
+        method: 'POST',
+        headers: {
+          'X-Internal-Assertion': assertion,
+          'Content-Type': 'application/json',
+        },
+        body: tamperedBody, // Caller tampered with the payload
+      });
+      expect(res.status).toBe(401);
+      const json = (await res.json()) as { error: string };
+      expect(json.error).toContain('Request body hash mismatch');
+    });
   });
 
   // A2.7: Valid Org A request cannot access Org B
   it('allows verified Org A to create a contact and prohibits Org B access', async () => {
+    const contactPayload = {
+      name: 'Jane HTTP',
+      email: `jane.${Date.now()}@http-test.com`,
+      phone: `+1555${Math.floor(1000000 + Math.random() * 9000000)}`,
+      company: 'Org A Client',
+      status: 'new',
+    };
+    const bodyStr = JSON.stringify(contactPayload);
+
     const assertionOrgA = createInternalAssertion({
       userId: '601',
       orgId: 601,
       deploymentId: env.DOGRAH_DEPLOYMENT_ID,
       secret: validSecret,
+      method: 'POST',
+      path: '/api/contacts',
+      body: bodyStr,
     });
 
     const createRes = await app.request('/api/contacts', {
@@ -235,13 +384,7 @@ describe('HTTP Security & Tenant Isolation Boundary (A2 Attack Suite)', () => {
         'X-Internal-Assertion': assertionOrgA,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        name: 'Jane HTTP',
-        email: `jane.${Date.now()}@http-test.com`,
-        phone: `+1555${Math.floor(1000000 + Math.random() * 9000000)}`,
-        company: 'Org A Client',
-        status: 'new',
-      }),
+      body: bodyStr,
     });
     expect(createRes.status).toBe(201);
     const createJson = (await createRes.json()) as { data: { id: string; name: string } };
@@ -253,6 +396,8 @@ describe('HTTP Security & Tenant Isolation Boundary (A2 Attack Suite)', () => {
       orgId: 602,
       deploymentId: env.DOGRAH_DEPLOYMENT_ID,
       secret: validSecret,
+      method: 'GET',
+      path: `/api/contacts/${contactAId}`,
     });
 
     const getRes = await app.request(`/api/contacts/${contactAId}`, {
@@ -265,11 +410,22 @@ describe('HTTP Security & Tenant Isolation Boundary (A2 Attack Suite)', () => {
   });
 
   it('prohibits Org A from creating business profile with Org B workflow (403 Forbidden)', async () => {
+    const profilePayload = {
+      name: 'Apex Org A',
+      domain: 'apex-orga.com',
+      industry: 'FinTech',
+      dograhWorkflowId: wfBId, // Belongs to Org B (602)!
+    };
+    const bodyStr = JSON.stringify(profilePayload);
+
     const assertionOrgA = createInternalAssertion({
       userId: '601',
       orgId: 601,
       deploymentId: env.DOGRAH_DEPLOYMENT_ID,
       secret: validSecret,
+      method: 'POST',
+      path: '/api/business-profiles',
+      body: bodyStr,
     });
 
     const res = await app.request('/api/business-profiles', {
@@ -278,12 +434,7 @@ describe('HTTP Security & Tenant Isolation Boundary (A2 Attack Suite)', () => {
         'X-Internal-Assertion': assertionOrgA,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        name: 'Apex Org A',
-        domain: 'apex-orga.com',
-        industry: 'FinTech',
-        dograhWorkflowId: wfBId, // Belongs to Org B (602)!
-      }),
+      body: bodyStr,
     });
     expect(res.status).toBe(403);
     const json = (await res.json()) as { error: string };
@@ -333,6 +484,8 @@ describe('HTTP Security & Tenant Isolation Boundary (A2 Attack Suite)', () => {
       orgId: 602,
       deploymentId: env.DOGRAH_DEPLOYMENT_ID,
       secret: validSecret,
+      method: 'GET',
+      path: '/api/contacts',
     });
 
     const res = await app.request('/api/contacts', {
