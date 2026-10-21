@@ -51,11 +51,16 @@ async def ensure_mps_correlation_id(
     )
 
 
-def _is_Acuity_service(service: Any) -> bool:
+def _is_acuity_service(service: Any) -> bool:
     provider = getattr(service, "provider", None)
     return (
-        provider == ServiceProviders.Acuity or provider == ServiceProviders.Acuity.value
+        provider == ServiceProviders.Acuity
+        or provider == ServiceProviders.Acuity.value
+        or provider in ("acuity", "Acuity", "dograh")
     )
+
+
+_is_Acuity_service = _is_acuity_service
 
 
 def get_Acuity_service_api_key(

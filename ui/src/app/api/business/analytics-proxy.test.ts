@@ -18,6 +18,16 @@ const MIGRATION_DATABASE_URL =
   process.env.DATABASE_URL ||
   '';
 
+function adminQuery(sql: string): string {
+  if (!MIGRATION_DATABASE_URL) {
+    throw new Error('MIGRATION_DATABASE_URL or TEST_ADMIN_DATABASE_URL must be configured in environment');
+  }
+  return execSync(`psql "${MIGRATION_DATABASE_URL}"`, {
+    input: sql,
+    encoding: 'utf-8',
+  });
+}
+
 function checkLiveEnvironment(): boolean {
   if (!MIGRATION_DATABASE_URL) return false;
   try {
@@ -57,6 +67,26 @@ describe.skipIf(!isLiveReady)('Next.js Analytics & Platform Command Center Proxy
   let superuserToken: string;
 
   beforeAll(() => {
+    // Seed authoritative Acuity organizations and users
+    adminQuery(`
+      INSERT INTO public.organizations (id, provider_id)
+      VALUES (1, 'org_test_1'), (501, 'org_test_501')
+      ON CONFLICT (id) DO NOTHING;
+
+      INSERT INTO public.users (id, email, provider_id, selected_organization_id, is_superuser)
+      VALUES
+        (1, 'test_admin@example.com', 'user_1', 1, true),
+        (551, 'user551@example.com', 'user_551', 501, false)
+      ON CONFLICT (id) DO UPDATE SET
+        email = EXCLUDED.email,
+        selected_organization_id = EXCLUDED.selected_organization_id,
+        is_superuser = EXCLUDED.is_superuser;
+
+      INSERT INTO public.organization_users (user_id, organization_id)
+      VALUES (1, 1), (551, 501)
+      ON CONFLICT (user_id, organization_id) DO NOTHING;
+    `);
+
     // User 551 is a regular user in org 501 (is_superuser = false)
     regularUserToken = generateAcuityToken(551, 'user551@example.com');
     // User 1 is a verified platform administrator in org 1 (is_superuser = true)

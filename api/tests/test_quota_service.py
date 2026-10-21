@@ -48,6 +48,10 @@ def _acuity_config(
     )
 
 
+_Acuity_config = _acuity_config
+_dograh_config = _acuity_config
+
+
 def _byok_config():
     return SimpleNamespace(
         managed_service_version=2,

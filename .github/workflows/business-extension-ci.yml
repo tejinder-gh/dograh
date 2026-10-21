@@ -132,6 +132,7 @@ jobs:
       BUSINESS_EXT_SECRET: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
       OSS_JWT_SECRET: 6492a2ab59b7edc5a21071720f29313b91f6ccc3289b60b998fcdb03be8108ff
       BUSINESS_API_URL: http://127.0.0.1:4000
+      BACKEND_URL: http://127.0.0.1:8000
       TEST_NEXTJS_URL: http://127.0.0.1:3000
       NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
       UI_PORT: "3000"
@@ -186,6 +187,18 @@ jobs:
           for i in {1..30}; do
             if curl -s http://127.0.0.1:4000/health >/dev/null; then
               echo "Business API is healthy on port 4000."
+              break
+            fi
+            sleep 1
+          done
+
+      - name: Start Mock Acuity Core Auth Service
+        working-directory: extensions/business-api
+        run: |
+          bun run scripts/mock-auth-server.ts &
+          for i in {1..30}; do
+            if curl -s http://127.0.0.1:8000/health >/dev/null; then
+              echo "Mock Acuity Core Auth service is healthy on port 8000."
               break
             fi
             sleep 1
