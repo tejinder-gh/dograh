@@ -39,7 +39,7 @@ export default function RecordingsPage() {
         <PageLayout title="Recordings" description={<>Manage audio recordings for your organization. Use{" "}
             <code className="rounded bg-muted px-1 text-xs">@</code> in prompt fields to insert them,
             or as transition messages in tool calls.{" "}
-            <a href="https://docs.dograh.com/voice-agent/pre-recorded-audio" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 underline">
+            <a href="https://docs.Acuity.com/voice-agent/pre-recorded-audio" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 underline">
                 Learn more <ExternalLink className="h-3 w-3" />
             </a></>}>
 

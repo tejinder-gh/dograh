@@ -1,15 +1,15 @@
 """SDK-level exceptions.
 
-All errors raised from `dograh_sdk` are subclasses of `DograhSdkError` so
+All errors raised from `acuity_sdk` are subclasses of `AcuitySdkError` so
 calling code can catch them as one category.
 """
 
 
-class DograhSdkError(Exception):
+class AcuitySdkError(Exception):
     """Base class for all SDK errors."""
 
 
-class ValidationError(DograhSdkError):
+class ValidationError(AcuitySdkError):
     """Raised when node data fails client-side validation (unknown field,
     missing required field, obvious type mismatch).
 
@@ -19,8 +19,8 @@ class ValidationError(DograhSdkError):
     """
 
 
-class ApiError(DograhSdkError):
-    """Raised when the Dograh backend returns a non-2xx response."""
+class ApiError(AcuitySdkError):
+    """Raised when the Acuity backend returns a non-2xx response."""
 
     def __init__(self, status_code: int, message: str, body: object = None):
         super().__init__(f"[{status_code}] {message}")
@@ -28,5 +28,5 @@ class ApiError(DograhSdkError):
         self.body = body
 
 
-class SpecMismatchError(DograhSdkError):
+class SpecMismatchError(AcuitySdkError):
     """Raised when a referenced node type isn't registered on the server."""

@@ -1,4 +1,4 @@
-"""Contracts for PBXs that hand a customer leg to Dograh through Asterisk."""
+"""Contracts for PBXs that hand a customer leg to Acuity through Asterisk."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ class ExternalPBXResult:
 
 
 class ExternalPBXAdapter(ABC):
-    """PBX-specific operations; ARI continues to own only Dograh's local leg."""
+    """PBX-specific operations; ARI continues to own only Acuity's local leg."""
 
     type: str
     # SIP header namespace this PBX attaches call identity and lead data under.
@@ -27,9 +27,9 @@ class ExternalPBXAdapter(ABC):
     # the "Lead Fields To Capture" setting is populated from.
     header_prefix: str = ""
     # How long to give the PBX to drop the customer leg itself after it accepts
-    # a hangup, before Dograh deletes its own channel. The PBX placed the call
+    # a hangup, before Acuity deletes its own channel. The PBX placed the call
     # and is still accounting for it, so it -- not Asterisk -- should send the
-    # BYE; deleting the channel first makes Dograh look like it abandoned a live
+    # BYE; deleting the channel first makes Acuity look like it abandoned a live
     # call. Zero keeps the immediate teardown for a PBX whose hangup API is
     # synchronous (or that does not hang up the leg at all).
     hangup_bye_wait_seconds: float = 0.0

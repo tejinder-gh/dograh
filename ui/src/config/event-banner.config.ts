@@ -25,7 +25,7 @@
 //      endsAt: "2026-11-12T11:00:00-08:00",
 //      partner: { name: "Acme", logo: "/logos/acme.png" },
 //      analyticsId: "devday_ship_a_voice_agent",
-//      storageKey: "dograh_event_banner_devday_dismissed",
+//      storageKey: "Acuity_event_banner_devday_dismissed",
 //    }
 //
 // REMOVING AN EVENT
@@ -78,7 +78,7 @@ export type EventBannerEvent = {
   startsAt: string;
   /** ISO 8601 WITH offset. After this instant the bar retires itself. */
   endsAt: string;
-  /** Optional co-brand. Present: [Dograh] × [partner]. Absent: [Dograh]. */
+  /** Optional co-brand. Present: [Acuity] × [partner]. Absent: [Acuity]. */
   partner?: EventBannerPartner;
   /** PostHog `event` property on the `event_banner_clicked` capture. */
   analyticsId: string;
@@ -94,12 +94,12 @@ export const events: EventBannerEvent[] = [
     pulse: false,
     title: "We tested 7 open TTS models on dates, prices & phone numbers.",
     titleMobile: "We tested 7 open TTS models on dates & prices.",
-    url: "https://www.dograh.com/hub/experiments/tts-verbalization-benchmark",
+    url: "https://www.Acuity.com/hub/experiments/tts-verbalization-benchmark",
     cta: "Read the results",
     startsAt: "2026-10-13T00:00:00+05:30",
     endsAt: "2026-11-10T23:59:59+05:30",
     analyticsId: "experiments_tts_verbalization",
-    storageKey: "dograh_event_banner_experiments_tts_dismissed",
+    storageKey: "Acuity_event_banner_experiments_tts_dismissed",
   },
   {
     id: "sftechweek-2026-10",
@@ -111,6 +111,6 @@ export const events: EventBannerEvent[] = [
     endsAt: "2026-10-06T13:30:00-07:00",
     partner: { name: "Cloudonix", logo: "/logos/cloudonix.png" },
     analyticsId: "sftechweek_own_your_agentic_voice",
-    storageKey: "dograh_event_banner_sftechweek_dismissed",
+    storageKey: "Acuity_event_banner_sftechweek_dismissed",
   },
 ];

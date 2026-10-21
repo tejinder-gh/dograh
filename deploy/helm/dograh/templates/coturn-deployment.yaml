@@ -2,10 +2,10 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "dograh.coturn.fullname" . }}
+  name: {{ include "Acuity.coturn.fullname" . }}
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "dograh.labels" . | nindent 4 }}
+    {{- include "Acuity.labels" . | nindent 4 }}
     app.kubernetes.io/component: coturn
 spec:
   # coturn is a singleton (per-LB instance). HA TURN requires a separate
@@ -15,12 +15,12 @@ spec:
     type: Recreate
   selector:
     matchLabels:
-      {{- include "dograh.selectorLabels" . | nindent 6 }}
+      {{- include "Acuity.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: coturn
   template:
     metadata:
       labels:
-        {{- include "dograh.selectorLabels" . | nindent 8 }}
+        {{- include "Acuity.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: coturn
       {{- with .Values.coturn.podAnnotations }}
       annotations:
@@ -30,14 +30,14 @@ spec:
         # Re-roll coturn when turnserver.conf changes.
         checksum/config: {{ include (print $.Template.BasePath "/coturn-configmap.yaml") . | sha256sum }}
     spec:
-      serviceAccountName: {{ include "dograh.serviceAccountName" . }}
+      serviceAccountName: {{ include "Acuity.serviceAccountName" . }}
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       containers:
         - name: coturn
-          image: {{ include "dograh.coturn.image" . }}
+          image: {{ include "Acuity.coturn.image" . }}
           imagePullPolicy: {{ .Values.coturn.image.pullPolicy }}
           # coturn doesn't expand env vars in its config file; pass the
           # secret as a CLI flag instead so it can come from a Kubernetes
@@ -50,7 +50,7 @@ spec:
             - name: TURN_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "dograh.secretName" . }}
+                  name: {{ include "Acuity.secretName" . }}
                   key: TURN_SECRET
           ports:
             - name: turn-udp
@@ -76,7 +76,7 @@ spec:
       volumes:
         - name: config
           configMap:
-            name: {{ include "dograh.coturn.fullname" . }}
+            name: {{ include "Acuity.coturn.fullname" . }}
         - name: tmp
           emptyDir: {}
       {{- with .Values.coturn.nodeSelector }}

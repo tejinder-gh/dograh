@@ -78,4 +78,5 @@ def test_stack_mode_keeps_current_user_route_available(monkeypatch):
         "name": None,
         "organization_id": 42,
         "provider_id": "stack-user-1",
+        "is_superuser": False,
     }

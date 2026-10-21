@@ -1,13 +1,13 @@
-"""Dograh SDK — typed builder for voice-AI workflows.
+"""Acuity SDK — typed builder for voice-AI workflows.
 
-Runtime SDK: fetches the spec catalog from the Dograh backend at session
+Runtime SDK: fetches the spec catalog from the Acuity backend at session
 start and validates every `Workflow.add()` call against it. LLMs don't
 need to import per-node-type classes — the `type` argument is a string
 keyed against the fetched spec catalog.
 
-    from dograh_sdk import DograhClient, Workflow
+    from Acuity_sdk import AcuityClient, Workflow
 
-    with DograhClient(base_url="http://localhost:8000", api_key=...) as client:
+    with AcuityClient(base_url="http://localhost:8000", api_key=...) as client:
         wf = Workflow(client=client, name="loan_qualification")
         start = wf.add(type="startCall", name="greeting", prompt="...")
         qualify = wf.add(type="agentNode", name="qualify", prompt="...")
@@ -18,15 +18,15 @@ For typed IDE autocomplete, generate per-node dataclasses via the SDK
 codegen (Phase 6) — the runtime and typed SDKs share this same core.
 """
 
-from .client import DograhClient
-from .errors import ApiError, DograhSdkError, SpecMismatchError, ValidationError
+from .client import AcuityClient
+from .errors import ApiError, AcuitySdkError, SpecMismatchError, ValidationError
 from .typed._base import TypedNode
 from .workflow import NodeRef, Workflow
 
 __all__ = [
     "ApiError",
-    "DograhClient",
-    "DograhSdkError",
+    "AcuityClient",
+    "AcuitySdkError",
     "NodeRef",
     "SpecMismatchError",
     "TypedNode",

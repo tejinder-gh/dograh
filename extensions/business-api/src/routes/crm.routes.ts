@@ -111,14 +111,14 @@ crmRoutes.get('/contacts/:id/timeline', async (c) => {
 crmRoutes.get('/interactions', async (c) => {
   const ctx = c.get('tenantContext');
   const contactId = c.req.query('contactId');
-  const runId = c.req.query('acuityRunId') || c.req.query('dograhRunId');
+  const runId = c.req.query('acuityRunId') || c.req.query('AcuityRunId');
   const limit = c.req.query('limit') ? parseInt(c.req.query('limit')!, 10) : 50;
   const offset = c.req.query('offset') ? parseInt(c.req.query('offset')!, 10) : 0;
 
   const interactions = await crmService.getInteractions(ctx, {
     contactId,
     acuityRunId: runId,
-    dograhRunId: runId,
+    AcuityRunId: runId,
     limit,
     offset,
   });

@@ -58,7 +58,7 @@ export const businessProfileSchema = z.object({
     autoNotify: true,
   }),
   acuityWorkflowId: z.number().int().positive().nullable().default(null),
-  dograhWorkflowId: z.number().int().positive().nullable().default(null),
+  AcuityWorkflowId: z.number().int().positive().nullable().default(null),
   isActive: z.boolean().default(true),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
@@ -87,7 +87,7 @@ export const createBusinessProfileSchema = z.object({
     autoNotify: true,
   }),
   acuityWorkflowId: z.number().int().positive().optional().nullable(),
-  dograhWorkflowId: z.number().int().positive().optional().nullable(),
+  AcuityWorkflowId: z.number().int().positive().optional().nullable(),
   isActive: z.boolean().optional().default(true),
 });
 

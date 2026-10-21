@@ -191,7 +191,7 @@ export default function BillingPage() {
         void fetchCredits();
         return () => controller.abort();
     }, [auth.isAuthenticated, auth.loading, configLoading, orgLoading,
-        orgContext?.organization_id, isOssMode, currentPage, activity,
+    orgContext?.organization_id, isOssMode, currentPage, activity,
         startDate, endDate, organizationTimezone, refreshKey]);
 
     const handleRefresh = () => {
@@ -271,12 +271,12 @@ export default function BillingPage() {
                             You can&apos;t purchase credits from this self-hosted app. Sign up and
                             purchase credits at{" "}
                             <a
-                                href="https://app.dograh.com"
+                                href="https://app.Acuity.com"
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="inline-flex items-center gap-1 font-medium underline underline-offset-2"
                             >
-                                app.dograh.com
+                                app.Acuity.com
                                 <ExternalLink className="h-3 w-3" />
                             </a>
                             . Then add the generated service key in{" "}
@@ -286,7 +286,7 @@ export default function BillingPage() {
                             >
                                 Model Configurations
                             </Link>
-                            . Usage for that service key is visible in app.dograh.com.
+                            . Usage for that service key is visible in app.Acuity.com.
                         </p>
                     </div>
                 </div>

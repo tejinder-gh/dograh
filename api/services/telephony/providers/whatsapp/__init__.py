@@ -135,7 +135,7 @@ async def _no_media_websocket(*args: Any, **kwargs: Any) -> Any:
 
 _UI_METADATA = ProviderUIMetadata(
     display_name="WhatsApp",
-    docs_url="https://docs.dograh.com/integrations/telephony/whatsapp",
+    docs_url="https://docs.Acuity.com/integrations/telephony/whatsapp",
     fields=[
         ProviderUIField(
             name="access_token",

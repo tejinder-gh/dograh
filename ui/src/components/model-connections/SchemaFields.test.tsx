@@ -23,16 +23,18 @@ describe("provider field controls", () => {
     });
 
     it("allows trailing empty rows for required string arrays", () => {
-        render(<Editor schema={{ required: ["keyterms"], properties: { keyterms: { type: "array", title: "Keyterms", items: { type: "string" } } } }} initial={{ keyterms: ["Dograh", ""] }} />);
+        render(<Editor schema={{ required: ["keyterms"], properties: { keyterms: { type: "array", title: "Keyterms", items: { type: "string" } } } }} initial={{ keyterms: ["Acuity", ""] }} />);
         expect((screen.getByLabelText("Keyterms") as HTMLInputElement).required).toBe(true);
         expect((screen.getByLabelText("keyterms 2") as HTMLInputElement).required).toBe(false);
     });
     it("restores Flux language hint checkboxes, readable labels, and model-dependent visibility", () => {
         const onSave = vi.fn();
-        const schema: FieldSchema = { properties: {
-            model: { type: "string", title: "Model", examples: ["flux-general-multi", "flux-general-en"] },
-            language_hints: { type: "array", title: "Language hints", items: { type: "string" }, examples: ["en", "es", "fr"], visible_for_models: ["flux-general-multi"] },
-        } };
+        const schema: FieldSchema = {
+            properties: {
+                model: { type: "string", title: "Model", examples: ["flux-general-multi", "flux-general-en"] },
+                language_hints: { type: "array", title: "Language hints", items: { type: "string" }, examples: ["en", "es", "fr"], visible_for_models: ["flux-general-multi"] },
+            }
+        };
         render(<Editor schema={schema} initial={{ model: "flux-general-multi", language_hints: ["es"] }} onSave={onSave} />);
         expect(screen.getByRole("checkbox", { name: "Spanish" }).getAttribute("aria-checked")).toBe("true");
         fireEvent.click(screen.getByRole("checkbox", { name: "French" }));
@@ -63,9 +65,11 @@ describe("provider field controls", () => {
 
     it("offers numeric enum values as labelled choices and saves them as numbers", () => {
         const onSave = vi.fn();
-        const schema: FieldSchema = { properties: {
-            expressivity: { title: "Expressivity", default: null, anyOf: [{ enum: [-2, -1, 0, 1, 2], type: "integer" }, { type: "null" }], option_labels: { "-2": "-2 (calm)", "2": "2 (animated)" } },
-        } };
+        const schema: FieldSchema = {
+            properties: {
+                expressivity: { title: "Expressivity", default: null, anyOf: [{ enum: [-2, -1, 0, 1, 2], type: "integer" }, { type: "null" }], option_labels: { "-2": "-2 (calm)", "2": "2 (animated)" } },
+            }
+        };
         render(<Editor schema={schema} initial={{}} onSave={onSave} />);
         expect(screen.getByLabelText("Expressivity").getAttribute("data-slot")).toBe("select-trigger");
         expect(selectOptions("Expressivity")).toEqual(["Provider default", "-2 (calm)", "-1", "0", "1", "2 (animated)"]);
@@ -74,10 +78,12 @@ describe("provider field controls", () => {
         expect(onSave).toHaveBeenLastCalledWith({ expressivity: 1 });
     });
     it("drops manual entry on a dependent field when what it depends on changes", () => {
-        const schema: FieldSchema = { properties: {
-            model: { type: "string", title: "Model", examples: ["aura-2", "flux"] },
-            voice: { type: "string", title: "Voice", examples: ["v1", "v2"], allow_custom_input: true, reset_on_change: ["model"] },
-        } };
+        const schema: FieldSchema = {
+            properties: {
+                model: { type: "string", title: "Model", examples: ["aura-2", "flux"] },
+                voice: { type: "string", title: "Voice", examples: ["v1", "v2"], allow_custom_input: true, reset_on_change: ["model"] },
+            }
+        };
         render(<Editor schema={schema} initial={{ model: "aura-2", voice: "v1" }} />);
         fireEvent.click(screen.getByLabelText("Enter Custom Value"));
         expect(screen.getByLabelText("Voice").getAttribute("data-slot")).not.toBe("select-trigger");
@@ -85,10 +91,12 @@ describe("provider field controls", () => {
         expect(screen.getByLabelText("Voice").getAttribute("data-slot")).toBe("select-trigger");
     });
     it("shows model-specific language options with display names and documentation", () => {
-        render(<Editor schema={{ properties: {
-            model: { type: "string", title: "Model", examples: ["flux", "nova"] },
-            language: { type: "string", title: "Language", examples: ["en", "es", "fr"], model_options: { flux: ["en", "es"] }, docs_url: "https://developers.deepgram.com/docs/flux-multilingual", docs_label: "Supported languages" },
-        } }} initial={{ model: "flux", language: "en" }} />);
+        render(<Editor schema={{
+            properties: {
+                model: { type: "string", title: "Model", examples: ["flux", "nova"] },
+                language: { type: "string", title: "Language", examples: ["en", "es", "fr"], model_options: { flux: ["en", "es"] }, docs_url: "https://developers.deepgram.com/docs/flux-multilingual", docs_label: "Supported languages" },
+            }
+        }} initial={{ model: "flux", language: "en" }} />);
         expect(selectOptions("Language")).toEqual(["English", "Spanish"]);
         selectOption("Model", "nova");
         expect(selectOptions("Language")).toEqual(["English", "Spanish", "French"]);
@@ -97,10 +105,12 @@ describe("provider field controls", () => {
 
     it.each(["eleven_v3_custom", "eleven_v4_custom"])("omits unsupported speed for custom dialogue model %s", model => {
         const onSave = vi.fn();
-        render(<Editor schema={{ properties: {
-            model: { type: "string", title: "Model" },
-            speed: { type: "number", title: "Speed", model_constraints: [{ pattern: "^eleven_v[34]", supported: false }] },
-        } }} initial={{ model, speed: 1.2 }} onSave={onSave} />);
+        render(<Editor schema={{
+            properties: {
+                model: { type: "string", title: "Model" },
+                speed: { type: "number", title: "Speed", model_constraints: [{ pattern: "^eleven_v[34]", supported: false }] },
+            }
+        }} initial={{ model, speed: 1.2 }} onSave={onSave} />);
         expect(screen.queryByLabelText("Speed")).toBeNull();
         fireEvent.click(screen.getByRole("button", { name: "Save" }));
         expect(onSave).toHaveBeenLastCalledWith({ model });
@@ -113,7 +123,7 @@ describe("provider field controls", () => {
 
     it("uses removable input rows for free-form lists", () => {
         const onSave = vi.fn();
-        render(<Editor schema={{ properties: { keyterms: { type: "array", title: "Keyterms", items: { type: "string" } } } }} initial={{ keyterms: ["Dograh"] }} onSave={onSave} />);
+        render(<Editor schema={{ properties: { keyterms: { type: "array", title: "Keyterms", items: { type: "string" } } } }} initial={{ keyterms: ["Acuity"] }} onSave={onSave} />);
         fireEvent.click(screen.getByRole("button", { name: "Add keyterms" }));
         fireEvent.change(screen.getByLabelText("keyterms 2"), { target: { value: "Flux" } });
         fireEvent.click(screen.getByRole("button", { name: "Remove keyterms 1" }));

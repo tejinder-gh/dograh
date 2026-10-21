@@ -55,7 +55,7 @@ jobs:
       - name: Setup Test Database Roles and Schema
         run: |
           # 1. Apply authoritative Acuity public schema (31 tables, enums, triggers, constraints)
-          docker exec -i $(docker ps -q --filter ancestor=pgvector/pgvector:pg17) psql -U postgres -d postgres < extensions/business-api/scripts/dograh_public_schema.sql
+          docker exec -i $(docker ps -q --filter ancestor=pgvector/pgvector:pg17) psql -U postgres -d postgres < extensions/business-api/scripts/Acuity_public_schema.sql
 
           # 2. Configure unprivileged runtime user and least privilege grants
           docker exec -i $(docker ps -q --filter ancestor=pgvector/pgvector:pg17) psql -U postgres -d postgres << 'EOF'

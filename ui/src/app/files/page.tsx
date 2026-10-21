@@ -48,7 +48,7 @@ export default function FilesPage() {
 
     return (
         <PageLayout title="Knowledge Base Files" description={<>Upload and manage documents for your voice agents to reference.{" "}
-            <a href="https://docs.dograh.com/voice-agent/knowledge-base" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 underline">
+            <a href="https://docs.Acuity.com/voice-agent/knowledge-base" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 underline">
                 Learn more <ExternalLink className="h-3 w-3" />
             </a></>}>
 

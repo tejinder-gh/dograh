@@ -7,10 +7,10 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "dograh.campaignOrchestrator.fullname" . }}
+  name: {{ include "Acuity.campaignOrchestrator.fullname" . }}
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "dograh.labels" . | nindent 4 }}
+    {{- include "Acuity.labels" . | nindent 4 }}
     app.kubernetes.io/component: campaign-orchestrator
 spec:
   replicas: 1
@@ -18,12 +18,12 @@ spec:
     type: Recreate
   selector:
     matchLabels:
-      {{- include "dograh.selectorLabels" . | nindent 6 }}
+      {{- include "Acuity.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: campaign-orchestrator
   template:
     metadata:
       labels:
-        {{- include "dograh.selectorLabels" . | nindent 8 }}
+        {{- include "Acuity.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: campaign-orchestrator
       annotations:
         # Roll pods when the ConfigMap changes. See web-deployment.yaml for
@@ -33,20 +33,20 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
-      serviceAccountName: {{ include "dograh.serviceAccountName" . }}
+      serviceAccountName: {{ include "Acuity.serviceAccountName" . }}
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       containers:
         - name: campaign-orchestrator
-          image: {{ include "dograh.image" . }}
+          image: {{ include "Acuity.image" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command: ["./scripts/run_campaign_orchestrator.sh"]
           envFrom:
-            {{- include "dograh.backendEnvFrom" . | nindent 12 }}
+            {{- include "Acuity.backendEnvFrom" . | nindent 12 }}
           env:
-            {{- include "dograh.dbEnv" . | nindent 12 }}
+            {{- include "Acuity.dbEnv" . | nindent 12 }}
           # exec probe — no HTTP endpoint exists on campaign-orchestrator.
           livenessProbe:
             {{- toYaml .Values.campaignOrchestrator.livenessProbe | nindent 12 }}

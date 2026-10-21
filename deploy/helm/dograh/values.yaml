@@ -1,4 +1,4 @@
-# Dograh Helm chart — default values.
+# Acuity Helm chart — default values.
 #
 # Conventions:
 # - "mode" fields are enums; see values.schema.json for allowed values.
@@ -13,7 +13,7 @@
 # -----------------------------------------------------------------------------
 image:
   registry: docker.io
-  repository: dograhai/dograh-api
+  repository: Acuityai/Acuity-api
   tag: latest
   pullPolicy: IfNotPresent
 
@@ -85,7 +85,7 @@ exposure:
     # Reference an existing Gateway instead of creating one.
     # Ignored when createGateway=true.
     parentRefs:
-      - name: dograh
+      - name: Acuity
         namespace: ""  # empty = same namespace as the release
   # Ingress config (when mode=ingress).
   ingress:
@@ -93,7 +93,7 @@ exposure:
     annotations: {}
     # Hostname for the API/UI. UI is served at / and API under /api/.
     # MinIO browser-visible path uses the same hostname under /voice-audio/.
-    host: ""  # e.g. dograh.example.com
+    host: ""  # e.g. Acuity.example.com
     tls:
       enabled: false
       secretName: ""  # operator-managed TLS secret in the release namespace
@@ -134,7 +134,7 @@ secrets:
   existingSecret: ""
 
   # Required when database.mode=external.
-  databaseUrl: ""  # e.g. postgresql+asyncpg://user:pass@host:5432/dograh
+  databaseUrl: ""  # e.g. postgresql+asyncpg://user:pass@host:5432/Acuity
   # Required when redis.mode=external.
   redisUrl: ""  # e.g. redis://:pass@host:6379
 
@@ -152,8 +152,8 @@ secrets:
 
   # Shared secret gating the ops health endpoints (/api/v1/health/active-calls,
   # /api/v1/health/autoscale-metric). REQUIRED when autoscaling.web.keda.enabled —
-  # KEDA presents it as X-Dograh-Devops-Secret to scrape the metric. When using
-  # secrets.existingSecret, put this under the DOGRAH_DEVOPS_SECRET key there.
+  # KEDA presents it as X-Acuity-Devops-Secret to scrape the metric. When using
+  # secrets.existingSecret, put this under the Acuity_DEVOPS_SECRET key there.
   devopsSecret: ""
 
   # Optional Langfuse tracing.
@@ -393,7 +393,7 @@ ui:
 
   image:
     registry: docker.io
-    repository: dograhai/dograh-ui
+    repository: Acuityai/Acuity-ui
     tag: latest
     pullPolicy: IfNotPresent
 
@@ -459,7 +459,7 @@ coturn:
   # upgrade --set coturn.externalIp=<IP>).
   externalIp: ""
 
-  realm: dograh.com
+  realm: Acuity.com
 
   # Coturn uses TURN REST API authentication (HMAC-SHA1). The secret here
   # MUST match secrets.turnSecret — the chart will warn at install time if
@@ -619,9 +619,9 @@ postgresql:
     tag: pg17
     pullPolicy: IfNotPresent
   auth:
-    username: dograh    # also the initdb superuser (needed for CREATE EXTENSION)
+    username: Acuity    # also the initdb superuser (needed for CREATE EXTENSION)
     password: ""        # auto-generated and persisted across upgrades if empty
-    database: dograh
+    database: Acuity
   persistence:
     size: 8Gi
     storageClass: ""    # "" = cluster default StorageClass
@@ -647,12 +647,12 @@ redisinternal:
     limits: { cpu: 500m, memory: 256Mi }
 
 minio:
-  # MinIO built from the community fork by github.com/dograh-hq/minio (upstream
+  # MinIO built from the community fork by github.com/Acuity-hq/minio (upstream
   # MinIO no longer publishes images). Root creds are shared with the app (single
   # source of truth) so they can't drift; the app creates its bucket on first use.
   image:
     registry: docker.io
-    repository: dograhai/minio
+    repository: Acuityai/minio
     tag: "2026.09.22"
     pullPolicy: IfNotPresent
   auth:

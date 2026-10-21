@@ -113,8 +113,7 @@ export async function fetchClientAppointmentSummary(
       COALESCE(SUM(resulting_deal_value), 0)::float AS total_deal_value
     FROM business_ext.appointments
     WHERE tenant_id = $1
-      AND start_time >= $2
-      AND start_time <= $3
+      AND (created_at >= $2 AND created_at <= $3 OR (start_time >= $2 AND start_time <= $3))
       ${wfFilter}
   `;
   const res = await query(sql, params);

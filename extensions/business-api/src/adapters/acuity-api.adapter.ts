@@ -6,8 +6,6 @@ export interface AcuityWorkflowRef {
   organizationId: number;
 }
 
-export type DograhWorkflowRef = AcuityWorkflowRef;
-
 /**
  * Verifies that an Acuity organization exists and is active.
  * Rejects non-existent, disabled, or unmapped organizations.

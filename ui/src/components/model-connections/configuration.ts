@@ -45,8 +45,10 @@ export function fieldForModel(schema: FieldSchema, values: Record<string, unknow
         try {
             isCustom = Boolean(values[endpoint.field]) && new URL(String(values[endpoint.field])).hostname !== endpoint.default_hostname;
         } catch { /* Incomplete URL: retain standard constraints until valid. */ }
-        result = { ...result, maximum: isCustom ? undefined : endpoint.maximum,
-            anyOf: result.anyOf?.map(option => option.type === "number" ? { ...option, maximum: isCustom ? undefined : endpoint.maximum } : option) };
+        result = {
+            ...result, maximum: isCustom ? undefined : endpoint.maximum,
+            anyOf: result.anyOf?.map(option => option.type === "number" ? { ...option, maximum: isCustom ? undefined : endpoint.maximum } : option)
+        };
         if (isCustom) result.description = endpoint.description;
     }
     const model = String(values.model || "");
@@ -72,7 +74,7 @@ export function schemaDefaults(schema?: FieldSchema): Record<string, unknown> {
 export function compatibleConnections(catalog: ModelConnectionCatalog, connections: ProviderConnection[], role: ServiceRole) {
     return connections.filter(connection => {
         const entry = catalog.services[role]?.[connection.provider];
-        return connection.is_active && connection.provider !== "dograh" && entry
+        return connection.is_active && connection.provider !== "Acuity" && entry
             && (entry.credential_required || []).every(field => connection.configured_credentials.includes(field))
             && (entry.connection_required || []).every(field => Boolean(connection.connection_settings[field]));
     });
@@ -81,13 +83,13 @@ export function compatibleConnections(catalog: ModelConnectionCatalog, connectio
 export function configurationMode(configuration: ConfigurationSpec, connections: ProviderConnection[]): ConfigurationEditorMode {
     if (configuration.mode === "realtime") return "realtime";
     const uuid = configuration.llm.provider_connection_uuid;
-    const managed = connections.find(connection => connection.uuid === uuid)?.provider === "dograh"
+    const managed = connections.find(connection => connection.uuid === uuid)?.provider === "Acuity"
         && (["stt", "tts"] as const).every(role => configuration[role]?.provider_connection_uuid === uuid)
         && (!configuration.embeddings || configuration.embeddings.provider_connection_uuid === uuid);
-    return managed ? "dograh" : "cascade";
+    return managed ? "Acuity" : "cascade";
 }
 
-export function dograhConfiguration(catalog: ModelConnectionCatalog, connection?: ProviderConnection, previous?: ConfigurationSpec, connections: ProviderConnection[] = []): ConfigurationSpec {
+export function AcuityConfiguration(catalog: ModelConnectionCatalog, connection?: ProviderConnection, previous?: ConfigurationSpec, connections: ProviderConnection[] = []): ConfigurationSpec {
     const result: ConfigurationSpec = { version: 3, mode: "pipeline", llm: { provider_connection_uuid: "", settings: {} } };
     for (const role of ["llm", "stt", "tts", "embeddings"] as const) {
         result[role] = connection
@@ -108,9 +110,9 @@ export function selectionForConnection(catalog: ModelConnectionCatalog, role: Se
 }
 
 export function emptyConfiguration(catalog: ModelConnectionCatalog, connections: ProviderConnection[], mode?: ConfigurationEditorMode): ConfigurationSpec {
-    const dograh = connections.find(connection => connection.is_active && connection.provider === "dograh");
-    const selectedMode = mode || (dograh ? "dograh" : "cascade");
-    if (selectedMode === "dograh") return dograhConfiguration(catalog, dograh);
+    const Acuity = connections.find(connection => connection.is_active && connection.provider === "Acuity");
+    const selectedMode = mode || (Acuity ? "Acuity" : "cascade");
+    if (selectedMode === "Acuity") return AcuityConfiguration(catalog, Acuity);
     const result: ConfigurationSpec = { version: 3, mode: selectedMode === "realtime" ? "realtime" : "pipeline", llm: { provider_connection_uuid: "", settings: {} }, embeddings: null };
     for (const role of selectedMode === "realtime" ? ["llm", "realtime"] as const : ["llm", "stt", "tts"] as const) {
         const connection = compatibleConnections(catalog, connections, role)[0];
@@ -120,10 +122,10 @@ export function emptyConfiguration(catalog: ModelConnectionCatalog, connections:
 }
 
 export function configurationForMode(mode: ConfigurationEditorMode, configuration: ConfigurationSpec, catalog: ModelConnectionCatalog, connections: ProviderConnection[]): ConfigurationSpec {
-    if (mode === "dograh") {
-        const dograh = connections.find(connection => connection.is_active && connection.provider === "dograh" && connection.uuid === configuration.llm.provider_connection_uuid)
-            || connections.find(connection => connection.is_active && connection.provider === "dograh");
-        return dograhConfiguration(catalog, dograh, configuration, connections);
+    if (mode === "Acuity") {
+        const Acuity = connections.find(connection => connection.is_active && connection.provider === "Acuity" && connection.uuid === configuration.llm.provider_connection_uuid)
+            || connections.find(connection => connection.is_active && connection.provider === "Acuity");
+        return AcuityConfiguration(catalog, Acuity, configuration, connections);
     }
     const result = emptyConfiguration(catalog, connections, mode);
     result.llm_fallback = configuration.llm_fallback;
@@ -160,16 +162,18 @@ export function resetDependentFields(settings: Record<string, unknown>, schema: 
 }
 
 export function cleanFallbackPolicy(policy: FallbackPolicy, catalog: ModelConnectionCatalog, connections: ProviderConnection[]): FallbackPolicy {
-    return { ...policy, rules: policy.rules.map(rule => {
-        const connection = connections.find(item => item.uuid === rule.target.provider_connection_uuid);
-        return { ...rule, target: { ...rule.target, settings: cleanSettings(rule.target.settings, connection ? catalog.services.llm?.[connection.provider]?.settings_schema : undefined, connection?.connection_settings) } };
-    }) };
+    return {
+        ...policy, rules: policy.rules.map(rule => {
+            const connection = connections.find(item => item.uuid === rule.target.provider_connection_uuid);
+            return { ...rule, target: { ...rule.target, settings: cleanSettings(rule.target.settings, connection ? catalog.services.llm?.[connection.provider]?.settings_schema : undefined, connection?.connection_settings) } };
+        })
+    };
 }
 
 export function cleanConfiguration(configuration: ConfigurationSpec, catalog: ModelConnectionCatalog, connections: ProviderConnection[]): ConfigurationSpec {
     const mode = configurationMode(configuration, connections);
     const result = { ...configuration };
-    if (mode === "dograh") {
+    if (mode === "Acuity") {
         delete result.llm_fallback;
     } else if (result.llm_fallback) {
         result.llm_fallback = cleanFallbackPolicy(result.llm_fallback, catalog, connections);

@@ -1,4 +1,4 @@
-"""Tests for the typed SDK (`dograh_sdk.typed`).
+"""Tests for the typed SDK (`Acuity_sdk.typed`).
 
 Covers:
 - Generated classes import cleanly and declare the correct spec name
@@ -12,9 +12,9 @@ from __future__ import annotations
 from typing import get_type_hints
 
 import pytest
-from dograh_sdk import Workflow
-from dograh_sdk._generated_models import NodeSpec
-from dograh_sdk.typed import (
+from Acuity_sdk import Workflow
+from Acuity_sdk._generated_models import NodeSpec
+from Acuity_sdk.typed import (
     AgentNode,
     EndCall,
     GlobalNode,

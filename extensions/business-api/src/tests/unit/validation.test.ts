@@ -22,7 +22,7 @@ describe('Domain Validation Schemas', () => {
           },
         },
         acuityWorkflowId: 10,
-        dograhWorkflowId: 10,
+        AcuityWorkflowId: 10,
       };
 
       const result = createBusinessProfileSchema.safeParse(input);
@@ -30,7 +30,7 @@ describe('Domain Validation Schemas', () => {
       if (result.success) {
         expect(result.data.name).toBe('Acme Advisory');
         expect(result.data.acuityWorkflowId).toBe(10);
-        expect(result.data.dograhWorkflowId).toBe(10);
+        expect(result.data.AcuityWorkflowId).toBe(10);
       }
     });
 
@@ -108,9 +108,9 @@ describe('Domain Validation Schemas', () => {
         acuityWorkflowId: 1,
         acuityDefinitionId: 2,
         acuityRunId: 'run-98234-xyz',
-        dograhWorkflowId: 1,
-        dograhDefinitionId: 2,
-        dograhRunId: 'run-98234-xyz',
+        AcuityWorkflowId: 1,
+        AcuityDefinitionId: 2,
+        AcuityRunId: 'run-98234-xyz',
         channel: 'call_inbound',
         durationSeconds: 142,
         sentimentScore: 78,
@@ -123,7 +123,7 @@ describe('Domain Validation Schemas', () => {
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data.acuityWorkflowId).toBe(1);
-        expect(result.data.dograhWorkflowId).toBe(1);
+        expect(result.data.AcuityWorkflowId).toBe(1);
         expect(result.data.acuityRunId).toBe('run-98234-xyz');
       }
     });

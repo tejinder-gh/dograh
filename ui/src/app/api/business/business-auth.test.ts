@@ -23,8 +23,8 @@ function adminQuery(sql: string): string {
   if (!MIGRATION_DATABASE_URL) {
     throw new Error('MIGRATION_DATABASE_URL or TEST_ADMIN_DATABASE_URL must be configured in environment');
   }
-  const cleanSql = sql.replace(/\$/g, '\\$');
-  return execSync(`psql "${MIGRATION_DATABASE_URL}" -c "${cleanSql.replace(/"/g, '\\"')}"`, {
+  return execSync(`psql "${MIGRATION_DATABASE_URL}"`, {
+    input: sql,
     encoding: 'utf-8',
   });
 }
@@ -257,6 +257,7 @@ describe.skipIf(!isLiveReady)('Next.js Real HTTP Proxy Route Boundary & Two-Acco
 
     // Step D: Switch User 551 back to Org 501
     await adminQuery('UPDATE public.users SET selected_organization_id = 501 WHERE id = 551;');
+    await new Promise((r) => setTimeout(r, 200));
 
     // Step E: User 551 can now read Org 501 contact successfully -> 200 OK
     const restoredGetRes = await fetch(`${NEXTJS_URL}/api/business/contacts/${createdContactAId}`, {

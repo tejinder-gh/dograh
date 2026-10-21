@@ -49,7 +49,7 @@ export class BusinessProfileService {
       ...dto,
       websiteUrl: dto.websiteUrl ? dto.websiteUrl.trim() : null,
       acuityWorkflowId: workflowId ?? null,
-      dograhWorkflowId: workflowId ?? null,
+      AcuityWorkflowId: workflowId ?? null,
     };
 
     return profileRepo.createProfile(ctx.businessTenantId, cleanedDto);
@@ -94,7 +94,7 @@ export class BusinessProfileService {
     const updated = await profileRepo.updateProfile(ctx.businessTenantId, id, {
       ...dto,
       acuityWorkflowId: workflowId,
-      dograhWorkflowId: workflowId,
+      AcuityWorkflowId: workflowId,
     });
     if (!updated) {
       throw new Error('Failed to update business profile');

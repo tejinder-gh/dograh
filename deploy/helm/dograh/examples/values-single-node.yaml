@@ -11,7 +11,7 @@ exposure:
   mode: ingress
   ingress:
     className: nginx
-    host: dograh.local
+    host: Acuity.local
 
 config:
   environment: production

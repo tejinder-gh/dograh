@@ -19,7 +19,7 @@ from ._validation import validate_node_data
 
 if TYPE_CHECKING:
     from ._generated_models import NodeSpec
-    from .client import DograhClient
+    from .client import AcuityClient
     from .typed._base import TypedNode
 
 
@@ -59,7 +59,7 @@ class Workflow:
         payload = wf.to_json()
     """
 
-    def __init__(self, *, client: DograhClient, name: str = "", description: str = ""):
+    def __init__(self, *, client: AcuityClient, name: str = "", description: str = ""):
         self._client = client
         self.name = name
         self.description = description
@@ -109,7 +109,7 @@ class Workflow:
         position: tuple[float, float] | None = None,
     ) -> NodeRef:
         """Typed variant of `add()` — takes a generated dataclass from
-        `dograh_sdk.typed` instead of string+kwargs.
+        `Acuity_sdk.typed` instead of string+kwargs.
 
         Equivalent to:
             wf.add(type=node.type, position=..., **node.to_dict())
@@ -195,7 +195,7 @@ class Workflow:
         cls,
         data: dict[str, Any],
         *,
-        client: DograhClient,
+        client: AcuityClient,
         name: str = "",
     ) -> Workflow:
         """Rebuild a Workflow from a stored `workflow_json` payload.

@@ -306,362 +306,362 @@ export default function RunsPage() {
             </div>
 
             {error && (
-                    <div className="mb-6 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg">
-                        {error}
-                    </div>
-                )}
+                <div className="mb-6 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg">
+                    {error}
+                </div>
+            )}
 
-                <FilterBuilder
-                    availableAttributes={availableSuperadminFilterAttributes}
-                    activeFilters={activeFilters}
-                    onFiltersChange={handleFiltersChange}
-                    onApplyFilters={handleApplyFilters}
-                    onClearFilters={handleClearFilters}
-                    isExecuting={isExecutingFilters}
-                    autoRefresh={autoRefresh}
-                    onAutoRefreshChange={setAutoRefresh}
-                    hasAppliedFilters={appliedFilters.length > 0}
-                />
+            <FilterBuilder
+                availableAttributes={availableSuperadminFilterAttributes}
+                activeFilters={activeFilters}
+                onFiltersChange={handleFiltersChange}
+                onApplyFilters={handleApplyFilters}
+                onClearFilters={handleClearFilters}
+                isExecuting={isExecutingFilters}
+                autoRefresh={autoRefresh}
+                onAutoRefreshChange={setAutoRefresh}
+                hasAppliedFilters={appliedFilters.length > 0}
+            />
 
-                <Card>
-                    <CardHeader>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <CardTitle>All Workflow Runs</CardTitle>
-                                <CardDescription>
-                                    Showing {runs.length} of {totalCount} total runs
-                                </CardDescription>
-                            </div>
-                            {isAutoRefreshing && (
-                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                    <RefreshCw className="h-4 w-4 animate-spin" />
-                                    <span>Refreshing...</span>
-                                </div>
-                            )}
+            <Card>
+                <CardHeader>
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <CardTitle>All Workflow Runs</CardTitle>
+                            <CardDescription>
+                                Showing {runs.length} of {totalCount} total runs
+                            </CardDescription>
                         </div>
-                    </CardHeader>
-                    <CardContent>
-                        {runs.length === 0 ? (
-                            <div className="text-center py-8 text-muted-foreground">
-                                No workflow runs found.
+                        {isAutoRefreshing && (
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <RefreshCw className="h-4 w-4 animate-spin" />
+                                <span>Refreshing...</span>
                             </div>
-                        ) : (
-                            <>
-                                <div className="bg-card border rounded-lg overflow-hidden shadow-sm">
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow className="bg-muted">
-                                                <TableHead className="font-semibold">ID</TableHead>
-                                                <TableHead className="font-semibold">Workflow</TableHead>
-                                                <TableHead className="font-semibold">Status</TableHead>
-                                                <TableHead className="font-semibold">Disposition</TableHead>
-                                                <TableHead className="font-semibold">Tags</TableHead>
-                                                <TableHead
-                                                    className="font-semibold cursor-pointer hover:bg-muted/50 select-none"
-                                                    onClick={() => handleSort('duration')}
-                                                >
-                                                    <div className="flex items-center gap-1">
-                                                        Duration
-                                                        {sortBy === 'duration' ? (
-                                                            sortOrder === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
-                                                        ) : (
-                                                            <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-                                                        )}
-                                                    </div>
-                                                </TableHead>
-                                                <TableHead className="font-semibold">Details</TableHead>
-                                                <TableHead
-                                                    className="font-semibold cursor-pointer hover:bg-muted/50 select-none"
-                                                    onClick={() => handleSort('created_at')}
-                                                >
-                                                    <div className="flex items-center gap-1">
-                                                        Created At
-                                                        {sortBy === 'created_at' ? (
-                                                            sortOrder === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
-                                                        ) : (
-                                                            <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-                                                        )}
-                                                    </div>
-                                                </TableHead>
-                                                <TableHead className="font-semibold">Actions</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {runs.map((run) => (
-                                                <TableRow
-                                                    key={run.id}
-                                                    className={selectedRowId === run.id ? "bg-primary/20 ring-1 ring-primary/50" : ""}>
-                                                    <TableCell className="font-mono text-sm">
-                                                        #{run.id}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <div className="flex flex-col">
-                                                            <span className="font-medium text-sm">
-                                                                {run.workflow_name ? (
-                                                                    run.workflow_name.length > 15
-                                                                        ? `${run.workflow_name.substring(0, 15)}...`
-                                                                        : run.workflow_name
-                                                                ) : 'Unknown Workflow'}
-                                                            </span>
-                                                            <span className="text-xs text-muted-foreground font-mono">
-                                                                ID: {String(run.workflow_id).length > 12
-                                                                    ? `${String(run.workflow_id).substring(0, 12)}...`
-                                                                    : run.workflow_id}
-                                                            </span>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell className="text-center">
-                                                        {run.is_completed ? (
-                                                            <CheckCircle className="h-5 w-5 text-green-600" />
-                                                        ) : (
-                                                            <AlertTriangle className="h-5 w-5 text-yellow-500" />
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {run.gathered_context?.mapped_call_disposition ? (
-                                                            <Badge variant="default">
-                                                                {run.gathered_context.mapped_call_disposition as string}
-                                                            </Badge>
-                                                        ) : (
-                                                            <span className="text-sm text-muted-foreground">-</span>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {Array.isArray(run.gathered_context?.call_tags) && run.gathered_context.call_tags.length > 0 ? (
-                                                            <div className="flex flex-wrap gap-1">
-                                                                {run.gathered_context.call_tags.map((tag: string) => (
-                                                                    <Badge key={tag} variant="default">
-                                                                        {tag}
-                                                                    </Badge>
-                                                                ))}
-                                                            </div>
-                                                        ) : (
-                                                            <span className="text-sm text-muted-foreground">-</span>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell className="text-sm whitespace-pre-wrap break-words">
-                                                        <span className={!run.is_completed ? "font-semibold text-blue-600" : ""}>
-                                                            {calculateDuration(run.is_completed, run.usage_info)}
+                        )}
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    {runs.length === 0 ? (
+                        <div className="text-center py-8 text-muted-foreground">
+                            No workflow runs found.
+                        </div>
+                    ) : (
+                        <>
+                            <div className="bg-card border rounded-lg overflow-hidden shadow-sm">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow className="bg-muted">
+                                            <TableHead className="font-semibold">ID</TableHead>
+                                            <TableHead className="font-semibold">Workflow</TableHead>
+                                            <TableHead className="font-semibold">Status</TableHead>
+                                            <TableHead className="font-semibold">Disposition</TableHead>
+                                            <TableHead className="font-semibold">Tags</TableHead>
+                                            <TableHead
+                                                className="font-semibold cursor-pointer hover:bg-muted/50 select-none"
+                                                onClick={() => handleSort('duration')}
+                                            >
+                                                <div className="flex items-center gap-1">
+                                                    Duration
+                                                    {sortBy === 'duration' ? (
+                                                        sortOrder === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+                                                    ) : (
+                                                        <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+                                                    )}
+                                                </div>
+                                            </TableHead>
+                                            <TableHead className="font-semibold">Details</TableHead>
+                                            <TableHead
+                                                className="font-semibold cursor-pointer hover:bg-muted/50 select-none"
+                                                onClick={() => handleSort('created_at')}
+                                            >
+                                                <div className="flex items-center gap-1">
+                                                    Created At
+                                                    {sortBy === 'created_at' ? (
+                                                        sortOrder === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+                                                    ) : (
+                                                        <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+                                                    )}
+                                                </div>
+                                            </TableHead>
+                                            <TableHead className="font-semibold">Actions</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {runs.map((run) => (
+                                            <TableRow
+                                                key={run.id}
+                                                className={selectedRowId === run.id ? "bg-primary/20 ring-1 ring-primary/50" : ""}>
+                                                <TableCell className="font-mono text-sm">
+                                                    #{run.id}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex flex-col">
+                                                        <span className="font-medium text-sm">
+                                                            {run.workflow_name ? (
+                                                                run.workflow_name.length > 15
+                                                                    ? `${run.workflow_name.substring(0, 15)}...`
+                                                                    : run.workflow_name
+                                                            ) : 'Unknown Workflow'}
                                                         </span>
-                                                    </TableCell>
-                                                    <TableCell className="text-sm">
-                                                        <div className="flex items-center space-x-1">
-                                                            {run.initial_context && (
-                                                                <Tooltip>
-                                                                    <TooltipTrigger asChild>
-                                                                        <Info className="h-4 w-4 text-green-600 cursor-pointer" />
-                                                                    </TooltipTrigger>
-                                                                    <TooltipContent sideOffset={4} className="max-w-sm whitespace-pre-wrap break-words">
-                                                                        <p className="font-semibold text-xs mb-1">Initial Context</p>
-                                                                        <pre className="max-w-sm whitespace-pre-wrap break-words text-xs">
-                                                                            {JSON.stringify(run.initial_context, null, 2)}
-                                                                        </pre>
-                                                                    </TooltipContent>
-                                                                </Tooltip>
-                                                            )}
-                                                            {run.gathered_context && (
-                                                                <Tooltip>
-                                                                    <TooltipTrigger asChild>
-                                                                        <Info className="h-4 w-4 text-blue-500 cursor-pointer" />
-                                                                    </TooltipTrigger>
-                                                                    <TooltipContent sideOffset={4} className="max-w-sm whitespace-pre-wrap break-words">
-                                                                        <p className="font-semibold text-xs mb-1">Gathered Context</p>
-                                                                        <pre className="max-w-sm whitespace-pre-wrap break-words text-xs">
-                                                                            {JSON.stringify(run.gathered_context, null, 2)}
-                                                                        </pre>
-                                                                    </TooltipContent>
-                                                                </Tooltip>
-                                                            )}
-                                                            {run.usage_info && (
-                                                                <Tooltip>
-                                                                    <TooltipTrigger asChild>
-                                                                        <Info className="h-4 w-4 text-muted-foreground cursor-pointer" />
-                                                                    </TooltipTrigger>
-                                                                    <TooltipContent sideOffset={4} className="max-w-sm whitespace-pre-wrap break-words">
-                                                                        <p className="font-semibold text-xs mb-1">Usage Info</p>
-                                                                        <pre className="max-w-sm whitespace-pre-wrap break-words text-xs">
-                                                                            {JSON.stringify(run.usage_info, null, 2)}
-                                                                        </pre>
-                                                                    </TooltipContent>
-                                                                </Tooltip>
-                                                            )}
-                                                            {!run.initial_context && !run.gathered_context && !run.usage_info && (
-                                                                <span className="text-muted-foreground">-</span>
-                                                            )}
+                                                        <span className="text-xs text-muted-foreground font-mono">
+                                                            ID: {String(run.workflow_id).length > 12
+                                                                ? `${String(run.workflow_id).substring(0, 12)}...`
+                                                                : run.workflow_id}
+                                                        </span>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="text-center">
+                                                    {run.is_completed ? (
+                                                        <CheckCircle className="h-5 w-5 text-green-600" />
+                                                    ) : (
+                                                        <AlertTriangle className="h-5 w-5 text-yellow-500" />
+                                                    )}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {run.gathered_context?.mapped_call_disposition ? (
+                                                        <Badge variant="default">
+                                                            {run.gathered_context.mapped_call_disposition as string}
+                                                        </Badge>
+                                                    ) : (
+                                                        <span className="text-sm text-muted-foreground">-</span>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {Array.isArray(run.gathered_context?.call_tags) && run.gathered_context.call_tags.length > 0 ? (
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {run.gathered_context.call_tags.map((tag: string) => (
+                                                                <Badge key={tag} variant="default">
+                                                                    {tag}
+                                                                </Badge>
+                                                            ))}
                                                         </div>
-                                                    </TableCell>
-                                                    <TableCell className="text-sm">
-                                                        {formatDateTime(run.created_at)}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <div className="flex space-x-2">
-                                                            <MediaPreviewButton
-                                                                recordingUrl={run.recording_url}
-                                                                transcriptUrl={run.transcript_url}
-                                                                runId={run.id}
-                                                                onOpenPreview={mediaPreview.openPreview}
-                                                                onSelect={setSelectedRowId}
+                                                    ) : (
+                                                        <span className="text-sm text-muted-foreground">-</span>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell className="text-sm whitespace-pre-wrap break-words">
+                                                    <span className={!run.is_completed ? "font-semibold text-blue-600" : ""}>
+                                                        {calculateDuration(run.is_completed, run.usage_info)}
+                                                    </span>
+                                                </TableCell>
+                                                <TableCell className="text-sm">
+                                                    <div className="flex items-center space-x-1">
+                                                        {run.initial_context && (
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <Info className="h-4 w-4 text-green-600 cursor-pointer" />
+                                                                </TooltipTrigger>
+                                                                <TooltipContent sideOffset={4} className="max-w-sm whitespace-pre-wrap break-words">
+                                                                    <p className="font-semibold text-xs mb-1">Initial Context</p>
+                                                                    <pre className="max-w-sm whitespace-pre-wrap break-words text-xs">
+                                                                        {JSON.stringify(run.initial_context, null, 2)}
+                                                                    </pre>
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        )}
+                                                        {run.gathered_context && (
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <Info className="h-4 w-4 text-blue-500 cursor-pointer" />
+                                                                </TooltipTrigger>
+                                                                <TooltipContent sideOffset={4} className="max-w-sm whitespace-pre-wrap break-words">
+                                                                    <p className="font-semibold text-xs mb-1">Gathered Context</p>
+                                                                    <pre className="max-w-sm whitespace-pre-wrap break-words text-xs">
+                                                                        {JSON.stringify(run.gathered_context, null, 2)}
+                                                                    </pre>
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        )}
+                                                        {run.usage_info && (
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <Info className="h-4 w-4 text-muted-foreground cursor-pointer" />
+                                                                </TooltipTrigger>
+                                                                <TooltipContent sideOffset={4} className="max-w-sm whitespace-pre-wrap break-words">
+                                                                    <p className="font-semibold text-xs mb-1">Usage Info</p>
+                                                                    <pre className="max-w-sm whitespace-pre-wrap break-words text-xs">
+                                                                        {JSON.stringify(run.usage_info, null, 2)}
+                                                                    </pre>
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        )}
+                                                        {!run.initial_context && !run.gathered_context && !run.usage_info && (
+                                                            <span className="text-muted-foreground">-</span>
+                                                        )}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="text-sm">
+                                                    {formatDateTime(run.created_at)}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex space-x-2">
+                                                        <MediaPreviewButton
+                                                            recordingUrl={run.recording_url}
+                                                            transcriptUrl={run.transcript_url}
+                                                            runId={run.id}
+                                                            onOpenPreview={mediaPreview.openPreview}
+                                                            onSelect={setSelectedRowId}
+                                                        />
+                                                        <Button
+                                                            variant="outline"
+                                                            size="icon"
+                                                            onClick={() => {
+                                                                const query = encodeURIComponent(
+                                                                    JSON.stringify({
+                                                                        children: [
+                                                                            {
+                                                                                field: 'extra.run_id',
+                                                                                op: '==',
+                                                                                value: String(run.id),
+                                                                            },
+                                                                        ],
+                                                                        field: '',
+                                                                        op: 'and',
+                                                                    }),
+                                                                );
+                                                                window.open(
+                                                                    `https://app.axiom.co/Acuity-of6c/stream/${process.env.NEXT_PUBLIC_AXIOM_LOG_DATASET}?q=${query}`,
+                                                                    '_blank',
+                                                                );
+                                                            }}
+                                                        >
+                                                            <Image
+                                                                src="/axiom_icon.svg"
+                                                                alt="Traces"
+                                                                width={16}
+                                                                height={16}
+                                                                className="h-4 w-4"
                                                             />
-                                                            <Button
-                                                                variant="outline"
-                                                                size="icon"
-                                                                onClick={() => {
-                                                                    const query = encodeURIComponent(
-                                                                        JSON.stringify({
-                                                                            children: [
-                                                                                {
-                                                                                    field: 'extra.run_id',
-                                                                                    op: '==',
-                                                                                    value: String(run.id),
-                                                                                },
-                                                                            ],
-                                                                            field: '',
-                                                                            op: 'and',
-                                                                        }),
+                                                        </Button>
+
+                                                        <Button
+                                                            variant="outline"
+                                                            size="icon"
+                                                            onClick={() => {
+                                                                if (run.gathered_context?.trace_url) {
+                                                                    window.open(String(run.gathered_context.trace_url), '_blank');
+                                                                } else {
+                                                                    const filter = encodeURIComponent(
+                                                                        `metadata;stringObject;attributes;contains;conversation.id,metadata;stringObject;attributes;contains;${run.id}`,
                                                                     );
                                                                     window.open(
-                                                                        `https://app.axiom.co/dograh-of6c/stream/${process.env.NEXT_PUBLIC_AXIOM_LOG_DATASET}?q=${query}`,
+                                                                        `${process.env.NEXT_PUBLIC_LANGFUSE_ENDPOINT}/project/${process.env.NEXT_PUBLIC_LANGFUSE_PROJECT_ID}/traces?search=&filter=${filter}&dateRange=All+time`,
                                                                         '_blank',
                                                                     );
-                                                                }}
-                                                            >
-                                                                <Image
-                                                                    src="/axiom_icon.svg"
-                                                                    alt="Traces"
-                                                                    width={16}
-                                                                    height={16}
-                                                                    className="h-4 w-4"
-                                                                />
-                                                            </Button>
+                                                                }
+                                                            }}
+                                                        >
+                                                            <Image
+                                                                src="/langfuse_icon.svg"
+                                                                alt="Langfuse Traces"
+                                                                width={16}
+                                                                height={16}
+                                                                className="h-4 w-4"
+                                                            />
+                                                        </Button>
 
-                                                            <Button
-                                                                variant="outline"
-                                                                size="icon"
-                                                                onClick={() => {
-                                                                    if (run.gathered_context?.trace_url) {
-                                                                        window.open(String(run.gathered_context.trace_url), '_blank');
-                                                                    } else {
-                                                                        const filter = encodeURIComponent(
-                                                                            `metadata;stringObject;attributes;contains;conversation.id,metadata;stringObject;attributes;contains;${run.id}`,
-                                                                        );
-                                                                        window.open(
-                                                                            `${process.env.NEXT_PUBLIC_LANGFUSE_ENDPOINT}/project/${process.env.NEXT_PUBLIC_LANGFUSE_PROJECT_ID}/traces?search=&filter=${filter}&dateRange=All+time`,
-                                                                            '_blank',
-                                                                        );
-                                                                    }
-                                                                }}
-                                                            >
-                                                                <Image
-                                                                    src="/langfuse_icon.svg"
-                                                                    alt="Langfuse Traces"
-                                                                    width={16}
-                                                                    height={16}
-                                                                    className="h-4 w-4"
-                                                                />
-                                                            </Button>
-
-                                                            {/* Quick links open the regular app after impersonating the
+                                                        {/* Quick links open the regular app after impersonating the
                                                                 owner of the workflow run. */}
-                                                            <Button
-                                                                variant="outline"
-                                                                size="icon"
-                                                                title="Open workflow as user"
-                                                                disabled={!run.user_id}
-                                                                onClick={() => {
-                                                                    impersonateAndMaybeRedirect(
-                                                                        run.user_id,
-                                                                        `/workflow/${run.workflow_id}`,
-                                                                    );
-                                                                }}
-                                                            >
-                                                                <ExternalLink className="h-4 w-4" />
-                                                            </Button>
+                                                        <Button
+                                                            variant="outline"
+                                                            size="icon"
+                                                            title="Open workflow as user"
+                                                            disabled={!run.user_id}
+                                                            onClick={() => {
+                                                                impersonateAndMaybeRedirect(
+                                                                    run.user_id,
+                                                                    `/workflow/${run.workflow_id}`,
+                                                                );
+                                                            }}
+                                                        >
+                                                            <ExternalLink className="h-4 w-4" />
+                                                        </Button>
 
-                                                            <Button
-                                                                variant="outline"
-                                                                size="icon"
-                                                                title="Open run details as user"
-                                                                disabled={!run.user_id}
-                                                                onClick={() => {
-                                                                    impersonateAndMaybeRedirect(
-                                                                        run.user_id,
-                                                                        `/workflow/${run.workflow_id}/run/${run.id}`,
-                                                                    );
-                                                                }}
-                                                            >
-                                                                <FileText className="h-4 w-4" />
-                                                            </Button>
+                                                        <Button
+                                                            variant="outline"
+                                                            size="icon"
+                                                            title="Open run details as user"
+                                                            disabled={!run.user_id}
+                                                            onClick={() => {
+                                                                impersonateAndMaybeRedirect(
+                                                                    run.user_id,
+                                                                    `/workflow/${run.workflow_id}/run/${run.id}`,
+                                                                );
+                                                            }}
+                                                        >
+                                                            <FileText className="h-4 w-4" />
+                                                        </Button>
 
-                                                        </div>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </div>
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
 
-                                {/* Pagination */}
-                                {totalPages > 1 && (
-                                    <div className="flex items-center justify-between mt-6">
-                                        <div className="text-sm text-muted-foreground">
-                                            Page {currentPage} of {totalPages} ({totalCount} total runs)
-                                        </div>
-                                        <div className="flex space-x-2">
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => handlePageChange(currentPage - 1)}
-                                                disabled={currentPage === 1 || isLoading}
-                                            >
-                                                <ChevronLeft className="h-4 w-4 mr-1" />
-                                                Previous
-                                            </Button>
-
-                                            {/* Page numbers */}
-                                            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                                                let pageNum;
-                                                if (totalPages <= 5) {
-                                                    pageNum = i + 1;
-                                                } else if (currentPage <= 3) {
-                                                    pageNum = i + 1;
-                                                } else if (currentPage >= totalPages - 2) {
-                                                    pageNum = totalPages - 4 + i;
-                                                } else {
-                                                    pageNum = currentPage - 2 + i;
-                                                }
-
-                                                return (
-                                                    <Button
-                                                        key={pageNum}
-                                                        variant={currentPage === pageNum ? "default" : "outline"}
-                                                        size="sm"
-                                                        onClick={() => handlePageChange(pageNum)}
-                                                        disabled={isLoading}
-                                                    >
-                                                        {pageNum}
-                                                    </Button>
-                                                );
-                                            })}
-
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => handlePageChange(currentPage + 1)}
-                                                disabled={currentPage === totalPages || isLoading}
-                                            >
-                                                Next
-                                                <ChevronRight className="h-4 w-4 ml-1" />
-                                            </Button>
-                                        </div>
+                            {/* Pagination */}
+                            {totalPages > 1 && (
+                                <div className="flex items-center justify-between mt-6">
+                                    <div className="text-sm text-muted-foreground">
+                                        Page {currentPage} of {totalPages} ({totalCount} total runs)
                                     </div>
-                                )}
-                            </>
-                        )}
-                    </CardContent>
-                </Card>
+                                    <div className="flex space-x-2">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => handlePageChange(currentPage - 1)}
+                                            disabled={currentPage === 1 || isLoading}
+                                        >
+                                            <ChevronLeft className="h-4 w-4 mr-1" />
+                                            Previous
+                                        </Button>
 
-                {/* Media Preview Dialog */}
-                {mediaPreview.dialog}
+                                        {/* Page numbers */}
+                                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                                            let pageNum;
+                                            if (totalPages <= 5) {
+                                                pageNum = i + 1;
+                                            } else if (currentPage <= 3) {
+                                                pageNum = i + 1;
+                                            } else if (currentPage >= totalPages - 2) {
+                                                pageNum = totalPages - 4 + i;
+                                            } else {
+                                                pageNum = currentPage - 2 + i;
+                                            }
+
+                                            return (
+                                                <Button
+                                                    key={pageNum}
+                                                    variant={currentPage === pageNum ? "default" : "outline"}
+                                                    size="sm"
+                                                    onClick={() => handlePageChange(pageNum)}
+                                                    disabled={isLoading}
+                                                >
+                                                    {pageNum}
+                                                </Button>
+                                            );
+                                        })}
+
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => handlePageChange(currentPage + 1)}
+                                            disabled={currentPage === totalPages || isLoading}
+                                        >
+                                            Next
+                                            <ChevronRight className="h-4 w-4 ml-1" />
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+                        </>
+                    )}
+                </CardContent>
+            </Card>
+
+            {/* Media Preview Dialog */}
+            {mediaPreview.dialog}
 
         </PageShell>
     );

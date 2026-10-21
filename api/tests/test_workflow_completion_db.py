@@ -226,9 +226,9 @@ async def test_transfer_cleanup_preserves_extraction_committed_after_its_read(
         organization_id=organization_id,
         telephony_configuration_id=10,
         ari_endpoint="http://asterisk.test:8088",
-        app_name="dograh",
+        app_name="Acuity",
         app_password="secret",
-        ws_client_name="dograh_ws",
+        ws_client_name="Acuity_ws",
     )
     for method in (
         "_delete_bridge",

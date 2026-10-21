@@ -1,7 +1,7 @@
-"""Dograh-managed embedding service.
+"""Acuity-managed embedding service.
 
-Routes embeddings through Dograh's managed proxy (MPS). This mirrors the managed
-voice services (``DograhLLMService`` / ``DograhTTSService``): when a server-minted
+Routes embeddings through Acuity's managed proxy (MPS). This mirrors the managed
+voice services (``AcuityLLMService`` / ``AcuityTTSService``): when a server-minted
 MPS correlation id is present, it forwards the MPS billing v2 protocol
 (``correlation_id`` + ``mps_billing_version``) in the request body so MPS can
 authorize and attribute the call. With no correlation id (e.g. a v1 org) it
@@ -25,8 +25,8 @@ MPS_BILLING_VERSION_KEY = "mps_billing_version"
 MPS_BILLING_VERSION_V2 = "2"
 
 
-class DograhEmbeddingService(OpenAIEmbeddingService):
-    """OpenAI-compatible embedding client pointed at Dograh's managed proxy."""
+class AcuityEmbeddingService(OpenAIEmbeddingService):
+    """OpenAI-compatible embedding client pointed at Acuity's managed proxy."""
 
     def __init__(
         self,
@@ -40,7 +40,7 @@ class DograhEmbeddingService(OpenAIEmbeddingService):
 
         Args:
             db_client: Database client for vector similarity search.
-            api_key: Dograh-managed MPS service key.
+            api_key: Acuity-managed MPS service key.
             model_id: Embedding model/tier id (default: text-embedding-3-small).
             base_url: MPS embeddings base URL.
             correlation_id: Server-minted MPS correlation id. When set, the MPS

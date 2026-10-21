@@ -15,7 +15,7 @@ export async function resolveTenantContext(
   return {
     deploymentId: mapping.deploymentId,
     acuityOrganizationId: mapping.acuityOrganizationId,
-    dograhOrganizationId: mapping.acuityOrganizationId,
+    AcuityOrganizationId: mapping.acuityOrganizationId,
     businessTenantId: mapping.businessTenantId,
   };
 }

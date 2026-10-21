@@ -7,7 +7,7 @@
 #   --set secrets.ossJwtSecret=$(openssl rand -hex 32)
 #   --set secrets.turnSecret=$(openssl rand -hex 32)
 #   --set exposure.gatewayApi.gatewayClassName=<your-class>
-#   --set exposure.gatewayApi.listenerHostname=dograh.example.com
+#   --set exposure.gatewayApi.listenerHostname=Acuity.example.com
 
 database:
   mode: external
@@ -17,8 +17,8 @@ storage:
   mode: s3
   s3:
     region: us-east-1
-    bucket: dograh-voice-audio
-    publicEndpoint: https://dograh-voice-audio.s3.amazonaws.com
+    bucket: Acuity-voice-audio
+    publicEndpoint: https://Acuity-voice-audio.s3.amazonaws.com
 exposure:
   mode: gatewayApi
   gatewayApi:
@@ -28,7 +28,7 @@ exposure:
   ingress:
     tls:
       enabled: true
-      secretName: dograh-tls
+      secretName: Acuity-tls
 
 config:
   environment: production

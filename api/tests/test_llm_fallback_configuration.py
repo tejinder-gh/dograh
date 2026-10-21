@@ -105,10 +105,10 @@ def test_independent_connections_and_targets_reach_factory():
         },
     )
     with (
-        patch("api.services.pipecat.service_factory.DograhGoogleLLMService") as google,
+        patch("api.services.pipecat.service_factory.AcuityGoogleLLMService") as google,
         patch("api.services.pipecat.service_factory.OpenAILLMService") as openai,
         patch(
-            "api.services.pipecat.service_factory.DograhGoogleVertexLLMService"
+            "api.services.pipecat.service_factory.AcuityGoogleVertexLLMService"
         ) as vertex,
         patch("api.services.pipecat.service_factory.FallbackLLMProcessor") as composite,
     ):
@@ -132,7 +132,7 @@ def test_independent_connections_and_targets_reach_factory():
 def test_identical_rule_targets_share_one_service():
     target = {"provider": "openai", "api_key": "test", "model": "gpt-4.1"}
     with (
-        patch("api.services.pipecat.service_factory.DograhGoogleLLMService"),
+        patch("api.services.pipecat.service_factory.AcuityGoogleLLMService"),
         patch("api.services.pipecat.service_factory.OpenAILLMService") as openai,
         patch("api.services.pipecat.service_factory.FallbackLLMProcessor") as composite,
     ):
@@ -157,25 +157,25 @@ def test_replies_are_spoken_unless_the_caller_reads_them():
 
 def test_no_rules_returns_ordinary_service():
     with patch(
-        "api.services.pipecat.service_factory.DograhGoogleLLMService"
+        "api.services.pipecat.service_factory.AcuityGoogleLLMService"
     ) as constructor:
         result = create_llm_service(configuration())
     assert result is constructor.return_value
     assert constructor.call_args.kwargs["enable_direct_mode"] is False
 
 
-def test_effective_configuration_rejects_dograh_primary_fallbacks():
+def test_effective_configuration_rejects_Acuity_primary_fallbacks():
     config = configuration(error_target={"provider": "openai", "api_key": "backup"})
     payload = config.model_dump(exclude_computed_fields=True)
-    payload["llm"] = {"provider": "dograh", "api_key": "primary"}
-    with pytest.raises(ValidationError, match="non-Dograh primary LLM"):
+    payload["llm"] = {"provider": "Acuity", "api_key": "primary"}
+    with pytest.raises(ValidationError, match="non-Acuity primary LLM"):
         EffectiveAIModelConfiguration.model_validate(payload)
 
 
 @pytest.mark.parametrize("trigger", ["slow_target", "error_target"])
-def test_effective_configuration_rejects_dograh_fallback_targets(trigger):
+def test_effective_configuration_rejects_Acuity_fallback_targets(trigger):
     with pytest.raises(ValidationError, match="cannot be a fallback target"):
-        configuration(**{trigger: {"provider": "dograh", "api_key": "managed"}})
+        configuration(**{trigger: {"provider": "Acuity", "api_key": "managed"}})
 
 
 def test_realtime_retains_fallbacks_for_its_separate_text_llm():
@@ -222,7 +222,7 @@ def test_registry_has_no_provider_specific_fallback_fields():
 
 @pytest.mark.asyncio
 async def test_vertex_connections_keep_independent_clients_and_close_them():
-    from api.services.pipecat.service_factory import DograhGoogleVertexLLMService
+    from api.services.pipecat.service_factory import AcuityGoogleVertexLLMService
 
     credentials = object()
     clients = [MagicMock(), MagicMock()]
@@ -251,7 +251,7 @@ async def test_vertex_connections_keep_independent_clients_and_close_them():
     )
     with (
         patch.object(
-            DograhGoogleVertexLLMService, "_get_credentials", return_value=credentials
+            AcuityGoogleVertexLLMService, "_get_credentials", return_value=credentials
         ),
         patch(
             "pipecat.services.google.vertex.llm.Client", side_effect=clients

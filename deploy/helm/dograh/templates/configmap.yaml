@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "dograh.configMapName" . }}
+  name: {{ include "Acuity.configMapName" . }}
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "dograh.labels" . | nindent 4 }}
+    {{- include "Acuity.labels" . | nindent 4 }}
 data:
   ENVIRONMENT: {{ .Values.config.environment | quote }}
   LOG_LEVEL: {{ .Values.config.logLevel | quote }}
@@ -23,7 +23,7 @@ data:
   TELEPHONY_WS_TOKEN_ENFORCE: {{ .Values.config.telephonyWsTokenEnforce | quote }}
   {{- /* MinIO endpoints derived from storage mode. */ -}}
   {{- if eq .Values.storage.mode "internalMinio" }}
-  MINIO_ENDPOINT: {{ printf "%s:9000" (include "dograh.minioHost" .) | quote }}
+  MINIO_ENDPOINT: {{ printf "%s:9000" (include "Acuity.minioHost" .) | quote }}
   MINIO_PUBLIC_ENDPOINT: {{ .Values.config.minioPublicEndpoint | quote }}
   {{- else if eq .Values.storage.mode "externalMinio" }}
   MINIO_ENDPOINT: {{ .Values.storage.externalMinio.endpoint | quote }}

@@ -1,12 +1,12 @@
 # Stage 1 Security Remediation & Verification Report (Stage A Follow-up)
 
-**Project**: AI Calling Agent OS  
-**Target Base**: Dograh (`dograh-hq/dograh` @ `b677cac4acc6f0dc18010457c98af75e137f8181`)  
-**Fork Repository**: [https://github.com/tejinder-gh/dograh](https://github.com/tejinder-gh/dograh)  
-**Branch**: `feat/business-os-foundation`  
-**Pull Request**: [https://github.com/tejinder-gh/dograh/pull/1](https://github.com/tejinder-gh/dograh/pull/1) (Draft)  
-**Review Gate**: Staff Engineer Security Review Gate — Stage A Follow-up (Resolving Blockers 1, 2, 3, 4)  
-**Status**: Stage A Implementation & Verification Complete — Awaiting Explicit Security Gate Approval  
+**Project**: AI Calling Agent OS
+**Target Base**: Acuity (`Acuity-hq/Acuity` @ `b677cac4acc6f0dc18010457c98af75e137f8181`)
+**Fork Repository**: [https://github.com/tejinder-gh/Acuity](https://github.com/tejinder-gh/Acuity)
+**Branch**: `feat/business-os-foundation`
+**Pull Request**: [https://github.com/tejinder-gh/Acuity/pull/1](https://github.com/tejinder-gh/Acuity/pull/1) (Draft)
+**Review Gate**: Staff Engineer Security Review Gate — Stage A Follow-up (Resolving Blockers 1, 2, 3, 4)
+**Status**: Stage A Implementation & Verification Complete — Awaiting Explicit Security Gate Approval
 
 ---
 
@@ -49,9 +49,9 @@ Previously, `signed-assertion.ts` maintained an in-memory `Map<string, number>` 
    - Clones the raw request stream (`c.req.raw.clone().text()`) to verify the digest without consuming the stream for downstream handlers.
    - Normalizes the incoming URL path and sorted query parameters before comparing with the signed `uri` claim.
 
-### 2.3 Automated Test Evidence ([http-security.test.ts](file:///Users/tejindersingh/dev/AI/agents/mentize/AI%20calling%20agent%20OS/dograh/extensions/business-api/src/tests/integration/http-security.test.ts))
+### 2.3 Automated Test Evidence ([http-security.test.ts](file:///Users/tejindersingh/dev/AI/agents/mentize/AI%20calling%20agent%20OS/Acuity/extensions/business-api/src/tests/integration/http-security.test.ts))
 - **Two Distinct Service Instances Replay Prevention**:
-  `app1` processes assertion with nonce `N` -> HTTP 201 Created.  
+  `app1` processes assertion with nonce `N` -> HTTP 201 Created.
   `app2` (separate app instance sharing database) receives identical assertion -> HTTP 401 Unauthorized (`Replay detected: Assertion nonce has already been consumed`). (**PASS**)
 - **Method Substitution Attack**:
   Assertion signed for `GET` used on `POST /api/contacts` -> HTTP 401 Unauthorized (`Request method mismatch`). (**PASS**)
@@ -74,10 +74,10 @@ Previously, `signed-assertion.ts` maintained an in-memory `Map<string, number>` 
 ## 3. Blocker 2: Real Next.js Boundary & Session Tests
 
 ### 3.1 The Vulnerability
-Previous tests invoked Next.js route handlers directly via constructed `NextRequest` objects in Vitest. This bypassed the actual HTTP server, middleware, cookie parsing pipeline, and network stack. Furthermore, tests used synthetic fake tokens rather than testing genuine Dograh database states.
+Previous tests invoked Next.js route handlers directly via constructed `NextRequest` objects in Vitest. This bypassed the actual HTTP server, middleware, cookie parsing pipeline, and network stack. Furthermore, tests used synthetic fake tokens rather than testing genuine Acuity database states.
 
-### 3.2 Real HTTP Test Suite ([business-auth.test.ts](file:///Users/tejindersingh/dev/AI/agents/mentize/AI%20calling%20agent%20OS/dograh/ui/src/app/api/business/business-auth.test.ts))
-Executed over the wire against the running Next.js dev server on `http://127.0.0.1:3000` backed by Dograh core and PostgreSQL:
+### 3.2 Real HTTP Test Suite ([business-auth.test.ts](file:///Users/tejindersingh/dev/AI/agents/mentize/AI%20calling%20agent%20OS/Acuity/ui/src/app/api/business/business-auth.test.ts))
+Executed over the wire against the running Next.js dev server on `http://127.0.0.1:3000` backed by Acuity core and PostgreSQL:
 
 ```bash
 bun run test -- src/app/api/business/business-auth.test.ts
@@ -92,20 +92,20 @@ bun run test -- src/app/api/business/business-auth.test.ts
 | **Genuine Revoked Organization Membership (A1.5)** | Real user `554` with valid token targeting Org 501, removed from `public.organization_users` | 403 Forbidden (`User is not an active member of the specified organization`) | **PASS** |
 | **Real Session Switching Across Organizations** | User `551` switches `selected_organization_id` in database from 501 to 502, then back | 404 Not Found when switched to Org 502; 200 OK when restored to Org 501 | **PASS** |
 | **Two-Account Cross-Tenant Isolation** | Org B attempts direct `GET`, `PATCH`, and `DELETE` on Org A contact UUID | All three operations return 404 Not Found | **PASS** |
-| **Edge Header Stripping** | Client supplies malicious `X-Internal-Assertion` and `X-Dograh-Organization-Id` | Headers stripped at edge; Next.js generates genuine assertion; 200 OK | **PASS** |
+| **Edge Header Stripping** | Client supplies malicious `X-Internal-Assertion` and `X-Acuity-Organization-Id` | Headers stripped at edge; Next.js generates genuine assertion; 200 OK | **PASS** |
 
 ---
 
 ## 4. Blocker 3: Startup Validation & Deployment Hardening
 
-### 4.1 UI Startup Environment Validation ([businessApiServer.ts](file:///Users/tejindersingh/dev/AI/agents/mentize/AI%20calling%20agent%20OS/dograh/ui/src/lib/businessApiServer.ts))
+### 4.1 UI Startup Environment Validation ([businessApiServer.ts](file:///Users/tejindersingh/dev/AI/agents/mentize/AI%20calling%20agent%20OS/Acuity/ui/src/lib/businessApiServer.ts))
 - Implemented `validateConfiguration()` executed at module load time.
 - In production (`NODE_ENV === 'production'`):
   - Fails closed immediately if `BUSINESS_EXT_SECRET` is missing, shorter than 32 characters, or matches any known placeholder.
   - Fails closed immediately if `BUSINESS_API_URL` is omitted (disallowing localhost loopback fallbacks in production).
-  - Strictly reads `DOGRAH_DEPLOYMENT_ID` from server environment.
+  - Strictly reads `Acuity_DEPLOYMENT_ID` from server environment.
 
-### 4.2 Business API Production Configuration ([env.ts](file:///Users/tejindersingh/dev/AI/agents/mentize/AI%20calling%20agent%20OS/dograh/extensions/business-api/src/config/env.ts))
+### 4.2 Business API Production Configuration ([env.ts](file:///Users/tejindersingh/dev/AI/agents/mentize/AI%20calling%20agent%20OS/Acuity/extensions/business-api/src/config/env.ts))
 - **Non-Superuser Default**: `POSTGRES_USER` defaults to `business_app_user` (not `postgres`).
 - **Superuser Prohibition**: In production, Zod `.superRefine` enforces that neither `DATABASE_URL` nor `POSTGRES_USER` can connect as `postgres`.
 - **Container Network Binding**: `HOST` defaults to `0.0.0.0` in production (enabling private bridge network routing between Next.js and Business API containers) and `127.0.0.1` in development.
@@ -118,12 +118,12 @@ Audited directly against active PostgreSQL database roles and permissions:
 
 ### 5.1 Role Attributes (`pg_roles`)
 ```sql
-SELECT rolname, rolsuper, rolinherit, rolcreaterole, rolcreatedb, rolcanlogin 
-FROM pg_roles 
+SELECT rolname, rolsuper, rolinherit, rolcreaterole, rolcreatedb, rolcanlogin
+FROM pg_roles
 WHERE rolname IN ('postgres', 'ai_calling_owner', 'business_app_user');
 ```
 ```
-      rolname      | rolsuper | rolinherit | rolcreaterole | rolcreatedb | rolcanlogin 
+      rolname      | rolsuper | rolinherit | rolcreaterole | rolcreatedb | rolcanlogin
 -------------------+----------+------------+---------------+-------------+-------------
  postgres          | t        | t          | t             | t           | t
  ai_calling_owner  | f        | t          | t             | t           | t
@@ -133,13 +133,13 @@ WHERE rolname IN ('postgres', 'ai_calling_owner', 'business_app_user');
 
 ### 5.2 Schema Ownership (`pg_namespace`)
 ```sql
-SELECT n.nspname AS schema_name, r.rolname AS owner 
-FROM pg_namespace n 
-JOIN pg_roles r ON n.nspowner = r.oid 
+SELECT n.nspname AS schema_name, r.rolname AS owner
+FROM pg_namespace n
+JOIN pg_roles r ON n.nspowner = r.oid
 WHERE n.nspname IN ('public', 'business_ext');
 ```
 ```
- schema_name  |       owner       
+ schema_name  |       owner
 --------------+-------------------
  public       | pg_database_owner
  business_ext | business_app_user
@@ -191,7 +191,7 @@ All 8 test files:
 - `business-profile.test.ts` (5 tests passed)
 
 ### 6.3 CI Actions Workflow
-Updated [.github/workflows/business-extension-ci.yml](file:///Users/tejindersingh/dev/AI/agents/mentize/AI%20calling%20agent%20OS/dograh/.github/workflows/business-extension-ci.yml) targeting PR branches touching `ui/**` and `extensions/business-api/**`. Uses full authoritative Dograh schema dump and separated unprivileged runtime (`business_app_user`) vs migration/admin (`postgres`) roles.
+Updated [.github/workflows/business-extension-ci.yml](file:///Users/tejindersingh/dev/AI/agents/mentize/AI%20calling%20agent%20OS/Acuity/.github/workflows/business-extension-ci.yml) targeting PR branches touching `ui/**` and `extensions/business-api/**`. Uses full authoritative Acuity schema dump and separated unprivileged runtime (`business_app_user`) vs migration/admin (`postgres`) roles.
 
 ---
 

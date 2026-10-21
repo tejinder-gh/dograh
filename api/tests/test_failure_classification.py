@@ -9,7 +9,7 @@ from websockets.http11 import Response
 
 from api.errors import failure as failure_module
 from api.errors.failure import (
-    DograhFailure,
+    AcuityFailure,
     ErrorOwner,
     ErrorSource,
     ErrorType,
@@ -159,7 +159,7 @@ def test_classify_http_response_status_bands(status_code, expected_type, retryab
     ],
 )
 def test_failure_resolves_binary_owner(error_type, requested_owner, expected_owner):
-    failure = DograhFailure(
+    failure = AcuityFailure(
         source=ErrorSource.PLATFORM,
         type=error_type,
         code="test-failure",
@@ -288,49 +288,49 @@ def test_google_http_statuses_are_distinct_without_message_parsing():
     assert unavailable.code == "google-503"
 
 
-def test_dograh_boundary_changes_attribution():
+def test_Acuity_boundary_changes_attribution():
     quota = classify_http_response(
         402,
-        "Insufficient Dograh credits",
+        "Insufficient Acuity credits",
         source=ErrorSource.LLM,
-        provider="dograh",
+        provider="Acuity",
     )
     managed_key_failure = classify_http_response(
         401,
         "Managed provider rejected the service key",
         source=ErrorSource.LLM,
-        provider="dograh",
+        provider="Acuity",
     )
 
     assert quota.type == ErrorType.QUOTA_ERROR
     assert quota.error_owner == ErrorOwner.USER
-    assert quota.code == "dograh-insufficient-credits"
+    assert quota.code == "Acuity-insufficient-credits"
     assert managed_key_failure.type == ErrorType.SYSTEM_ERROR
     assert managed_key_failure.error_owner == ErrorOwner.OPERATOR
 
 
-def test_dograh_credit_prose_does_not_override_safe_default():
+def test_Acuity_credit_prose_does_not_override_safe_default():
     failure = classify_exception(
         RuntimeError("insufficient credits"),
         source=ErrorSource.PLATFORM,
-        provider="dograh",
+        provider="Acuity",
     )
 
     assert failure.type == ErrorType.SYSTEM_ERROR
     assert failure.error_owner == ErrorOwner.OPERATOR
-    assert failure.code == "dograh-unknown"
+    assert failure.code == "Acuity-unknown"
 
 
-def test_dograh_transport_failure_stays_system_error_but_keeps_retry_hint():
+def test_Acuity_transport_failure_stays_system_error_but_keeps_retry_hint():
     failure = classify_exception(
         httpx.ConnectError("MPS connection refused"),
         source=ErrorSource.PLATFORM,
-        provider="dograh",
+        provider="Acuity",
     )
 
     assert failure.type == ErrorType.SYSTEM_ERROR
     assert failure.error_owner == ErrorOwner.OPERATOR
-    assert failure.code == "dograh-connection"
+    assert failure.code == "Acuity-connection"
     assert failure.retryable is True
 
 
@@ -375,7 +375,7 @@ def test_redaction_consumes_entire_escaped_or_multiline_quoted_secret(
 
 
 def test_factory_metadata_is_authoritative_over_wrapper_class_name():
-    service = type("DograhOpenAIRealtimeLLMService", (), {})()
+    service = type("AcuityOpenAIRealtimeLLMService", (), {})()
     annotate_failure_metadata(
         service,
         source=ErrorSource.LLM,
@@ -424,7 +424,7 @@ def test_log_failure_emits_structured_and_inline_classification():
     sink_id = logger.add(lambda message: records.append(message.record))
     try:
         log_failure(
-            DograhFailure(
+            AcuityFailure(
                 source=ErrorSource.WEBHOOK,
                 type=ErrorType.CONFIG_ERROR,
                 code="webhook-404",
@@ -440,7 +440,7 @@ def test_log_failure_emits_structured_and_inline_classification():
         logger.remove(sink_id)
 
     record = records[-1]
-    assert "DOGRAH_FAILURE [src=webhook type=config_error code=webhook-404]" in str(
+    assert "Acuity_FAILURE [src=webhook type=config_error code=webhook-404]" in str(
         record["message"]
     )
     assert record["extra"]["classified"] is True
@@ -459,7 +459,7 @@ def test_log_failure_does_not_add_a_workflow_run_id_alias():
     sink_id = logger.add(lambda message: records.append(message.record))
     try:
         log_failure(
-            DograhFailure(
+            AcuityFailure(
                 source=ErrorSource.PLATFORM,
                 type=ErrorType.SYSTEM_ERROR,
                 code="platform-test",
@@ -503,7 +503,7 @@ def test_log_failure_never_raises_when_logger_fails(monkeypatch):
     monkeypatch.setattr(failure_module, "logger", _BrokenLogger())
 
     log_failure(
-        DograhFailure(
+        AcuityFailure(
             source=ErrorSource.PLATFORM,
             type=ErrorType.SYSTEM_ERROR,
             code="platform-test",

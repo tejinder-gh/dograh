@@ -215,9 +215,9 @@ export class CrmService {
       acuityWorkflowId: wfId,
       acuityDefinitionId: defId,
       acuityRunId: runId,
-      dograhWorkflowId: wfId,
-      dograhDefinitionId: defId,
-      dograhRunId: runId,
+      AcuityWorkflowId: wfId,
+      AcuityDefinitionId: defId,
+      AcuityRunId: runId,
     });
 
     // If contact is linked, update lead score and lifecycle status
@@ -260,7 +260,7 @@ export class CrmService {
 
   async getInteractions(
     ctx: TenantContext,
-    options?: { contactId?: string; acuityRunId?: string; dograhRunId?: string; limit?: number; offset?: number }
+    options?: { contactId?: string; acuityRunId?: string; AcuityRunId?: string; limit?: number; offset?: number }
   ): Promise<Interaction[]> {
     return interactionRepo.getInteractions(ctx.businessTenantId, options);
   }

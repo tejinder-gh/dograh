@@ -1,4 +1,4 @@
-"""Tests for the Python runtime SDK (`dograh_sdk`).
+"""Tests for the Python runtime SDK (`acuity_sdk`).
 
 Uses a stub client backed by the in-process spec registry rather than
 exercising the HTTP layer — the HTTP client is a thin wrapper that's
@@ -14,16 +14,16 @@ Covers:
 from __future__ import annotations
 
 import pytest
-from dograh_sdk import Workflow
-from dograh_sdk._generated_models import NodeSpec
-from dograh_sdk.errors import ValidationError
+from Acuity_sdk import Workflow
+from Acuity_sdk._generated_models import NodeSpec
+from Acuity_sdk.errors import ValidationError
 
 from api.services.workflow.dto import ReactFlowDTO
 from api.services.workflow.node_specs import all_specs, get_spec
 
 
 class _StubClient:
-    """Stand-in for DograhClient backed by the in-process spec registry.
+    """Stand-in for AcuityClient backed by the in-process spec registry.
     Matches the real client's contract: `get_node_type(name)` returns a
     `NodeSpec` Pydantic model."""
 
@@ -86,7 +86,7 @@ def test_webhook_complex_fields_validate(client: _StubClient):
         enabled=True,
         http_method="POST",
         endpoint_url="https://api.example.com/hook",
-        custom_headers=[{"key": "X-Source", "value": "dograh"}],
+        custom_headers=[{"key": "X-Source", "value": "Acuity"}],
         payload_template={"run": "{{workflow_run_id}}"},
     )
     payload = wf.to_json()

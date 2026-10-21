@@ -33,9 +33,9 @@ function mapRow(row: InteractionRow): Interaction {
     acuityWorkflowId: row.acuity_workflow_id,
     acuityDefinitionId: row.acuity_definition_id,
     acuityRunId: row.acuity_run_id,
-    dograhWorkflowId: row.acuity_workflow_id,
-    dograhDefinitionId: row.acuity_definition_id,
-    dograhRunId: row.acuity_run_id,
+    AcuityWorkflowId: row.acuity_workflow_id,
+    AcuityDefinitionId: row.acuity_definition_id,
+    AcuityRunId: row.acuity_run_id,
     channel: row.channel,
     durationSeconds: row.duration_seconds,
     sentimentScore: row.sentiment_score,
@@ -53,7 +53,7 @@ export async function getInteractions(
   options?: {
     contactId?: string;
     acuityRunId?: string;
-    dograhRunId?: string;
+    AcuityRunId?: string;
     limit?: number;
     offset?: number;
   }

@@ -11,7 +11,7 @@ export const organizationMappingSchema = z.object({
 
 export type OrganizationMapping = z.infer<typeof organizationMappingSchema> & {
   // Backwards compatibility alias
-  dograhOrganizationId?: number;
+  AcuityOrganizationId?: number;
 };
 
 export interface TenantContext {
@@ -19,6 +19,6 @@ export interface TenantContext {
   readonly acuityOrganizationId: number;
   readonly businessTenantId: string;
   // Backwards compatibility alias
-  readonly dograhOrganizationId?: number;
+  readonly AcuityOrganizationId?: number;
   readonly isPlatformAdmin?: boolean;
 }

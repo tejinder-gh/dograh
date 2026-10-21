@@ -44,7 +44,7 @@ function mapRow(row: BusinessProfileRow): BusinessProfile {
     knowledgeSources: row.knowledge_sources || [],
     escalationPreferences: row.escalation_preferences,
     acuityWorkflowId: row.acuity_workflow_id,
-    dograhWorkflowId: row.acuity_workflow_id,
+    AcuityWorkflowId: row.acuity_workflow_id,
     isActive: row.is_active,
     createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
     updatedAt: row.updated_at instanceof Date ? row.updated_at.toISOString() : String(row.updated_at),

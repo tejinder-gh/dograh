@@ -6,9 +6,9 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
 import pytest
+from pipecat.services.acuity.flux.stt import AcuityFluxSTTService
 from pipecat.services.deepgram.flux.stt import DeepgramFluxSTTService
-from pipecat.services.deepgram.flux.stt_base import DeepgramFluxSTTSettings
-from pipecat.services.dograh.flux.stt import DograhFluxSTTService
+from pipecat.services.deepgram.flux.stt_base Acuity DeepgramFluxSTTSettings
 from pipecat.transcriptions.language import Language
 from pipecat.utils.enums import EndTaskReason
 
@@ -24,7 +24,7 @@ from api.tests.test_agent_transfer import (
 from pipecat.tests import MockLLMService
 
 
-@pytest.fixture(params=[DeepgramFluxSTTService, DograhFluxSTTService])
+@pytest.fixture(params=[DeepgramFluxSTTService, AcuityFluxSTTService])
 def stt(request):
     service = request.param(
         api_key="test-key",
@@ -46,7 +46,7 @@ def stt(request):
     config_type = (
         registry.DeepgramSTTConfiguration
         if request.param is DeepgramFluxSTTService
-        else registry.DograhSTTService
+        else registry.AcuitySTTService
     )
     service.test_config = config_type(
         model="flux-general-multi"

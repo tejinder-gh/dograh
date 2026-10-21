@@ -75,7 +75,7 @@ async def get_effective_ai_model_configuration_for_workflow(
     return resolved_config.effective
 
 
-def dograh_embeddings_base_url() -> str:
+def acuity_embeddings_base_url() -> str:
     # AsyncOpenAI appends "/embeddings"; MPS exposes that under /api/v1/llm.
     return f"{MPS_API_URL}/api/v1/llm"
 
@@ -85,6 +85,6 @@ def apply_managed_embeddings_base_url(
     provider: str | None,
     base_url: str | None,
 ) -> str | None:
-    if provider == ServiceProviders.DOGRAH.value or provider == ServiceProviders.DOGRAH:
-        return dograh_embeddings_base_url()
+    if provider == ServiceProviders.Acuity.value or provider == ServiceProviders.Acuity:
+        return Acuity_embeddings_base_url()
     return base_url

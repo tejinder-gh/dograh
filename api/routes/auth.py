@@ -116,6 +116,7 @@ async def login(request: LoginRequest):
             email=user.email,
             organization_id=user.selected_organization_id,
             provider_id=user.provider_id,
+            is_superuser=bool(getattr(user, "is_superuser", False)),
         ),
     )
 
@@ -127,4 +128,5 @@ async def get_current_user(user: UserModel = Depends(get_user)):
         email=user.email,
         organization_id=user.selected_organization_id,
         provider_id=user.provider_id,
+        is_superuser=bool(getattr(user, "is_superuser", False)),
     )

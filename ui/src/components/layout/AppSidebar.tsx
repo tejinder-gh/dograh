@@ -94,6 +94,11 @@ const NAV_SECTIONS: SidebarNavSection[] = [
     label: "BUSINESS",
     items: [
       {
+        title: "Client Intelligence",
+        url: "/dashboard",
+        icon: TrendingUp,
+      },
+      {
         title: "Business Profiles",
         url: "/business/profiles",
         icon: Briefcase,
@@ -178,7 +183,12 @@ const NAV_SECTIONS: SidebarNavSection[] = [
         title: "Reports",
         url: "/reports",
         icon: FileText,
-      }
+      },
+      {
+        title: "Platform Command",
+        url: "/admin/dashboard",
+        icon: ShieldCheck,
+      },
     ],
   },
 ];

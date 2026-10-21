@@ -35,8 +35,6 @@ export async function findByAcuityOrgId(
   return mapRow(res.rows[0]);
 }
 
-export const findByDograhOrgId = findByAcuityOrgId;
-
 export async function findByTenantId(
   tenantId: string
 ): Promise<OrganizationMapping | null> {

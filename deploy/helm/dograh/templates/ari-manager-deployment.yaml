@@ -7,10 +7,10 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "dograh.ariManager.fullname" . }}
+  name: {{ include "Acuity.ariManager.fullname" . }}
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "dograh.labels" . | nindent 4 }}
+    {{- include "Acuity.labels" . | nindent 4 }}
     app.kubernetes.io/component: ari-manager
 spec:
   replicas: 1
@@ -18,12 +18,12 @@ spec:
     type: Recreate
   selector:
     matchLabels:
-      {{- include "dograh.selectorLabels" . | nindent 6 }}
+      {{- include "Acuity.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: ari-manager
   template:
     metadata:
       labels:
-        {{- include "dograh.selectorLabels" . | nindent 8 }}
+        {{- include "Acuity.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: ari-manager
       annotations:
         # Roll pods when the ConfigMap changes. See web-deployment.yaml for
@@ -33,20 +33,20 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
-      serviceAccountName: {{ include "dograh.serviceAccountName" . }}
+      serviceAccountName: {{ include "Acuity.serviceAccountName" . }}
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       containers:
         - name: ari-manager
-          image: {{ include "dograh.image" . }}
+          image: {{ include "Acuity.image" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command: ["./scripts/run_ari_manager.sh"]
           envFrom:
-            {{- include "dograh.backendEnvFrom" . | nindent 12 }}
+            {{- include "Acuity.backendEnvFrom" . | nindent 12 }}
           env:
-            {{- include "dograh.dbEnv" . | nindent 12 }}
+            {{- include "Acuity.dbEnv" . | nindent 12 }}
           # exec probe — no HTTP endpoint exists on ari-manager.
           livenessProbe:
             {{- toYaml .Values.ariManager.livenessProbe | nindent 12 }}
