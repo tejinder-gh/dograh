@@ -83,6 +83,7 @@ def test_omitted_temperature_preserves_existing_factory_defaults(provider):
         aws_secret_key="test-secret-key",
     )
     expected = {
+        "acuity": None,
         "Acuity": None,
         "speaches": None,
         "aws_bedrock": None,
