@@ -11,7 +11,7 @@ from typing import List, Optional
 import httpx
 from loguru import logger
 
-from api.constants import DEPLOYMENT_MODE, Acuity_MPS_SECRET_KEY, MPS_API_URL
+from api.constants import DEPLOYMENT_MODE, MPS_API_URL, Acuity_MPS_SECRET_KEY
 from api.errors.failure import ErrorSource, classify_exception, log_failure
 from api.errors.mps import MPSUnavailableError
 

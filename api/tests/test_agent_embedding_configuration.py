@@ -6,7 +6,9 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from api.schemas.ai_model_configuration import EffectiveAIModelConfiguration
-from api.services.configuration.ai_model_configuration import acuity_embeddings_base_url
+from api.services.configuration.ai_model_configuration import (
+    acuity_embeddings_base_url,
+)
 from api.services.configuration.registry import (
     AcuityEmbeddingsConfiguration,
     OpenAIEmbeddingsConfiguration,
@@ -65,7 +67,7 @@ async def test_registered_kb_callback_uses_captured_visit_not_active_agent(monke
     assert arguments["document_uuids"] == ["destination-document"]
     assert arguments["embeddings_api_key"] == "selected-key"
     assert arguments["embeddings_model"] == "Acuity_embedding_v1"
-    assert arguments["embeddings_base_url"] == Acuity_embeddings_base_url()
+    assert arguments["embeddings_base_url"] == acuity_embeddings_base_url()
     assert arguments["correlation_id"] == "authorized-run"
     result.assert_awaited_once_with({"chunks": []})
 

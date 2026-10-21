@@ -86,5 +86,5 @@ def apply_managed_embeddings_base_url(
     base_url: str | None,
 ) -> str | None:
     if provider == ServiceProviders.Acuity.value or provider == ServiceProviders.Acuity:
-        return Acuity_embeddings_base_url()
+        return acuity_embeddings_base_url()
     return base_url

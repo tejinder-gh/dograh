@@ -795,9 +795,7 @@ class OrganizationUsageCycleModel(Base):
         comment="Deprecated. MPS owns quota and credit ledger state.",
         info={"deprecated": True},
     )
-    used_Acuity_tokens = Column(
-        "used_acuity_tokens", Float, nullable=False, default=0
-    )
+    used_Acuity_tokens = Column("used_acuity_tokens", Float, nullable=False, default=0)
     total_duration_seconds = Column(
         Integer, nullable=False, default=0, server_default=text("0")
     )

@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 from pipecat.services.acuity.flux.stt import AcuityFluxSTTService
 from pipecat.services.deepgram.flux.stt import DeepgramFluxSTTService
-from pipecat.services.deepgram.flux.stt_base Acuity DeepgramFluxSTTSettings
+from pipecat.services.deepgram.flux.stt_base import DeepgramFluxSTTSettings
 from pipecat.transcriptions.language import Language
 from pipecat.utils.enums import EndTaskReason
 

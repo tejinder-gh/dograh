@@ -9,8 +9,8 @@ from pipecat.transcriptions.language import Language
 from api.services.configuration.registry import AcuitySTTService, ServiceProviders
 from api.services.pipecat.audio_config import AudioConfig
 from api.services.pipecat.service_factory import (
-    acuity_stt_uses_flux_language,
-    Acuity_stt_service,
+    Acuity_stt_uses_flux_language,
+    create_stt_service,
     stt_uses_external_turns,
 )
 
@@ -107,7 +107,7 @@ def test_Acuity_flux_sends_combined_language_hints_to_proxy(language, hints):
     )
     service = create_stt_service(config, _audio_config(), correlation_id="corr-123")
 
-    query = parse_qs(service._build_Acuity_query_string())
+    query = parse_qs(service._build_dograh_query_string())
     assert query["model"] == ["flux-general-multi"]
     assert query["language_hint"] == ["en", "es"]
     assert query["correlation_id"] == ["corr-123"]

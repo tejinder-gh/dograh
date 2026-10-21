@@ -1,10 +1,10 @@
 """Generative AI services for embeddings and document processing."""
 
 from .embedding import (
+    AcuityEmbeddingService,
     AzureEmbeddingAPIKeyNotConfiguredError,
     AzureOpenAIEmbeddingService,
     BaseEmbeddingService,
-    AcuityEmbeddingService,
     EmbeddingAPIKeyNotConfiguredError,
     OpenAIEmbeddingService,
     build_embedding_service,
