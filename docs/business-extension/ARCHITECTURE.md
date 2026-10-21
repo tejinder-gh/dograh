@@ -104,38 +104,50 @@ sequenceDiagram
     autonumber
     actor User as User / Browser
     participant NextUI as Next.js Server Route (/api/business/*)
-    participant DograhAuth as Dograh Session Store (FastAPI/DB)
+    participant DograhAuth as Dograh Auth Backend (/api/v1/auth/me)
     participant BizAPI as Business Extension API (:4000)
     participant DB as PostgreSQL (Least-Privilege User)
 
-    User->>NextUI: GET /api/business/contacts (Cookie: OSS_USER / OSS_TOKEN)
-    NextUI->>DograhAuth: Validate cookie session & extract organizationId
-    DograhAuth-->>NextUI: Verified User (id=1, org_id=1)
-    NextUI->>BizAPI: GET /api/contacts (Header: X-Dograh-Organization-Id: 1, X-Extension-Secret: ...)
-    BizAPI->>BizAPI: Validate shared extension secret (Reject forged/missing -> 401)
+    User->>NextUI: GET /api/business/contacts (Bearer token or OSS_TOKEN cookie)
+    Note over NextUI: OSS_USER cookie is strictly IGNORED (anti-spoofing)
+    NextUI->>DograhAuth: Authoritatively verify access token (GET /api/v1/auth/me)
+    DograhAuth-->>NextUI: Authoritative identity { id: 5, organization_id: 5 }
+    NextUI->>NextUI: Generate short-lived HMAC-SHA256 assertion (binds user, org, deployment, nonce, exp)
+    NextUI->>BizAPI: GET /api/contacts (Header: X-Internal-Assertion: <jwt>)
+    BizAPI->>BizAPI: Verify assertion signature, audience, deployment, exp, & anti-replay nonce
     BizAPI->>DB: Verify organization exists & active in public.organizations (Reject inactive -> 403)
-    BizAPI->>DB: Resolve tenant_id from organization_mappings WHERE dograh_organization_id = 1
-    DB-->>BizAPI: tenant_id = <uuid-org-1>
-    BizAPI->>DB: SELECT * FROM business_ext.contacts WHERE tenant_id = <uuid-org-1>
-    DB-->>BizAPI: Contacts rows for Org 1 only
+    BizAPI->>DB: Verify user is active member in public.organization_users (Reject revoked/stale -> 403)
+    BizAPI->>DB: Resolve tenant_id from organization_mappings WHERE dograh_organization_id = 5
+    DB-->>BizAPI: tenant_id = <uuid-org-5>
+    BizAPI->>DB: SELECT * FROM business_ext.contacts WHERE tenant_id = <uuid-org-5>
+    DB-->>BizAPI: Contacts rows for Org 5 only
     BizAPI-->>NextUI: JSON payload
     NextUI-->>User: JSON response
 ```
 
-### Security Safeguards & Least-Privilege Architecture
-1. **No Client-Supplied Tenant Authority**: The browser cannot pass `tenant_id` or `organization_id` to override server-determined context. Any client-provided tenant headers are stripped before processing.
-2. **Server-Side Proxy Gating**: Next.js API routes (`ui/src/app/api/business/*`) authenticate the session via `getServerUser()` before relaying to the Business API.
-3. **Internal Secret Defense**: Business API strictly verifies `X-Extension-Secret`. Public or forged direct requests immediately fail-closed with `401 Unauthorized`.
-4. **Active Organization Verification**: Incoming organizations are verified against Dograh's `public.organizations` (`verifyOrganizationActive`). Non-existent or disabled organizations return `403 Forbidden`.
-5. **Cross-Tenant Resource Verification**:
-   - `verifyWorkflowOwnership(dograhOrgId, workflowId)`: Blocks binding foreign workflows to business profiles.
+### Security Safeguards & Cryptographic Boundary Architecture
+1. **Zero Cookie Claim Authority**: `OSS_USER` cookie contents are completely ignored for authorization. Identity and active organization are resolved exclusively via authenticated server-side calls to Dograh core backend (`/api/v1/auth/me`).
+2. **Cryptographically Signed Internal Assertions**:
+   - The UI proxy signs short-lived (60s TTL) HS256 HMAC assertions using a high-entropy secret (`BUSINESS_EXT_SECRET`, minimum 32 chars).
+   - Assertion binds verified user (`sub`), verified organization (`org`), server-configured deployment ID (`dep`), audience (`business-extension-api`), issuer (`dograh-ui-proxy`), issued-at (`iat`), expiration (`exp`), and unique nonce (`nonce`).
+   - Any caller-supplied spoofed headers (`X-Dograh-Organization-Id`, `X-Dograh-Deployment-Id`, `X-Extension-Secret`) are stripped at the proxy.
+3. **Replay & Mutation Protection**: In-memory nonce tracking cache prevents replay of consequential mutations (e.g., duplicated contact creation, updates, or deletions). Replayed assertions fail closed with `401 Unauthorized`.
+4. **Hardened Configuration & Fail-Closed Startup**:
+   - Publicly known development secrets are blocked (`KNOWN_INSECURE_SECRETS`). Missing, short (<32 chars), or insecure secrets cause immediate startup failure (`Fatal configuration error`).
+   - Secrets are scrubbed from all logs, error objects, and test outputs.
+5. **Private Ingress Isolation**: Business API binds strictly to `127.0.0.1` (loopback / private interface), blocking direct public ingress in deployed environments.
+6. **Authoritative Membership & Active Org Verification**:
+   - `verifyOrganizationActive(payload.org)`: Verifies organization exists and is active in Dograh's `public.organizations`.
+   - `verifyUserOrganizationMembership(payload.sub, payload.org)`: Authoritatively checks Dograh's `public.organization_users` to deny revoked memberships or stale organization selections (`403 Forbidden`).
+7. **Cross-Tenant Resource Verification**:
+   - `verifyWorkflowOwnership(dograhOrgId, workflowId)`: Blocks binding foreign workflows to business profiles (`403 Forbidden`).
    - `verifyWorkflowDefinitionOwnership(dograhOrgId, definitionId, workflowId)`: Blocks associating foreign workflow versions.
    - `verifyRunOwnership(dograhOrgId, runId, workflowId)`: Blocks associating foreign call runs with CRM interactions.
-6. **Cross-Tenant Data Isolation**: Every database query in `business_ext` includes `WHERE tenant_id = $1` with parameterized bindings. Cross-tenant access attempts return `404 Not Found` to prevent entity enumeration.
-7. **Least-Privilege Database User (`business_app_user`)**:
+8. **Cross-Tenant Data Isolation**: Every database query in `business_ext` includes parameterized `WHERE tenant_id = $1` filters. Foreign access attempts return `404 Not Found` to prevent entity enumeration.
+9. **Least-Privilege Database Role (`business_app_user`)**:
    - Executes with `NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT` (`rolsuper = f`).
    - Granted full DDL/DML privileges exclusively on the `business_ext` schema.
-   - Granted strictly read-only `SELECT` access on Dograh's `public.organizations`, `public.workflows`, `public.workflow_definitions`, `public.workflow_runs`, and `public.users`.
+   - Granted strictly read-only `SELECT` access on Dograh's `public.organizations`, `public.workflows`, `public.workflow_definitions`, `public.workflow_runs`, `public.users`, and `public.organization_users`.
    - Direct write attempts to `public.*` tables are denied at the database engine level with `insufficient_privilege` (`42501`).
 
 ---

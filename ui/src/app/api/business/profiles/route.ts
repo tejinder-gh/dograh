@@ -4,8 +4,8 @@ import { callBusinessApi } from '@/lib/businessApiServer';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
-  const res = await callBusinessApi('/api/business-profiles');
+export async function GET(req: NextRequest) {
+  const res = await callBusinessApi('/api/business-profiles', {}, req);
   const data = await res.json();
   return NextResponse.json(data, { status: res.status });
 }
@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
   const res = await callBusinessApi('/api/business-profiles', {
     method: 'POST',
     body,
-  });
+  }, req);
   const data = await res.json();
   return NextResponse.json(data, { status: res.status });
 }

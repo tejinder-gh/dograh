@@ -1,42 +1,96 @@
 import fs from 'fs/promises';
 import path from 'path';
-import { query } from './database';
+import { Pool, type PoolClient } from 'pg';
+import { env } from './env';
 
-export async function runMigrations(): Promise<void> {
-  const migrationPath = path.resolve(__dirname, '../../migrations/001_business_ext_init.sql');
-  const sql = await fs.readFile(migrationPath, 'utf-8');
+const migrationDatabaseUrl =
+  env.MIGRATION_DATABASE_URL ||
+  process.env.MIGRATION_DATABASE_URL ||
+  env.DATABASE_URL;
 
-  // Ensure migrations tracking table exists in business_ext
-  await query('CREATE SCHEMA IF NOT EXISTS business_ext;');
-  await query(`
-    CREATE TABLE IF NOT EXISTS business_ext.schema_migrations (
-      id VARCHAR(255) PRIMARY KEY,
-      applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+const migrationPool = new Pool(
+  migrationDatabaseUrl
+    ? { connectionString: migrationDatabaseUrl }
+    : {
+        host: env.POSTGRES_HOST,
+        port: env.POSTGRES_PORT,
+        user: env.POSTGRES_USER,
+        password: env.POSTGRES_PASSWORD,
+        database: env.POSTGRES_DB,
+      }
+);
+
+// Lock key for advisory locking to prevent concurrent migrations racing
+const MIGRATION_ADVISORY_LOCK_KEY = 718291;
+
+export async function runMigrations(clientOverride?: PoolClient): Promise<void> {
+  const client = clientOverride || (await migrationPool.connect());
+  const shouldRelease = !clientOverride;
+
+  try {
+    const migrationPath = path.resolve(__dirname, '../../migrations/001_business_ext_init.sql');
+    const sql = await fs.readFile(migrationPath, 'utf-8');
+    const migrationId = '001_business_ext_init';
+
+    await client.query('BEGIN');
+
+    // Acquire transaction-scoped advisory lock to prevent concurrent migration race conditions
+    await client.query('SELECT pg_advisory_xact_lock($1)', [MIGRATION_ADVISORY_LOCK_KEY]);
+
+    // Ensure migrations tracking table exists in business_ext
+    await client.query('CREATE SCHEMA IF NOT EXISTS business_ext;');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS business_ext.schema_migrations (
+        id VARCHAR(255) PRIMARY KEY,
+        applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+
+    // Check if migration has already been applied
+    const check = await client.query(
+      'SELECT id FROM business_ext.schema_migrations WHERE id = $1 FOR UPDATE',
+      [migrationId]
     );
-  `);
 
-  const migrationId = '001_business_ext_init';
-  const check = await query('SELECT id FROM business_ext.schema_migrations WHERE id = $1', [migrationId]);
+    if (check.rows.length === 0) {
+      console.log(`[migrator] Applying migration: ${migrationId}...`);
+      await client.query(sql);
+      await client.query('INSERT INTO business_ext.schema_migrations (id) VALUES ($1)', [migrationId]);
+      console.log(`[migrator] Migration ${migrationId} applied successfully.`);
+    } else {
+      console.log(`[migrator] Migration ${migrationId} already applied. Skipping.`);
+    }
 
-  if (check.rows.length === 0) {
-    console.log(`Applying migration: ${migrationId}...`);
-    await query(sql);
-    await query('INSERT INTO business_ext.schema_migrations (id) VALUES ($1)', [migrationId]);
-    console.log(`Migration ${migrationId} applied successfully.`);
-  } else {
-    // Re-run idempotent table creations if needed during development
-    await query(sql);
+    await client.query('COMMIT');
+  } catch (error) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      // Ignore rollback errors if connection was lost
+    }
+    console.error('[migrator] Migration transaction rolled back due to error:', error);
+    throw error;
+  } finally {
+    if (shouldRelease) {
+      client.release();
+    }
   }
+}
+
+export async function closeMigrationPool(): Promise<void> {
+  await migrationPool.end();
 }
 
 if (import.meta.main) {
   runMigrations()
-    .then(() => {
-      console.log('Migrations completed.');
+    .then(async () => {
+      console.log('[migrator] Migrations complete.');
+      await closeMigrationPool();
       process.exit(0);
     })
-    .catch((err) => {
-      console.error('Migration failed:', err);
+    .catch(async (err) => {
+      console.error('[migrator] Migration failed:', err);
+      await closeMigrationPool();
       process.exit(1);
     });
 }

@@ -1,13 +1,10 @@
 import { createApp } from './app';
 import { env } from './config/env';
-import { runMigrations } from './config/migrator';
 
 const app = createApp();
 
 async function bootstrap() {
-  console.log('Ensuring business_ext database migrations are up to date...');
-  await runMigrations();
-  console.log(`[business-api] Service ready on http://127.0.0.1:${env.PORT}`);
+  console.log(`[business-api] Service ready on http://${env.HOST}:${env.PORT}`);
 }
 
 if (import.meta.main) {
@@ -19,5 +16,6 @@ if (import.meta.main) {
 
 export default {
   port: env.PORT,
+  hostname: env.HOST,
   fetch: app.fetch,
 };

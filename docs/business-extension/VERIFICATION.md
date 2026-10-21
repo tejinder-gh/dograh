@@ -1,369 +1,191 @@
-# Stage 1 Verification & Quality Report (Stage 1 Corrections)
+# Stage 1 Security Remediation & Verification Report (Stage A)
 
 **Project**: AI Calling Agent OS  
 **Target Base**: Dograh (`dograh-hq/dograh` @ `b677cac4acc6f0dc18010457c98af75e137f8181`)  
-**Fork Repository**: `https://github.com/tejinder-gh/dograh`  
-**Feature Branch**: `feat/business-os-foundation`  
-**Draft Pull Request**: [https://github.com/tejinder-gh/dograh/pull/1](https://github.com/tejinder-gh/dograh/pull/1)  
-**Base Commit SHA**: `b677cac4acc6f0dc18010457c98af75e137f8181`  
-**Feature Commit SHA**: `b8efb69ab7362f7def310444b48feb2ee8518ee2`  
-**Status**: Stage 1 Verification Complete — Awaiting Staff Engineer Review Gate  
+**Fork Repository**: [https://github.com/tejinder-gh/dograh](https://github.com/tejinder-gh/dograh)  
+**Branch**: `feat/business-os-foundation`  
+**Pull Request**: [https://github.com/tejinder-gh/dograh/pull/1](https://github.com/tejinder-gh/dograh/pull/1) (Draft)  
+**Review Gate**: Staff Engineer Security Review Gate for Stage A (P0-1, P0-2, P1-4, P1-5)  
+**Status**: Stage A Implementation & Verification Complete — Awaiting Security Gate Approval  
 
 ---
 
-## 1. Task 1 — Repository Provenance & Draft PR Publication
+## 1. Executive Summary & Scope Regression Resolution
 
-In strict adherence to the implementation contract, all changes have been pushed to our own Dograh fork (`tejinder-gh/dograh`) and submitted as a Draft Pull Request against the pinned Dograh upstream commit. Direct pushes to `dograh-hq/dograh` are permanently blocked via git remote safety guards (`pushDefault = DO_NOT_PUSH_TO_UPSTREAM`). Upstream license and copyright notices (Apache-2.0 / MIT) remain strictly intact.
+This report details the resolution of all critical security vulnerabilities, trust boundary defects, and privilege hazards raised during the Staff Engineer reviews (#5593918140 and follow-up on HEAD `74f60f31`).
 
-### 1.1 Remote & Branch Topology
-```text
-origin    git@github.com:tejinder-gh/dograh.git (fetch)
-origin    git@github.com:tejinder-gh/dograh.git (push)
-upstream  git@github.com:dograh-hq/dograh.git (fetch)
-upstream  DO_NOT_PUSH_TO_UPSTREAM (push)
-```
-
-- **Draft Pull Request**: [https://github.com/tejinder-gh/dograh/pull/1](https://github.com/tejinder-gh/dograh/pull/1)
-- **Target Branch**: `main` (pinned to `b677cac4acc6f0dc18010457c98af75e137f8181`)
-- **Review Branch**: `feat/business-os-foundation`
-
-### 1.2 Changed Files Inventory
-```text
-extensions/business-api/
-├── package.json
-├── tsconfig.json
-├── migrations/
-│   └── 001_business_ext_init.sql
-└── src/
-    ├── app.ts
-    ├── server.ts
-    ├── adapters/
-    │   └── dograh-api.adapter.ts
-    ├── config/
-    │   ├── database.ts
-    │   ├── env.ts
-    │   └── migrator.ts
-    ├── domain/
-    │   ├── business-profile.types.ts
-    │   ├── contact.types.ts
-    │   ├── formatters.ts
-    │   ├── interaction.types.ts
-    │   └── scoring.ts
-    ├── middleware/
-    │   ├── auth.middleware.ts
-    │   └── error.middleware.ts
-    ├── repositories/
-    │   ├── business-profile.repository.ts
-    │   ├── contact.repository.ts
-    │   ├── interaction.repository.ts
-    │   └── tenant-mapping.repository.ts
-    ├── routes/
-    │   ├── business-profile.routes.ts
-    │   ├── crm.routes.ts
-    │   ├── health.routes.ts
-    │   └── index.ts
-    ├── services/
-    │   ├── business-profile.service.ts
-    │   └── crm.service.ts
-    └── tests/
-        ├── fixtures/
-        │   └── db.fixture.ts
-        ├── integration/
-        │   ├── business-profile.test.ts
-        │   ├── crm-isolation.test.ts
-        │   ├── http-security.test.ts
-        │   ├── interaction-run.test.ts
-        │   └── tenant-mapping.test.ts
-        └── unit/
-            ├── scoring.test.ts
-            └── validation.test.ts
-
-ui/
-├── src/
-│   ├── app/
-│   │   ├── business/
-│   │   │   ├── contacts/page.tsx
-│   │   │   └── profiles/page.tsx
-│   │   └── api/business/
-│   │       ├── contacts/
-│   │       │   ├── route.ts
-│   │       │   ├── [id]/route.ts
-│   │       │   ├── [id]/timeline/route.ts
-│   │       │   └── batch/route.ts
-│   │       ├── profiles/
-│   │       │   ├── route.ts
-│   │       │   └── [id]/route.ts
-│   │       └── interactions/
-│   │           └── route.ts
-│   ├── components/
-│   │   ├── AppSidebar.tsx
-│   │   └── business/
-│   │       ├── crm/
-│   │       │   ├── ContactDetailDrawer.tsx
-│   │       │   ├── ContactDirectoryTable.tsx
-│   │       │   ├── ContactFormModal.tsx
-│   │       │   └── LeadUploadModal.tsx
-│   │       └── profiles/
-│   │           ├── BusinessProfileCard.tsx
-│   │           └── BusinessProfileFormModal.tsx
-│   ├── config/
-│   │   ├── branding.ts
-│   │   └── branding.test.ts
-│   └── lib/
-│       └── business-client.ts
-
-docs/business-extension/
-├── ARCHITECTURE.md
-├── MIGRATION_MATRIX.md
-└── VERIFICATION.md
-
-work/
-└── e2e-stage1-verification.ts
-```
+### 1.1 Resolution of PR Scope Regression
+- **Issue**: Commit `74f60f31` accidentally introduced the legacy codebase archive under `legacy/ai-calling-agent/`, inflating the PR diff from 63 to 155 files (+29,414 lines).
+- **Remediation**: Executed full revert commit `43c2c1f6` (`revert: remove legacy/ai-calling-agent archive to resolve PR scope regression`), eliminating all 92 legacy archive files (-23,285 lines).
+- **Current State**: The PR contains only files strictly relevant to the Business Extension Foundation, its proxy boundary, and associated documentation/tests.
 
 ---
 
-## 2. Task 2 — Authentication, Tenant Isolation & HTTP Security
+## 2. P0-1: Elimination of Forgeable Organization Identity
 
-### 2.1 Identity Derivation & Zero-Trust Boundary
-Identity is strictly derived on the server from verified Dograh sessions:
-1. **Browser Client Request**: The browser makes HTTP requests solely to Next.js route handlers (`/api/business/*`).
-2. **Server-Side Session Resolution**: Route handlers call `getServerUser()` which cryptographically verifies the `OSS_USER` / `OSS_TOKEN` cookie against Dograh's authentication store.
-3. **Internal Gating**: Next.js route handlers inject:
-   - `X-Dograh-Organization-Id`: The user's active, verified organization ID.
-   - `X-Dograh-User-Id`: The authenticated user ID.
-   - `X-Extension-Secret`: High-entropy shared internal service secret.
-4. **Header Anti-Spoofing**: Browser-provided tenant, organization, or internal-secret headers are stripped at the edge. The Business API (`:4000`) listens on an isolated internal network and immediately rejects requests lacking the internal secret with `401 Unauthorized`.
-5. **Active Organization Verification**: `auth.middleware.ts` queries Dograh's `public.organizations` via `verifyOrganizationActive()`. Requests for inactive, unmapped, or non-existent organizations are rejected with `403 Forbidden`.
-6. **Cross-Tenant Resource Verification**:
-   - `verifyWorkflowOwnership(dograhOrgId, workflowId)`: Ensures linked workflows are owned by the organization.
-   - `verifyWorkflowDefinitionOwnership(dograhOrgId, definitionId, workflowId)`: Enforces definition scoping.
-   - `verifyRunOwnership(dograhOrgId, runId, workflowId)`: Prevents cross-tenant call run spoofing.
-   - Foreign resource references fail closed with `403 Forbidden`.
+### 2.1 Failure Mechanism Identified
+In the previous implementation, `businessApiServer.ts` invoked `getServerUser()`, which extracted the user and organization identity from the `OSS_USER` cookie. Because the `OSS_USER` cookie is an unverified, client-writable JSON object in Dograh OSS mode, an attacker could forge the `organizationId` payload to impersonate any organization while providing an absent, expired, or foreign `OSS_TOKEN`.
 
-### 2.2 Live HTTP Security Outcomes
-Demonstrated via automated HTTP probes against the running service:
+### 2.2 Architectural Remediation
+1. **Zero Trust in `OSS_USER` Cookie**: `ui/src/lib/businessApiServer.ts` now completely ignores the `OSS_USER` cookie for authorization.
+2. **Mandatory Dograh Core `/auth/me` Session Verification**: On **every** request to `/api/business/*`, `getVerifiedSession(req)` extracts the token from the `Authorization: Bearer` header or `OSS_TOKEN_COOKIE`. It then makes an authoritative call to Dograh's backend at `GET /api/v1/auth/me`.
+3. **Strict Validation**: If the token is missing, expired, invalid, or belongs to a user without an active selected organization, the request is immediately rejected at the Next.js edge with `401 Unauthorized`.
+4. **Header Anti-Spoofing**: Any incoming headers such as `X-Dograh-Organization-Id`, `X-Dograh-User-Id`, or `X-Internal-Assertion` supplied by the browser or external caller are explicitly stripped before forwarding.
 
-| Probe ID | HTTP Method & Target | Headers Passed | Expected Status | Actual Status | Security Enforcement | Result |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **SEC-1** | `GET /api/contacts` | Missing `X-Extension-Secret` | `401 Unauthorized` | `401` | Direct public probe blocked | **PASS** |
-| **SEC-2** | `GET /api/contacts` | Forged `X-Extension-Secret: attacker-key` | `401 Unauthorized` | `401` | Unauthorized client denied | **PASS** |
-| **SEC-3** | `GET /api/contacts` | Valid Secret, Missing `X-Dograh-Organization-Id` | `400 Bad Request` | `400` | Unscoped request rejected | **PASS** |
-| **SEC-4** | `GET /api/contacts` | Valid Secret, Inactive/Non-existent Org `999999` | `403 Forbidden` | `403` | Foreign/dead org blocked | **PASS** |
-| **SEC-5** | `POST /api/business-profiles` | Valid Secret, Org Beta (4) linking Org Alpha Workflow (11) | `403 Forbidden` | `403` | Cross-tenant workflow hijacking blocked | **PASS** |
-| **SEC-6** | `POST /api/interactions` | Valid Secret, Org Beta (4) logging against Org Alpha Contact | `403 Forbidden` | `403` | Foreign contact mutation denied | **PASS** |
+### 2.3 Real Adversarial Test Coverage
+Implemented in checked-in test suite [business-auth.test.ts](file:///Users/tejindersingh/dev/AI/agents/mentize/AI%20calling%20agent%20OS/dograh/ui/src/app/api/business/business-auth.test.ts), which exercises actual Next.js route handlers (`POST /api/business/contacts`, `GET /api/business/contacts/[id]`, etc.):
+- **A1.1**: Forged `OSS_USER` cookie with no token -> `401 Unauthorized` (**PASS**).
+- **A1.2**: Valid Org A token paired with forged Org B `OSS_USER` cookie -> operates strictly on Org A, completely ignoring Org B cookie claims (**PASS**).
+- **A1.3**: Cryptographically invalid or expired token -> `401 Unauthorized` (**PASS**).
+- **A1.4**: Session without active organization -> `401 Unauthorized` (**PASS**).
+- **A1.5**: User without membership in requested organization -> `401 Unauthorized` (**PASS**).
+- **A1.6**: Completely missing session -> `401 Unauthorized` (**PASS**).
+- **A1.7**: Valid Org A session successfully executes authorized operations (**PASS**).
 
 ---
 
-## 3. Task 3 — Database Test Isolation & Least-Privilege Role
+## 3. P0-2: Hardening Internal Business API Authentication
 
-### 3.1 Local Dograh Database Schema Inventory
-The local Dograh database (`postgres`) contains the `business_ext` schema created during initial exploration. In strict compliance with Task 3, this schema was preserved intact without unauthorized deletion or modification:
-- **Tables (6)**: `schema_migrations`, `organization_mappings`, `business_profiles`, `contacts`, `contact_timeline_events`, `interactions`
-- **Total Database Constraints**: 22 constraints (primary keys, foreign keys, unique indexes)
-- **Status in `postgres`**: Fully preserved and intact.
+### 3.1 Failure Mechanism Identified
+Previously, both `ui` and `extensions/business-api` fell back to a shared default secret `BUSINESS_EXT_SECRET = 'dev_dograh_extension_secret_change_in_prod'`, allowing any entity with access to the default secret to craft requests asserting arbitrary `X-Dograh-Organization-Id` and `X-Dograh-Deployment-Id` headers. Furthermore, the Business API listened on all interfaces without host binding.
 
-### 3.2 Disposable Test Database Creation
-A dedicated, isolated test database was provisioned for test execution:
-```bash
-docker exec mentize-dograh-postgres-1 createdb -U postgres dograh_business_test
-```
+### 3.2 Architectural Remediation
+1. **Mandatory High-Entropy Secret & Rejection of Insecure Defaults**:
+   - `extensions/business-api/src/config/env.ts` enforces `BUSINESS_EXT_SECRET` minimum length of 32 characters via Zod.
+   - Hardcoded rejection of known insecure/default secrets (`KNOWN_INSECURE_SECRETS`).
+   - Service fails closed at startup if secret is missing, too short, or matches a default placeholder.
+2. **Cryptographically Signed Scoped Assertions (`X-Internal-Assertion`)**:
+   - Instead of static shared secrets and arbitrary caller headers, the Next.js server signs a short-lived (60s) HMAC-SHA256 JWT assertion ([businessAssertion.ts](file:///Users/tejindersingh/dev/AI/agents/mentize/AI%20calling%20agent%20OS/dograh/ui/src/lib/businessAssertion.ts)).
+   - Claims: `{ sub: userId, org: organizationId, dep: configuredDeploymentId, aud: 'dograh-business-api', iss: 'dograh-ui-server', nonce: randomUUID, exp, iat }`.
+   - Deployment ID is bound strictly by server configuration (`DOGRAH_DEPLOYMENT_ID`), never caller-selected.
+3. **Replay Cache & Signature Verification**:
+   - Business API validates assertion signature, expiration, audience, and issuer ([signed-assertion.ts](file:///Users/tejindersingh/dev/AI/agents/mentize/AI%20calling%20agent%20OS/dograh/extensions/business-api/src/config/signed-assertion.ts)).
+   - In-memory nonce cache ensures single-use execution and rejects duplicate/replayed assertions with `401 Unauthorized`.
+4. **Database-Level Membership Verification**:
+   - `auth.middleware.ts` queries Dograh core `public.organization_users` to verify the user has an active membership in the asserted organization, protecting against stale tokens or revoked access.
+   - Queries `public.organizations` to ensure the organization exists and is active.
+5. **Private Ingress Binding**:
+   - `extensions/business-api/src/server.ts` binds strictly to `127.0.0.1` (`env.HOST`).
 
-### 3.3 Least-Privilege Role Architecture
-In compliance with the Staff Engineer Contract, **zero application traffic runs as a PostgreSQL superuser**. A dedicated application role was created with minimal, defensive privileges:
-
-```sql
-CREATE ROLE business_app_user WITH 
-    LOGIN 
-    PASSWORD '...' 
-    NOSUPERUSER 
-    NOCREATEDB 
-    NOCREATEROLE 
-    NOINHERIT;
-```
-
-#### Verified Role Metadata
-```sql
-SELECT current_user, session_user, rolsuper FROM pg_roles WHERE rolname = current_user;
--- Result:
--- current_user       | session_user      | rolsuper
--- business_app_user  | business_app_user | f
-```
-
-#### Permission Boundaries
-| Target Schema / Table | Granted Privileges | Restriction / Defense |
-| :--- | :--- | :--- |
-| **`database dograh_business_test`** | `CONNECT, TEMPORARY` | Cannot create new databases or alter server config |
-| **`schema business_ext`** | `USAGE, CREATE, ALL PRIVILEGES` | Full DDL and DML within isolated extension namespace |
-| **`public.organizations`** | `SELECT` only | Read-only verification of organization active status |
-| **`public.workflows`** | `SELECT` only | Read-only verification of workflow ownership |
-| **`public.workflow_definitions`** | `SELECT` only | Read-only verification of definition ownership |
-| **`public.workflow_runs`** | `SELECT` only | Read-only verification of call run correlation |
-| **`public.users`** | `SELECT` only | Read-only verification of user identity |
-| **Any Write to `public.*`** | **DENIED** | Direct write attempt yields `ERROR: permission denied for table workflows` (`42501`) |
-
-### 3.4 Migration Repeatability & Idempotency
-- Migrations executed against `dograh_business_test`:
-  ```bash
-  DATABASE_URL="postgresql://business_app_user:${APP_PASSWORD}@127.0.0.1:5432/dograh_business_test" \
-    bun run src/config/migrator.ts
-  ```
-- Repeat runs verified as cleanly idempotent with zero duplicate key or constraint violation errors.
-
-### 3.5 Credentials Security & Rotation
-- All hardcoded database credentials and JWT tokens removed from command examples, documentation, and source code.
-- Operational commands utilize environment variables (`DATABASE_URL`, `EXTENSION_INTERNAL_SECRET`).
-- Exposed local development credentials rotated.
+### 3.3 Test Verification
+Tested in [http-security.test.ts](file:///Users/tejindersingh/dev/AI/agents/mentize/AI%20calling%20agent%20OS/dograh/extensions/business-api/src/tests/integration/http-security.test.ts):
+- Direct probe missing `X-Internal-Assertion` -> `401 Unauthorized` (**PASS**).
+- Startup fails if secret is weak or default (**PASS**).
+- Assertion with tampered organization claim -> `401 Unauthorized` (**PASS**).
+- Assertion with tampered deployment ID -> `401 Unauthorized` (**PASS**).
+- Expired assertion -> `401 Unauthorized` (**PASS**).
+- Replayed assertion (duplicate request with identical nonce) -> `401 Unauthorized` (**PASS**).
+- User not in `public.organization_users` -> `403 Forbidden` (**PASS**).
 
 ---
 
-## 4. Task 4 — Source & Runtime Parity
+## 4. P1-4: Database Least-Privilege Role & Migration Safety
 
-### 4.1 Upstream Source Checkout
-- **Upstream Repository**: [https://github.com/dograh-hq/dograh](https://github.com/dograh-hq/dograh)
-- **Verified Commit**: `b677cac4acc6f0dc18010457c98af75e137f8181`
-- **Submodules**: `pipecat` pinned at commit `b0445d050c2688755694770020bc4bf5b72eeb62`
+### 4.1 Role Privilege Hardening
+- Runtime user `business_app_user`:
+  - `rolsuper = false`, `rolcreaterole = false`, `rolcreatedb = false`, `rolinherit = false`.
+- **Dograh `public` Schema**:
+  - Granted: `SELECT` only on Dograh tables (`organizations`, `workflows`, `workflow_definitions`, `workflow_runs`, `users`, `organization_users`).
+  - Denied: `INSERT`, `UPDATE`, `DELETE`, `TRUNCATE`, `CREATE` are all strictly revoked.
+  - Revoked all broad permissions in `dograh_business_test`.
+- **Extension `business_ext` Schema**:
+  - `business_app_user` has `USAGE` and table-level `SELECT, INSERT, UPDATE, DELETE` on `business_ext.*`.
+  - `CREATE` schema privilege was revoked from runtime `business_app_user`.
 
-### 4.2 Running Service Image Provenance
-Verified against running Docker container environment:
+### 4.2 Migration Transaction Atomicity & Concurrency Safety
+- Removed runtime migration DDL execution from `server.ts` startup.
+- `extensions/business-api/src/config/migrator.ts` executes migrations within an atomic PostgreSQL transaction (`BEGIN ... COMMIT / ROLLBACK`).
+- Uses transaction-level advisory locking (`SELECT pg_advisory_xact_lock(718291)`) to prevent concurrent startup races.
+- If already applied, migrations do not re-run SQL.
+- If a migration statement fails, the transaction rolls back cleanly without writing a record to `schema_migrations`.
 
-| Service Container | Image Reference / Digest | Port Mappings | Verified Role |
-| :--- | :--- | :--- | :--- |
-| **`mentize-dograh-ui-1`** | `dograh-ui:latest` (built from `ui/`) | `0.0.0.0:3010->3000/tcp` | Next.js App Router UI & Server-side proxy |
-| **`mentize-dograh-api-1`** | `dograh-api:latest` (built from `api/`) | `0.0.0.0:8000->8000/tcp` | Dograh FastAPI core & workflow engine |
-| **`mentize-dograh-postgres-1`**| `postgres:17` | `0.0.0.0:5432->5432/tcp` | Multi-schema PostgreSQL engine |
+### 4.3 Database Privileges Test Suite
+Tested in [database-privileges.test.ts](file:///Users/tejindersingh/dev/AI/agents/mentize/AI%20calling%20agent%20OS/dograh/extensions/business-api/src/tests/integration/database-privileges.test.ts):
+- Verifies `business_app_user` is not superuser (**PASS**).
+- Verifies zero `CREATE` privilege on `public` and `business_ext` (**PASS**).
+- Verifies `has_table_privilege` is `SELECT` only on core Dograh tables (**PASS**).
+- Verifies `information_schema.role_table_grants` contains 0 non-SELECT grants on `public` (**PASS**).
+- Verifies runtime attempts to `INSERT` on `public.workflows` fails with PostgreSQL code `42501` (**PASS**).
+- Verifies runtime attempts to `UPDATE` on `public.organizations` fails with PostgreSQL code `42501` (**PASS**).
+- Verifies runtime attempts to `DELETE` on `public.users` fails with PostgreSQL code `42501` (**PASS**).
+- Verifies migration transaction atomic rollback on failure (**PASS**).
+- Verifies concurrent migration executions do not race (**PASS**).
 
-### 4.3 Dograh Backend Regression Tests (Pytest)
-Executed against clean test database (`test_db`) using `uv` with Pipecat submodule inclusion:
-```bash
-DATABASE_URL="postgresql+asyncpg://postgres:${DB_PASS}@localhost:5432/test_db" \
-REDIS_URL="redis://localhost:6379/0" \
-PYTHONPATH=.:../pipecat/src \
-uv run pytest tests/test_workflow_graph_constraints.py tests/test_workflow_versioning.py
-```
-**Outcome**:
-- `tests/test_workflow_graph_constraints.py`: **26 PASSED**
-- `tests/test_workflow_versioning.py`: **51 PASSED**
-- **Total Backend Pytest Regression**: **77 passed, 0 failures (100% pass rate)**
+---
 
-### 4.4 Dograh UI Regression Tests (Vitest)
-Executed from `ui/`:
+## 5. Requirement-to-Code-to-Test Mapping Table
+
+| Requirement | Implementation Module | Automated Test File | Test Case | Status |
+| :--- | :--- | :--- | :--- | :--- |
+| **P0-1**: No reliance on unverified `OSS_USER` cookie | `ui/src/lib/businessApiServer.ts` (`getVerifiedSession`) | `ui/src/app/api/business/business-auth.test.ts` | `A1.1: Forged OSS_USER cookie with no valid token` | **PASS** |
+| **P0-1**: Mandatory Dograh backend `/auth/me` verification | `ui/src/lib/businessApiServer.ts` (`getVerifiedSession`) | `ui/src/app/api/business/business-auth.test.ts` | `A1.3: Expired or cryptographically invalid token denied` | **PASS** |
+| **P0-1**: Prevent cross-tenant identity spoofing | `ui/src/lib/businessApiServer.ts` | `ui/src/app/api/business/business-auth.test.ts` | `A1.2: Valid Org A token with forged Org B cookie operates strictly on Org A` | **PASS** |
+| **P0-1**: Cross-tenant contact isolation | `ui/src/lib/businessApiServer.ts` & Next.js routes | `ui/src/app/api/business/business-auth.test.ts` | `A1.7: Valid Org A session executes authorized operations` | **PASS** |
+| **P0-2**: Prohibit default/short secrets at startup | `extensions/business-api/src/config/env.ts` | `extensions/business-api/src/tests/integration/http-security.test.ts` | `enforces environment configuration fails validation if secret insecure` | **PASS** |
+| **P0-2**: Cryptographic assertion authentication | `ui/src/lib/businessAssertion.ts` & `signed-assertion.ts` | `extensions/business-api/src/tests/integration/http-security.test.ts` | `rejects direct request missing X-Internal-Assertion header` | **PASS** |
+| **P0-2**: Assertion tamper resistance | `extensions/business-api/src/config/signed-assertion.ts` | `extensions/business-api/src/tests/integration/http-security.test.ts` | `rejects assertion with tampered organization claim` | **PASS** |
+| **P0-2**: Server-bound deployment ID | `extensions/business-api/src/config/signed-assertion.ts` | `extensions/business-api/src/tests/integration/http-security.test.ts` | `rejects assertion with mismatched/tampered deployment ID` | **PASS** |
+| **P0-2**: Nonce cache replay protection | `extensions/business-api/src/config/signed-assertion.ts` | `extensions/business-api/src/tests/integration/http-security.test.ts` | `prevents replay of consequential request (duplicate blocked)` | **PASS** |
+| **P0-2**: Organization membership verification | `extensions/business-api/src/adapters/dograh-api.adapter.ts` | `extensions/business-api/src/tests/integration/http-security.test.ts` | `rejects assertion if user is not a member of organization` | **PASS** |
+| **P1-4**: Non-superuser runtime role | PostgreSQL `business_app_user` | `extensions/business-api/src/tests/integration/database-privileges.test.ts` | `verifies business_app_user is not superuser` | **PASS** |
+| **P1-4**: Strictly read-only on Dograh `public.*` | PostgreSQL role grants | `extensions/business-api/src/tests/integration/database-privileges.test.ts` | `verifies business_app_user has strictly SELECT only on public tables` | **PASS** |
+| **P1-4**: Runtime mutation rejection (42501) | PostgreSQL permissions | `extensions/business-api/src/tests/integration/database-privileges.test.ts` | `rejects INSERT into public.workflows with 42501` | **PASS** |
+| **P1-4**: No runtime CREATE on schemas | PostgreSQL namespace privileges | `extensions/business-api/src/tests/integration/database-privileges.test.ts` | `verifies business_app_user has NO CREATE on public or business_ext` | **PASS** |
+| **P1-4**: Transactional migration rollback | `extensions/business-api/src/config/migrator.ts` | `extensions/business-api/src/tests/integration/database-privileges.test.ts` | `rolls back atomically and does not record migration ID if fails` | **PASS** |
+| **P1-4**: Advisory lock concurrency safety | `extensions/business-api/src/config/migrator.ts` | `extensions/business-api/src/tests/integration/database-privileges.test.ts` | `two concurrent migration executions do not race` | **PASS** |
+| **P1-5**: Real Next.js route integration suite | `ui/src/app/api/business/**` | `ui/src/app/api/business/business-auth.test.ts` | Full suite (7 tests) against real route handlers | **PASS** |
+
+---
+
+## 6. Verification Test Suite Execution Results
+
+### 6.1 `ui` Test Suite (Vitest)
 ```bash
 bun run test
 ```
-**Outcome**:
-- **62 test files passed**
-- **410 unit/integration tests passed, 0 failed**
+- **Test Files**: 63 passed (63 total)
+- **Tests**: 417 passed (417 total)
+- **Failures**: 0
+- **Duration**: 5.31s
 
----
-
-## 5. Task 5 — Real Integrated End-to-End Test (Synthetic Data)
-
-Executed via automated live runner (`work/e2e-stage1-verification.ts`) connecting to Dograh authentication on `:8000` and Business API on `:4000`:
-
+### 6.2 `extensions/business-api` Test Suite (Bun Test)
 ```bash
-bun run work/e2e-stage1-verification.ts
+bun test
 ```
+- **Test Files**: 8 passed (8 total)
+  - `scoring.test.ts` (6 tests)
+  - `validation.test.ts` (8 tests)
+  - `http-security.test.ts` (10 tests)
+  - `database-privileges.test.ts` (9 tests)
+  - `tenant-mapping.test.ts` (3 tests)
+  - `crm-isolation.test.ts` (6 tests)
+  - `interaction-run.test.ts` (2 tests)
+  - `business-profile.test.ts` (5 tests)
+- **Tests**: 49 passed (49 total)
+- **Failures**: 0
+- **Duration**: 196ms
 
-### 5.1 End-to-End Live Results Summary
-```text
-=== STARTING LIVE STAGE 1 END-TO-END INTEGRATION TEST ===
-
---- Step 1: Direct Unauthorized Probes ---
-[PASS] 1.1 Direct request missing extension secret: status=401 (expected 401)
-[PASS] 1.2 Direct request with forged extension secret: status=401 (expected 401)
-[PASS] 1.3 Direct request missing organization ID: status=400 (expected 400)
-[PASS] 1.4 Direct request with non-existent organization ID: status=403 (expected 403)
---- Step 2: Authenticated Organization Actions (Org Alpha = Org 3) ---
---- Step 3: Business Profile Management & Workflow Binding ---
-[PASS] 3.1 Org Alpha creates profile with its authorized Dograh Workflow #11: status=201 (expected 201)
-[PASS] 3.2 Org Beta attempts to hijack Org Alpha Workflow #11: status=403 (expected 403)
-[PASS] 3.3 Org Beta creates profile with unassigned workflow (null): status=201 (expected 201)
---- Step 4: CRM Contact Management ---
-[PASS] 4.1 Org Alpha creates CRM contact: status=201 (expected 201)
-[PASS] 4.2 Org Alpha updates contact notes and details: status=200 (expected 200)
---- Step 5: Dograh Call Run Association ---
-[PASS] 5.1 Org Alpha logs verified call run outcome: status=201 (expected 201)
-[PASS] 5.2 Org Beta attempts to log interaction against Org Alpha contact: status=403 (expected 403)
---- Step 6: Reload & Persistence Verification ---
-[PASS] 6.1 Org Alpha fetches contact and verifies updated call stats: status=200 (expected 200)
-[PASS] 6.2 Org Alpha fetches contact timeline: status=200 (expected 200)
---- Step 7: Cross-Organization Isolation ---
-[PASS] 7.1 Org Beta queries its contacts directory: status=200 (expected 200)
-[PASS] 7.2 Org Beta attempts direct GET on Org Alpha contact ID: status=404 (expected 404)
-[PASS] 7.3 Org Beta attempts PATCH mutation on Org Alpha contact ID: status=404 (expected 404)
-[PASS] 7.4 Org Beta attempts DELETE on Org Alpha contact ID: status=404 (expected 404)
-[PASS] 7.5 Org Beta attempts GET on Org Alpha business profile ID: status=404 (expected 404)
-
-=== LIVE E2E VERIFICATION TEST RESULTS SUMMARY ===
-┌────┬───────────────────────────────────────────────────────────────────────┬────────┬────────────────────────┬──────────┬────────┬────────┐
-│    │ Step                                                                  │ Method │ Endpoint               │ Expected │ Actual │ Result │
-├────┼───────────────────────────────────────────────────────────────────────┼────────┼────────────────────────┼──────────┼────────┼────────┤
-│  0 │ 1.1 Direct request missing extension secret                           │ GET    │ /api/contacts          │ 401      │ 401    │ PASS   │
-│  1 │ 1.2 Direct request with forged extension secret                       │ GET    │ /api/contacts          │ 401      │ 401    │ PASS   │
-│  2 │ 1.3 Direct request missing organization ID                            │ GET    │ /api/contacts          │ 400      │ 400    │ PASS   │
-│  3 │ 1.4 Direct request with non-existent organization ID                  │ GET    │ /api/contacts          │ 403      │ 403    │ PASS   │
-│  4 │ 3.1 Org Alpha creates profile with its authorized Dograh Workflow #11 │ POST   │ /api/business-profiles │ 201      │ 201    │ PASS   │
-│  5 │ 3.2 Org Beta attempts to hijack Org Alpha Workflow #11                │ POST   │ /api/business-profiles │ 403      │ 403    │ PASS   │
-│  6 │ 3.3 Org Beta creates profile with unassigned workflow (null)          │ POST   │ /api/business-profiles │ 201      │ 201    │ PASS   │
-│  7 │ 4.1 Org Alpha creates CRM contact                                     │ POST   │ /api/contacts          │ 201      │ 201    │ PASS   │
-│  8 │ 4.2 Org Alpha updates contact notes and details                       │ PATCH  │ /api/contacts/:id      │ 200      │ 200    │ PASS   │
-│  9 │ 5.1 Org Alpha logs verified call run outcome                          │ POST   │ /api/interactions      │ 201      │ 201    │ PASS   │
-│ 10 │ 5.2 Org Beta attempts to log interaction against Org Alpha contact    │ POST   │ /api/interactions      │ 403      │ 403    │ PASS   │
-│ 11 │ 6.1 Org Alpha fetches contact and verifies updated call stats         │ GET    │ /api/contacts/:id      │ 200      │ 200    │ PASS   │
-│ 12 │ 6.2 Org Alpha fetches contact timeline                                │ GET    │ /api/contacts/:id/time │ 200      │ 200    │ PASS   │
-│ 13 │ 7.1 Org Beta queries its contacts directory                           │ GET    │ /api/contacts          │ 200      │ 200    │ PASS   │
-│ 14 │ 7.2 Org Beta attempts direct GET on Org Alpha contact ID              │ GET    │ /api/contacts/:id      │ 404      │ 404    │ PASS   │
-│ 15 │ 7.3 Org Beta attempts PATCH mutation on Org Alpha contact ID          │ PATCH  │ /api/contacts/:id      │ 404      │ 404    │ PASS   │
-│ 16 │ 7.4 Org Beta attempts DELETE on Org Alpha contact ID                  │ DELETE │ /api/contacts/:id      │ 404      │ 404    │ PASS   │
-│ 17 │ 7.5 Org Beta attempts GET on Org Alpha business profile ID            │ GET    │ /api/business-profiles │ 404      │ 404    │ PASS   │
-└────┴───────────────────────────────────────────────────────────────────────┴────────┴────────────────────────┴──────────┴────────┴────────┘
-
-Overall Result: ALL TESTS PASSED (18/18)
-```
-
-### 5.2 Isolated Business Extension Test Suite
-Executed in `extensions/business-api`:
+### 6.3 TypeScript Typechecking
 ```bash
-DATABASE_URL="postgresql://business_app_user:${TEST_DB_PASSWORD}@127.0.0.1:5432/dograh_business_test" \
-  bun test
+bun run typecheck (in extensions/business-api)
 ```
-**Outcome**:
-- 7 test files passed
-- **37 unit and integration tests passed, 0 failed (100% pass rate)**
+- Output: Clean exit code 0 (`tsc --noEmit`).
 
 ---
 
-## 6. Comprehensive Requirement-to-Test Verification Matrix
+## 7. Honest Reporting of Unverified Checks & Environment Disclaimers
 
-| Category | Requirement | Verification Method / Test Name | Observed Outcome | Status |
-| :--- | :--- | :--- | :--- | :--- |
-| **Auth** | Derive identity from verified Dograh session | Next.js server route `getServerUser()` cookie verification | Authenticated org ID extracted server-side | **PASS** |
-| **Auth** | Zero trust in browser-supplied tenant headers | `http-security.test.ts` & live probes | Header spoofing rejected; server determines context | **PASS** |
-| **Auth** | Reject requests missing internal secret | Live Step 1.1 | Returns `401 Unauthorized` | **PASS** |
-| **Auth** | Reject requests with forged internal secret | Live Step 1.2 | Returns `401 Unauthorized` | **PASS** |
-| **Auth** | Reject requests missing org ID header | Live Step 1.3 | Returns `400 Bad Request` | **PASS** |
-| **Auth** | Reject inactive or non-existent org | Live Step 1.4 | Returns `403 Forbidden` | **PASS** |
-| **Auth** | Block foreign workflow binding | Live Step 3.2 | Returns `403 Forbidden` | **PASS** |
-| **Auth** | Block cross-tenant interaction spoofing | Live Step 5.2 | Returns `403 Forbidden` | **PASS** |
-| **Isolation**| Zero cross-tenant contact disclosure | Live Step 7.1 | Org Beta directory returns 0 contacts | **PASS** |
-| **Isolation**| Foreign contact direct read blocked | Live Step 7.2 | Returns `404 Not Found` | **PASS** |
-| **Isolation**| Foreign contact mutation blocked | Live Step 7.3 | Returns `404 Not Found` | **PASS** |
-| **Isolation**| Foreign contact deletion blocked | Live Step 7.4 | Returns `404 Not Found` | **PASS** |
-| **Isolation**| Foreign profile read blocked | Live Step 7.5 | Returns `404 Not Found` | **PASS** |
-| **DB Role** | Non-superuser application execution | `psql` role audit on `business_app_user` | `rolsuper = f`, `NOSUPERUSER` | **PASS** |
-| **DB Role** | Read-only access to Dograh `public.*` | Direct insert attempt on `public.workflows` | Denied: `permission denied for table workflows` | **PASS** |
-| **DB Role** | Full DDL/DML on `business_ext.*` | `migrator.ts` & CRUD operations | Clean schema creation, indexing, and data access | **PASS** |
-| **Parity** | Dograh backend regression stability | `uv run pytest` (77 tests) | 77 passed, 0 failed | **PASS** |
-| **Parity** | Dograh frontend regression stability | `bun run test` (410 tests) | 410 passed, 0 failed | **PASS** |
-| **Branding** | Centralized product branding | `branding.test.ts` | Displays "AI Calling Agent OS"; upsells hidden | **PASS** |
+1. **GitHub Actions Workflow Runs**:
+   - Upstream Dograh workflows (`.github/workflows/api-tests.yml`) specify path triggers limited strictly to `api/**`, `pipecat/**`, and `scripts/**`.
+   - Consequently, PR commits touching only `ui/**` and `extensions/business-api/**` do not trigger the upstream Python backend test action.
+   - All 466 integration and unit tests reported in this document were executed locally against live containerized services (`postgres:17`, `redis:7`, Dograh API `:8000`, Business API `:4000`).
+2. **Credential Rotation Report**:
+   - All exposed development passwords and placeholders previously visible in local session logs were rotated to high-entropy 64-character hex strings in `.env` configurations.
+   - No plaintext passwords, API keys, or raw JWT tokens are recorded in commit history, PR comments, or documentation.
 
 ---
 
-## 7. Stage 1 Approval Gate Notice
-
-**Status: COMPLETE & VERIFIED**  
-All five Staff Engineer Stage 1 correction tasks have been implemented and verified with authentic HTTP execution, least-privilege credentials, and reproducible evidence.
+## 8. Stopping Rule Compliance
 
 > [!IMPORTANT]
-> **Strict Halt**: In accordance with the review directives, work has halted at the Stage 1 boundary. **No Stage 2 work (escalation tickets, live telephony webhooks), Stage 3 work (calendar integrations, marketplace tool policies), or live calling has been initiated.** Awaiting Staff Engineer evaluation and explicit authorization to proceed.
+> **Stage A Security Gate Halt**: All Stage A corrections (P0-1, P0-2, P1-4, P1-5, and scope regression cleanup) are complete and verified. In accordance with Staff Engineer instructions, **no Stage B work (call outcomes, lead score inflation hardening) or Stage 2 work (escalation webhooks, live telephony integration) has been started**. We are awaiting explicit Staff Engineer evaluation and gate clearance.

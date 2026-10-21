@@ -121,3 +121,45 @@ export async function listOrganizationWorkflows(
     return [];
   }
 }
+
+/**
+ * Verifies that the user is an active member of the specified organization in Dograh.
+ * Defends against revoked memberships and stale organization claims.
+ */
+export async function verifyUserOrganizationMembership(
+  userId: string | number,
+  dograhOrganizationId: number
+): Promise<boolean> {
+  try {
+    const numericUserId = typeof userId === 'string' ? parseInt(userId, 10) : userId;
+    if (!isNaN(numericUserId) && numericUserId > 0) {
+      const res = await query<{ user_id: number; organization_id: number }>(
+        `SELECT user_id, organization_id
+         FROM public.organization_users
+         WHERE user_id = $1 AND organization_id = $2
+         LIMIT 1`,
+        [numericUserId, dograhOrganizationId]
+      );
+      if (res.rows.length > 0) return true;
+    }
+
+    // Fallback if userId is a non-numeric provider_id string (e.g. Stack Auth ID)
+    try {
+      const res = await query<{ user_id: number; organization_id: number }>(
+        `SELECT ou.user_id, ou.organization_id
+         FROM public.organization_users ou
+         JOIN public.users u ON u.id = ou.user_id
+         WHERE (u.id::text = $1 OR u.provider_id = $1)
+           AND ou.organization_id = $2
+         LIMIT 1`,
+        [String(userId), dograhOrganizationId]
+      );
+      return res.rows.length > 0;
+    } catch {
+      return false;
+    }
+  } catch (error) {
+    console.error('Error verifying user organization membership against Dograh database:', error);
+    return false;
+  }
+}

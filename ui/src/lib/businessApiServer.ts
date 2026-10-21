@@ -1,30 +1,90 @@
+import { cookies } from 'next/headers';
+import type { NextRequest } from 'next/server';
+
 import { getServerBackendUrl } from '@/lib/apiClient';
-import { getServerAccessToken,getServerUser } from '@/lib/auth/server';
+import { getServerAccessToken } from '@/lib/auth/server';
+import { OSS_TOKEN_COOKIE } from '@/lib/auth/cookies';
+import {
+  createInternalAssertion,
+  KNOWN_INSECURE_SECRETS,
+} from '@/lib/businessAssertion';
+
+export interface VerifiedDograhSession {
+  userId: string;
+  email: string;
+  organizationId: number;
+}
 
 const BUSINESS_API_URL = process.env.BUSINESS_API_URL || 'http://127.0.0.1:4000';
-const BUSINESS_EXT_SECRET = process.env.BUSINESS_EXT_SECRET || 'business-extension-local-secret-change-in-prod';
+
+function getBusinessExtSecret(): string {
+  const secret = process.env.BUSINESS_EXT_SECRET;
+  if (!secret || secret.length < 32 || KNOWN_INSECURE_SECRETS.has(secret)) {
+    throw new Error(
+      'Fatal: BUSINESS_EXT_SECRET is not configured with a secure high-entropy value (min 32 chars)'
+    );
+  }
+  return secret;
+}
 
 /**
- * Resolves the verified Dograh organization ID for the active server session.
- * Never trusts client-supplied organization parameters.
+ * Authoritatively verifies Dograh identity against the Dograh core backend.
+ * Never treats unverified cookie claims (such as OSS_USER) as authorization evidence.
  */
-export async function getAuthenticatedOrgId(): Promise<number | null> {
-  const user = await getServerUser();
-  if (!user) return null;
+export async function getVerifiedSession(
+  req?: Request | NextRequest
+): Promise<VerifiedDograhSession | null> {
+  let token: string | null = null;
 
-  // Check direct organizationId property
-  if ('organizationId' in user && user.organizationId) {
-    const raw = String(user.organizationId).replace(/^org_/, '');
-    const parsed = parseInt(raw, 10);
-    if (!isNaN(parsed) && parsed > 0) {
-      return parsed;
+  // 1. Check for Bearer token in incoming Request Authorization header
+  if (req) {
+    const authHeader = req.headers.get('authorization');
+    if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) {
+      token = authHeader.substring(7).trim();
     }
   }
 
-  // Fallback: Verify identity directly against Dograh backend /auth/me
-  const token = await getServerAccessToken();
-  if (!token) return null;
+  // 2. Check for cookie on NextRequest if present
+  if (!token && req && 'cookies' in req) {
+    const nextReq = req as NextRequest;
+    token = nextReq.cookies.get(OSS_TOKEN_COOKIE)?.value || null;
+  }
 
+  // 3. Check for cookie header on standard Request
+  if (!token && req) {
+    const cookieHeader = req.headers.get('cookie');
+    if (cookieHeader) {
+      const match = cookieHeader.match(new RegExp(`(?:^|;\\s*)${OSS_TOKEN_COOKIE}=([^;]*)`));
+      if (match && match[1]) {
+        token = decodeURIComponent(match[1]);
+      }
+    }
+  }
+
+  // 4. Fallback to server cookie store if available
+  if (!token) {
+    try {
+      token = await getServerAccessToken();
+    } catch {
+      token = null;
+    }
+  }
+
+  if (!token && !req) {
+    try {
+      const cookieStore = await cookies();
+      token = cookieStore.get(OSS_TOKEN_COOKIE)?.value || null;
+    } catch {
+      token = null;
+    }
+  }
+
+  // Fail closed if no access token is available
+  if (!token) {
+    return null;
+  }
+
+  // 4. Authoritatively validate the token against Dograh's /api/v1/auth/me
   try {
     const backendUrl = getServerBackendUrl();
     const res = await fetch(`${backendUrl}/api/v1/auth/me`, {
@@ -33,29 +93,53 @@ export async function getAuthenticatedOrgId(): Promise<number | null> {
       },
       cache: 'no-store',
     });
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (data.organization_id && typeof data.organization_id === 'number') {
-      return data.organization_id;
-    }
-  } catch (err) {
-    console.error('Failed to resolve organization from Dograh /auth/me:', err);
-  }
 
-  return null;
+    if (!res.ok) {
+      return null;
+    }
+
+    const data = await res.json();
+    if (
+      data &&
+      typeof data.organization_id === 'number' &&
+      data.organization_id > 0 &&
+      data.id
+    ) {
+      return {
+        userId: String(data.id),
+        email: String(data.email || ''),
+        organizationId: data.organization_id,
+      };
+    }
+
+    return null;
+  } catch (err) {
+    console.error('Failed to verify session against Dograh /api/v1/auth/me:', err);
+    return null;
+  }
 }
 
 /**
- * Proxies request to the Business Extension API with verified server-side credentials.
+ * Resolves verified Dograh organization ID. Never trusts client cookie parameters.
+ */
+export async function getAuthenticatedOrgId(req?: Request | NextRequest): Promise<number | null> {
+  const session = await getVerifiedSession(req);
+  return session ? session.organizationId : null;
+}
+
+/**
+ * Proxies request to the Business Extension API using a short-lived,
+ * cryptographically signed internal service assertion.
  */
 export async function callBusinessApi(
   path: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  req?: Request | NextRequest
 ): Promise<Response> {
-  const orgId = await getAuthenticatedOrgId();
-  if (!orgId) {
+  const session = await getVerifiedSession(req);
+  if (!session) {
     return new Response(
-      JSON.stringify({ error: 'Unauthorized: No active organization session found' }),
+      JSON.stringify({ error: 'Unauthorized: Session invalid, expired, or missing active organization' }),
       {
         status: 401,
         headers: { 'Content-Type': 'application/json' },
@@ -63,9 +147,35 @@ export async function callBusinessApi(
     );
   }
 
+  let assertion: string;
+  try {
+    const secret = getBusinessExtSecret();
+    const deploymentId = process.env.DOGRAH_DEPLOYMENT_ID || 'default';
+    assertion = createInternalAssertion({
+      userId: session.userId,
+      orgId: session.organizationId,
+      deploymentId,
+      secret,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Internal assertion error';
+    return new Response(
+      JSON.stringify({ error: `Security configuration error: ${msg}` }),
+      {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+  }
+
   const headers = new Headers(options.headers || {});
-  headers.set('X-Dograh-Organization-Id', String(orgId));
-  headers.set('X-Extension-Secret', BUSINESS_EXT_SECRET);
+  // Strip any caller-supplied spoofed headers
+  headers.delete('X-Dograh-Organization-Id');
+  headers.delete('X-Dograh-Deployment-Id');
+  headers.delete('X-Extension-Secret');
+
+  // Attach verified internal assertion
+  headers.set('X-Internal-Assertion', assertion);
 
   if (!headers.has('Content-Type') && options.body && typeof options.body === 'string') {
     headers.set('Content-Type', 'application/json');

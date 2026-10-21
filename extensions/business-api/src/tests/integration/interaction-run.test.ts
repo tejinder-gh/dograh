@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
 import { runMigrations } from '../../config/migrator';
 import { query } from '../../config/database';
+import { adminQuery } from '../test-admin';
 import { resolveTenantContext } from '../../services/tenant-mapping.service';
 import { crmService } from '../../services/crm.service';
 import type { TenantContext } from '../../domain/tenant-mapping.types';
@@ -15,8 +16,14 @@ describe('Integration: Interaction & Dograh Run Correlation', () => {
   beforeAll(async () => {
     await runMigrations();
 
+    // Clean any prior runs/workflows/orgs
+    await adminQuery("DELETE FROM public.workflow_runs WHERE name = 'run-synthetic-771-001' OR workflow_id IN (SELECT id FROM public.workflows WHERE organization_id IN (771, 772))");
+    await adminQuery("DELETE FROM public.workflow_definitions WHERE workflow_id IN (SELECT id FROM public.workflows WHERE organization_id IN (771, 772))");
+    await adminQuery('DELETE FROM public.workflows WHERE organization_id IN (771, 772)');
+    await adminQuery('DELETE FROM public.organizations WHERE id IN (771, 772)');
+
     // Seed test organizations
-    await query(`
+    await adminQuery(`
       INSERT INTO public.organizations (id, provider_id)
       VALUES (771, 'org_test_771'), (772, 'org_test_772')
       ON CONFLICT (id) DO NOTHING;
@@ -35,7 +42,7 @@ describe('Integration: Interaction & Dograh Run Correlation', () => {
     ]);
 
     // Seed workflow, definition, and run for Org A
-    const wfRes = await query<{ id: number }>(`
+    const wfRes = await adminQuery<{ id: number }>(`
       INSERT INTO public.workflows (
         organization_id, name, workflow_definition, template_context_variables,
         call_disposition_codes, workflow_configurations, workflow_uuid
@@ -46,35 +53,41 @@ describe('Integration: Interaction & Dograh Run Correlation', () => {
     `);
     workflowAId = wfRes.rows[0]!.id;
 
-    const defRes = await query<{ id: number }>(`
+    const defRes = await adminQuery<{ id: number }>(`
       INSERT INTO public.workflow_definitions (workflow_id, version_number, status, workflow_json)
-      VALUES ($1, 1, 'published', '{}')
+      VALUES ($1, 1, 'published', '{}'::json)
       RETURNING id;
     `, [workflowAId]);
     definitionAId = defRes.rows[0]!.id;
 
     runAUuid = 'run-synthetic-771-001';
-    await query(`
+    await adminQuery(`
       INSERT INTO public.workflow_runs (
-        name, workflow_id, definition_id, mode,
-        usage_info, cost_info, initial_context, gathered_context, annotations
+        name, workflow_id, definition_id, mode, usage_info, cost_info,
+        initial_context, gathered_context, annotations
       ) VALUES (
-        $1, $2, $3, 'outbound_call',
-        '{}', '{}', '{}', '{}', '{}'
+        $1, $2, $3, 'web', '{}'::json, '{}'::json,
+        '{}'::json, '{}'::json, '{}'::json
       );
     `, [runAUuid, workflowAId, definitionAId]);
   });
 
   afterAll(async () => {
-    await query('DELETE FROM business_ext.interactions WHERE tenant_id IN ($1, $2)', [
-      orgA.businessTenantId,
-      orgB.businessTenantId,
-    ]);
-    await query('DELETE FROM business_ext.contacts WHERE tenant_id IN ($1, $2)', [
-      orgA.businessTenantId,
-      orgB.businessTenantId,
-    ]);
+    if (orgA?.businessTenantId && orgB?.businessTenantId) {
+      await query('DELETE FROM business_ext.interactions WHERE tenant_id IN ($1, $2)', [
+        orgA.businessTenantId,
+        orgB.businessTenantId,
+      ]);
+      await query('DELETE FROM business_ext.contacts WHERE tenant_id IN ($1, $2)', [
+        orgA.businessTenantId,
+        orgB.businessTenantId,
+      ]);
+    }
     await query("DELETE FROM business_ext.organization_mappings WHERE deployment_id = 'inter-test'");
+    await adminQuery("DELETE FROM public.workflow_runs WHERE name = $1 OR workflow_id IN (SELECT id FROM public.workflows WHERE organization_id IN (771, 772))", [runAUuid]);
+    await adminQuery("DELETE FROM public.workflow_definitions WHERE workflow_id IN (SELECT id FROM public.workflows WHERE organization_id IN (771, 772))");
+    await adminQuery('DELETE FROM public.workflows WHERE organization_id IN (771, 772)');
+    await adminQuery('DELETE FROM public.organizations WHERE id IN (771, 772)');
   });
 
   it('records interaction correlated to Dograh workflow, definition, and run ID', async () => {

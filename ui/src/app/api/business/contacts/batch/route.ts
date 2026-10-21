@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
   const res = await callBusinessApi('/api/contacts/batch', {
     method: 'POST',
     body,
-  });
+  }, req);
   const data = await res.json();
   return NextResponse.json(data, { status: res.status });
 }

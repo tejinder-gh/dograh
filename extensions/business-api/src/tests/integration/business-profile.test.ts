@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
 import { runMigrations } from '../../config/migrator';
 import { query } from '../../config/database';
+import { adminQuery } from '../test-admin';
 import { resolveTenantContext } from '../../services/tenant-mapping.service';
 import { businessProfileService } from '../../services/business-profile.service';
 import type { TenantContext } from '../../domain/tenant-mapping.types';
@@ -23,14 +24,14 @@ describe('Integration: Business Profile CRUD & Multi-Tenant Boundaries', () => {
     ]);
 
     // Ensure organizations exist in public.organizations for workflow FK if needed
-    await query(`
+    await adminQuery(`
       INSERT INTO public.organizations (id, provider_id)
       VALUES (881, 'org_test_881'), (882, 'org_test_882')
       ON CONFLICT (id) DO NOTHING;
     `);
 
     // Insert synthetic workflows into public.workflows for testing
-    const wfARes = await query<{ id: number }>(`
+    const wfARes = await adminQuery<{ id: number }>(`
       INSERT INTO public.workflows (
         organization_id, name, workflow_definition, template_context_variables,
         call_disposition_codes, workflow_configurations, workflow_uuid
@@ -41,7 +42,7 @@ describe('Integration: Business Profile CRUD & Multi-Tenant Boundaries', () => {
     `);
     workflowAId = wfARes.rows[0]!.id;
 
-    const wfBRes = await query<{ id: number }>(`
+    const wfBRes = await adminQuery<{ id: number }>(`
       INSERT INTO public.workflows (
         organization_id, name, workflow_definition, template_context_variables,
         call_disposition_codes, workflow_configurations, workflow_uuid
@@ -58,8 +59,8 @@ describe('Integration: Business Profile CRUD & Multi-Tenant Boundaries', () => {
       orgA.businessTenantId,
       orgB.businessTenantId,
     ]);
-    await query('DELETE FROM public.workflows WHERE id IN ($1, $2)', [workflowAId, workflowBId]);
-    await query('DELETE FROM public.organizations WHERE id IN (881, 882)');
+    await adminQuery('DELETE FROM public.workflows WHERE id IN ($1, $2)', [workflowAId, workflowBId]);
+    await adminQuery('DELETE FROM public.organizations WHERE id IN (881, 882)');
     await query("DELETE FROM business_ext.organization_mappings WHERE deployment_id = 'prof-test'");
   });
 
