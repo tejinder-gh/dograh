@@ -25,7 +25,7 @@ def setup_function():
 
 def _make_active_calls_client(
     monkeypatch,
-    configured_secret: str | None = "test-acuity-devops-secret",
+    configured_secret: str | None = "test-Acuity-devops-secret",
 ) -> TestClient:
     monkeypatch.setattr("api.constants.Acuity_DEVOPS_SECRET", configured_secret)
     app = FastAPI()
