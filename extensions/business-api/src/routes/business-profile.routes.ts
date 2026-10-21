@@ -34,15 +34,18 @@ businessProfileRoutes.post('/', async (c) => {
   return c.json({ data: profile }, 201);
 });
 
-// Update profile
-businessProfileRoutes.put('/:id', async (c) => {
+// Update profile (supports both PUT and PATCH)
+const handleUpdateProfile = async (c: import('hono').Context) => {
   const ctx = c.get('tenantContext');
   const id = c.req.param('id');
+  if (!id) return c.json({ error: 'Missing ID' }, 400);
   const body: unknown = await c.req.json();
   const validated = updateBusinessProfileSchema.parse(body);
   const profile = await businessProfileService.updateProfile(ctx, id, validated);
   return c.json({ data: profile });
-});
+};
+businessProfileRoutes.put('/:id', handleUpdateProfile);
+businessProfileRoutes.patch('/:id', handleUpdateProfile);
 
 // Delete profile
 businessProfileRoutes.delete('/:id', async (c) => {

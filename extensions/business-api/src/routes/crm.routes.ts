@@ -61,15 +61,18 @@ crmRoutes.post('/contacts', async (c) => {
   return c.json({ data: contact }, 201);
 });
 
-// Update contact
-crmRoutes.put('/contacts/:id', async (c) => {
+// Update contact (supports both PUT and PATCH)
+const handleUpdateContact = async (c: import('hono').Context) => {
   const ctx = c.get('tenantContext');
   const id = c.req.param('id');
+  if (!id) return c.json({ error: 'Missing ID' }, 400);
   const body: unknown = await c.req.json();
   const validated = updateContactSchema.parse(body);
   const contact = await crmService.updateContact(ctx, id, validated);
   return c.json({ data: contact });
-});
+};
+crmRoutes.put('/contacts/:id', handleUpdateContact);
+crmRoutes.patch('/contacts/:id', handleUpdateContact);
 
 // Delete contact
 crmRoutes.delete('/contacts/:id', async (c) => {
