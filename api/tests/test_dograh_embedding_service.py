@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from api.services.gen_ai.embedding.Acuity_service import AcuityEmbeddingService
+from api.services.gen_ai.embedding.acuity_service import AcuityEmbeddingService
 from api.services.gen_ai.embedding.factory import resolve_embedding_correlation_id
 
 
