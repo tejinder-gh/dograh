@@ -49,57 +49,57 @@ class RuntimeMetrics:
         )
         self.provider = MeterProvider(
             metric_readers=[reader],
-            resource=Resource.create({"service.name": "Acuity-api"}),
+            resource=Resource.create({"service.name": "acuity-api"}),
             views=[
                 View(
-                    instrument_name="Acuity_ai_latency",
+                    instrument_name="acuity_ai_latency",
                     aggregation=ExplicitBucketHistogramAggregation(LATENCY_BUCKETS),
                 ),
                 View(
-                    instrument_name="Acuity_response_latency",
+                    instrument_name="acuity_response_latency",
                     aggregation=ExplicitBucketHistogramAggregation(LATENCY_BUCKETS),
                 ),
             ],
         )
-        meter = self.provider.get_meter("Acuity.observability")
+        meter = self.provider.get_meter("acuity.observability")
         meter.create_observable_gauge(
-            "Acuity_active_calls",
+            "acuity_active_calls",
             callbacks=[lambda _options: [Observation(active_call_count())]],
             description=(
                 "Voice pipelines running in this worker, including setup and teardown"
             ),
         )
         self.ai_latency = meter.create_histogram(
-            "Acuity_ai_latency",
+            "acuity_ai_latency",
             unit="s",
             description="Pipecat service response latency",
         )
         self.response_latency = meter.create_histogram(
-            "Acuity_response_latency",
+            "acuity_response_latency",
             unit="s",
             description="Time from user silence until the bot starts speaking",
         )
         self.tts_cache_events = meter.create_counter(
-            "Acuity_tts_cache_events", description="TTS cache outcomes"
+            "acuity_tts_cache_events", description="TTS cache outcomes"
         )
         self.tts_cache_latency = meter.create_histogram(
-            "Acuity_tts_cache_latency",
+            "acuity_tts_cache_latency",
             unit="s",
             description="TTS cache operation duration",
         )
         self.tts_cache_audio_bytes = meter.create_histogram(
-            "Acuity_tts_cache_audio_bytes", unit="By", description="Admitted PCM size"
+            "acuity_tts_cache_audio_bytes", unit="By", description="Admitted PCM size"
         )
         self.tts_cache_evictions = meter.create_counter(
-            "Acuity_tts_cache_evictions",
+            "acuity_tts_cache_evictions",
             description="Entries evicted to admit a new one",
         )
         self.tts_cache_avoided_characters = meter.create_counter(
-            "Acuity_tts_cache_avoided_characters",
+            "acuity_tts_cache_avoided_characters",
             description="Synthesis characters served from cache",
         )
         self.tts_cache_replay_seconds = meter.create_histogram(
-            "Acuity_tts_cache_replay_seconds",
+            "acuity_tts_cache_replay_seconds",
             unit="s",
             description="Cached audio duration",
         )
