@@ -234,7 +234,7 @@ async def test_managed_preprocess_creates_app_and_sets_domain_default():
             201,
             {
                 "id": 5278,
-                "name": "acuity-111111111111411181111111",
+                "name": "Acuity-111111111111411181111111",
                 "uuid": app_uuid,
             },
         ),
@@ -580,16 +580,16 @@ def test_cloudonix_domain_normalization_qualifies_short_names():
 def test_cloudonix_webhook_accepts_a_managed_cloudonix_domain():
     webhook = {
         "SessionData": {"token": "session-token"},
-        "Domain": "oss-Acuity-11111111.cloudonix.net",
+        "Domain": "oss-acuity-11111111.cloudonix.net",
         "From": "+15551230001",
         "To": "+15551230002",
     }
 
     assert CloudonixProvider.can_handle_webhook(webhook, {})
     normalized = CloudonixProvider.parse_inbound_webhook(webhook)
-    assert normalized.account_id == "oss-Acuity-11111111.cloudonix.net"
+    assert normalized.account_id == "oss-acuity-11111111.cloudonix.net"
     assert CloudonixProvider.validate_account_id(
-        {"domain_id": "oss-Acuity-11111111.cloudonix.net"},
+        {"domain_id": "oss-acuity-11111111.cloudonix.net"},
         normalized.account_id,
     )
 

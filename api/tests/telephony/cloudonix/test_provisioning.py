@@ -66,7 +66,7 @@ async def test_managed_configuration_is_created_from_mps_provisioning(monkeypatc
     provisioning._preprocess_credentials_on_save.assert_awaited_once_with(
         {
             "bearer_token": "domain-bearer",
-            "domain_id": "oss-Acuity-11111111.cloudonix.net",
+            "domain_id": "oss-acuity-11111111.cloudonix.net",
             "domain_uuid": mps_result["domain_uuid"],
             "managed_by": provisioning.MANAGED_BY,
             "provisioning_id": mps_result["provisioning_id"],

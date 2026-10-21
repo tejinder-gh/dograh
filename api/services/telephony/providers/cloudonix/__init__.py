@@ -136,7 +136,7 @@ async def _ensure_application_name(credentials: dict[str, Any]) -> dict[str, Any
     provisioning_id = credentials.get("provisioning_id")
     if isinstance(provisioning_id, str) and provisioning_id.strip():
         stable_id = "".join(ch for ch in provisioning_id.lower() if ch.isalnum())
-        name = f"acuity-{stable_id[:24]}"
+        name = f"Acuity-{stable_id[:24]}"
     else:
         name = f"Acuity-{uuid.uuid4().hex[:12]}"
 
