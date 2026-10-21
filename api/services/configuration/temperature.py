@@ -181,9 +181,10 @@ def resolve_temperature(
 ) -> float | None:
     """Apply model restrictions, including after model_copy-based overrides."""
     provider_key = str(getattr(provider, "value", provider))
-    policy = TEMPERATURE_POLICIES.get(provider_key) or TEMPERATURE_POLICIES[
-        provider_key.lower()
-    ]
+    policy = (
+        TEMPERATURE_POLICIES.get(provider_key)
+        or TEMPERATURE_POLICIES[provider_key.lower()]
+    )
     custom_endpoint = policy.get("custom_endpoint")
     hostname = urlsplit(base_url).hostname if custom_endpoint and base_url else None
     if custom_endpoint and hostname and hostname != custom_endpoint["default_hostname"]:

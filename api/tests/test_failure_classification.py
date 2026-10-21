@@ -304,7 +304,7 @@ def test_Acuity_boundary_changes_attribution():
 
     assert quota.type == ErrorType.QUOTA_ERROR
     assert quota.error_owner == ErrorOwner.USER
-    assert quota.code == "Acuity-insufficient-credits"
+    assert quota.code == "acuity-insufficient-credits"
     assert managed_key_failure.type == ErrorType.SYSTEM_ERROR
     assert managed_key_failure.error_owner == ErrorOwner.OPERATOR
 
@@ -318,7 +318,7 @@ def test_Acuity_credit_prose_does_not_override_safe_default():
 
     assert failure.type == ErrorType.SYSTEM_ERROR
     assert failure.error_owner == ErrorOwner.OPERATOR
-    assert failure.code == "Acuity-unknown"
+    assert failure.code == "acuity-unknown"
 
 
 def test_Acuity_transport_failure_stays_system_error_but_keeps_retry_hint():
@@ -330,7 +330,7 @@ def test_Acuity_transport_failure_stays_system_error_but_keeps_retry_hint():
 
     assert failure.type == ErrorType.SYSTEM_ERROR
     assert failure.error_owner == ErrorOwner.OPERATOR
-    assert failure.code == "Acuity-connection"
+    assert failure.code == "acuity-connection"
     assert failure.retryable is True
 
 
