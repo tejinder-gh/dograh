@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
-import { compatibleConnections, configurationForMode, configurationMode, AcuityConfiguration, resetDependentFields, selectionForConnection } from "./configuration";
+import { AcuityConfiguration, compatibleConnections, configurationForMode, configurationMode, resetDependentFields, selectionForConnection } from "./configuration";
 import { AddProviderDialog, type ProviderOption, ProviderSelect } from "./ProviderSelect";
 import { SchemaFields } from "./SchemaFields";
 import type { ConfigurationEditorMode, ConfigurationSpec, FieldSchema, ModelConnectionCatalog, ProviderConnection, ServiceRole, ServiceSelection } from "./types";

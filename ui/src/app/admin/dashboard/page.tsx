@@ -1,6 +1,7 @@
 import React from 'react';
-import { PageLayout } from '@/components/layout/PageLayout';
+
 import { AdminDashboardView } from '@/components/analytics/admin/AdminDashboardView';
+import { PageLayout } from '@/components/layout/PageLayout';
 
 export const metadata = {
   title: 'Platform Command Center | Platform Administration',

@@ -1,4 +1,6 @@
+import { execSync } from 'node:child_process';
 import crypto from 'node:crypto';
+
 import dotenv from 'dotenv';
 import path from 'path';
 import { beforeAll, describe, expect, it } from 'vitest';
@@ -9,6 +11,24 @@ dotenv.config({ path: path.resolve(process.cwd(), '../extensions/business-api/.e
 const NEXTJS_URL = process.env.TEST_NEXTJS_URL || 'http://127.0.0.1:3000';
 const OSS_JWT_SECRET =
   process.env.OSS_JWT_SECRET || '6492a2ab59b7edc5a21071720f29313b91f6ccc3289b60b998fcdb03be8108ff';
+
+const MIGRATION_DATABASE_URL =
+  process.env.MIGRATION_DATABASE_URL ||
+  process.env.TEST_ADMIN_DATABASE_URL ||
+  process.env.DATABASE_URL ||
+  '';
+
+function checkLiveEnvironment(): boolean {
+  if (!MIGRATION_DATABASE_URL) return false;
+  try {
+    execSync(`psql "${MIGRATION_DATABASE_URL}" -c "SELECT 1;"`, { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const isLiveReady = checkLiveEnvironment();
 
 function generateAcuityToken(userId: number, email: string, expOffsetSec: number = 3600): string {
   const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
@@ -26,7 +46,7 @@ function generateAcuityToken(userId: number, email: string, expOffsetSec: number
   return `${data}.${sig}`;
 }
 
-describe('Next.js Analytics & Platform Command Center Proxy Integration Suite', () => {
+describe.skipIf(!isLiveReady)('Next.js Analytics & Platform Command Center Proxy Integration Suite', () => {
   let regularUserToken: string;
   let superuserToken: string;
 

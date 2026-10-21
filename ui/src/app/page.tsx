@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
-import { getServerAccessToken, getServerAuthProvider, getServerUser } from '@/lib/auth/server';
+
 import { LandingPageView } from '@/components/landing/LandingPageView';
+import { getServerAccessToken, getServerAuthProvider, getServerUser } from '@/lib/auth/server';
 
 export const dynamic = 'force-dynamic';
 

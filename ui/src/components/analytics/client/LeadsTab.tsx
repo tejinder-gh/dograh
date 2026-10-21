@@ -1,9 +1,11 @@
+import { Award, Target,UserCheck, Users } from 'lucide-react';
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+
+import { Card, CardContent, CardDescription,CardHeader, CardTitle } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+
 import { KpiCard } from '../KpiCard';
 import type { ClientOverviewDashboardData } from '../types';
-import { Users, UserCheck, Award, ArrowDown, Target } from 'lucide-react';
-import { Progress } from '@/components/ui/progress';
 
 interface LeadsTabProps {
   data: ClientOverviewDashboardData;

@@ -1,28 +1,30 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { FilterBar } from '../FilterBar';
-import { ClientOverviewTab } from './ClientOverviewTab';
-import { CallsTab } from './CallsTab';
-import { LeadsTab } from './LeadsTab';
-import { AppointmentsTab } from './AppointmentsTab';
-import { AgentsTab } from './AgentsTab';
-import { ExperienceTab } from './ExperienceTab';
-import { ValueTab } from './ValueTab';
-import type { ClientOverviewDashboardData, TimeRangePreset } from '../types';
 import {
-  LayoutDashboard,
-  PhoneCall,
-  Users,
-  CalendarCheck,
+  AlertCircle,
   Bot,
+  CalendarCheck,
+  LayoutDashboard,
+  Loader2,
+  PhoneCall,
   Smile,
   Sparkles,
-  Loader2,
-  AlertCircle,
+  Users,
 } from 'lucide-react';
+import React, { useCallback,useEffect, useState } from 'react';
+
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent,TabsList, TabsTrigger } from '@/components/ui/tabs';
+
+import { FilterBar } from '../FilterBar';
+import type { ClientOverviewDashboardData, TimeRangePreset } from '../types';
+import { AgentsTab } from './AgentsTab';
+import { AppointmentsTab } from './AppointmentsTab';
+import { CallsTab } from './CallsTab';
+import { ClientOverviewTab } from './ClientOverviewTab';
+import { ExperienceTab } from './ExperienceTab';
+import { LeadsTab } from './LeadsTab';
+import { ValueTab } from './ValueTab';
 
 export function ClientDashboardView() {
   const [timePreset, setTimePreset] = useState<TimeRangePreset>('30d');

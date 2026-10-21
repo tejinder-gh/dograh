@@ -1,8 +1,7 @@
+import { CircleDollarSign, Coins, Percent, PiggyBank, Server } from 'lucide-react';
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { KpiCard } from '../KpiCard';
-import type { PlatformOverviewDashboardData } from '../types';
-import { CircleDollarSign, PiggyBank, Percent, Coins, Server } from 'lucide-react';
+
+import { Card, CardContent, CardDescription,CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
   TableBody,
@@ -11,6 +10,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+
+import { KpiCard } from '../KpiCard';
+import type { PlatformOverviewDashboardData } from '../types';
 
 interface EconomicsTabProps {
   data: PlatformOverviewDashboardData;

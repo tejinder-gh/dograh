@@ -1,27 +1,27 @@
-import React from 'react';
 import {
   Building2,
-  Users2,
-  UserPlus,
-  PhoneCall,
-  PhoneForwarded,
   Clock,
   Coins,
   Cpu,
-  AlertTriangle,
-  TrendingUp,
+  PhoneCall,
+  PhoneForwarded,
+  UserPlus,
+  Users2,
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { KpiCard } from '../KpiCard';
-import type { PlatformOverviewDashboardData } from '../types';
+import React from 'react';
 import {
-  ResponsiveContainer,
-  AreaChart,
   Area,
+  AreaChart,
+  ResponsiveContainer,
+  Tooltip as RechartsTooltip,
   XAxis,
   YAxis,
-  Tooltip as RechartsTooltip,
 } from 'recharts';
+
+import { Card, CardContent, CardDescription,CardHeader, CardTitle } from '@/components/ui/card';
+
+import { KpiCard } from '../KpiCard';
+import type { PlatformOverviewDashboardData } from '../types';
 
 interface PlatformOverviewTabProps {
   data: PlatformOverviewDashboardData;

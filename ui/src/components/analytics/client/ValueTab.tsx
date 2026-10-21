@@ -1,8 +1,10 @@
+import { Calculator, Coins, DollarSign, Hourglass, Moon,Sparkles } from 'lucide-react';
 import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+
+import { Card, CardContent, CardDescription,CardHeader, CardTitle } from '@/components/ui/card';
+
 import { KpiCard } from '../KpiCard';
 import type { ClientOverviewDashboardData } from '../types';
-import { Sparkles, Hourglass, Coins, DollarSign, Calculator, Moon } from 'lucide-react';
 
 interface ValueTabProps {
   data: ClientOverviewDashboardData;
@@ -70,7 +72,7 @@ export function ValueTab({ data }: ValueTabProps) {
               Interactive Labor Replacement Assumption
             </CardTitle>
             <CardDescription>
-              Adjust your organization's loaded hourly human agent cost to recalculate ROI
+              Adjust your organization&apos;s loaded hourly human agent cost to recalculate ROI
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">

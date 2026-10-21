@@ -1,25 +1,26 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { FilterBar } from '../FilterBar';
-import { PlatformOverviewTab } from './PlatformOverviewTab';
-import { PortfolioTab } from './PortfolioTab';
-import { EconomicsTab } from './EconomicsTab';
-import { ReliabilityTab } from './ReliabilityTab';
-import type { PlatformOverviewDashboardData, TimeRangePreset } from '../types';
 import {
-  LayoutDashboard,
+  Activity,
+  AlertCircle,
   Building2,
   Coins,
-  Activity,
-  ShieldAlert,
+  LayoutDashboard,
   Loader2,
-  AlertCircle,
   Lock,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import React, { useCallback,useEffect, useState } from 'react';
+
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent,TabsList, TabsTrigger } from '@/components/ui/tabs';
+
+import { FilterBar } from '../FilterBar';
+import type { PlatformOverviewDashboardData, TimeRangePreset } from '../types';
+import { EconomicsTab } from './EconomicsTab';
+import { PlatformOverviewTab } from './PlatformOverviewTab';
+import { PortfolioTab } from './PortfolioTab';
+import { ReliabilityTab } from './ReliabilityTab';
 
 export function AdminDashboardView() {
   const [timePreset, setTimePreset] = useState<TimeRangePreset>('30d');

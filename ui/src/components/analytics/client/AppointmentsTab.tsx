@@ -1,8 +1,10 @@
+import { Bot,CalendarCheck, CalendarDays, CheckCircle2 } from 'lucide-react';
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+
+import { Card, CardContent, CardDescription,CardHeader, CardTitle } from '@/components/ui/card';
+
 import { KpiCard } from '../KpiCard';
 import type { ClientOverviewDashboardData } from '../types';
-import { CalendarCheck, CalendarDays, CheckCircle2, DollarSign, Bot } from 'lucide-react';
 
 interface AppointmentsTabProps {
   data: ClientOverviewDashboardData;

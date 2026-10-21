@@ -1,6 +1,7 @@
 import React from 'react';
-import { PageLayout } from '@/components/layout/PageLayout';
+
 import { ClientDashboardView } from '@/components/analytics/client/ClientDashboardView';
+import { PageLayout } from '@/components/layout/PageLayout';
 
 export const metadata = {
   title: 'Client Intelligence Dashboard | AI Calling Agent OS',
