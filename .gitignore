@@ -35,8 +35,5 @@ docs/superpowers/
 # Local development harness & scratch
 .docker-local/
 .neon
-docker-compose.override.yaml
 local.sh
-dev.sh
 work/
-SETUP.local.md

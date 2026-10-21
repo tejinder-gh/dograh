@@ -1,0 +1,27 @@
+# Workstation configuration. Compose loads this automatically.
+# Keep all published services on this machine; the tunnel profile is opt-in.
+services:
+  postgres:
+    profiles: ["disabled"]
+  redis:
+    ports: !override
+      - "127.0.0.1:6379:6379"
+    restart: unless-stopped
+  minio:
+    container_name: mentize-acuity-minio
+    restart: unless-stopped
+  api:
+    depends_on: !override
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "${Acuity_DATABASE_URL:-${DATABASE_URL}}"
+    volumes:
+      - ./api:/app/api
+    ports: !override
+      - "127.0.0.1:8000:8000"
+    restart: unless-stopped
+  ui:
+    profiles: ["disabled"]
