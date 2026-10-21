@@ -45,7 +45,7 @@ def _legacy(**overrides):
 async def test_create_generates_a_stasis_app_name():
     created = await _preprocess_credentials_on_save(_legacy(), None)
 
-    assert created["stasis_app_name"].startswith("Acuity_")
+    assert created["stasis_app_name"].startswith("acuity_")
     assert created["stasis_app_name"] != created["app_name"]
 
 
