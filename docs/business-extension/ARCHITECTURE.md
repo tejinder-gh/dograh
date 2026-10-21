@@ -104,15 +104,16 @@ sequenceDiagram
     autonumber
     actor User as User / Browser
     participant NextUI as Next.js Server Route (/api/business/*)
-    participant DograhAuth as Dograh Session / Token Store
+    participant DograhAuth as Dograh Session Store (FastAPI/DB)
     participant BizAPI as Business Extension API (:4000)
-    participant DB as PostgreSQL (business_ext)
+    participant DB as PostgreSQL (Least-Privilege User)
 
     User->>NextUI: GET /api/business/contacts (Cookie: OSS_USER / OSS_TOKEN)
     NextUI->>DograhAuth: Validate cookie session & extract organizationId
     DograhAuth-->>NextUI: Verified User (id=1, org_id=1)
     NextUI->>BizAPI: GET /api/contacts (Header: X-Dograh-Organization-Id: 1, X-Extension-Secret: ...)
-    BizAPI->>BizAPI: Verify shared internal extension secret
+    BizAPI->>BizAPI: Validate shared extension secret (Reject forged/missing -> 401)
+    BizAPI->>DB: Verify organization exists & active in public.organizations (Reject inactive -> 403)
     BizAPI->>DB: Resolve tenant_id from organization_mappings WHERE dograh_organization_id = 1
     DB-->>BizAPI: tenant_id = <uuid-org-1>
     BizAPI->>DB: SELECT * FROM business_ext.contacts WHERE tenant_id = <uuid-org-1>
@@ -121,10 +122,21 @@ sequenceDiagram
     NextUI-->>User: JSON response
 ```
 
-### Security Safeguards
-1. **No Client-Supplied Tenant Authority**: The browser cannot pass `tenant_id` or `organization_id` to override server-determined context.
-2. **Server-Side Proxy Gating**: The Next.js API routes (`ui/src/app/api/business/*`) authenticate the session via `getServerUser()` before relaying to the Business API.
-3. **Cross-Tenant Isolation by Design**: Every database query in `business_ext` includes `WHERE tenant_id = $1` with parameterized bindings.
+### Security Safeguards & Least-Privilege Architecture
+1. **No Client-Supplied Tenant Authority**: The browser cannot pass `tenant_id` or `organization_id` to override server-determined context. Any client-provided tenant headers are stripped before processing.
+2. **Server-Side Proxy Gating**: Next.js API routes (`ui/src/app/api/business/*`) authenticate the session via `getServerUser()` before relaying to the Business API.
+3. **Internal Secret Defense**: Business API strictly verifies `X-Extension-Secret`. Public or forged direct requests immediately fail-closed with `401 Unauthorized`.
+4. **Active Organization Verification**: Incoming organizations are verified against Dograh's `public.organizations` (`verifyOrganizationActive`). Non-existent or disabled organizations return `403 Forbidden`.
+5. **Cross-Tenant Resource Verification**:
+   - `verifyWorkflowOwnership(dograhOrgId, workflowId)`: Blocks binding foreign workflows to business profiles.
+   - `verifyWorkflowDefinitionOwnership(dograhOrgId, definitionId, workflowId)`: Blocks associating foreign workflow versions.
+   - `verifyRunOwnership(dograhOrgId, runId, workflowId)`: Blocks associating foreign call runs with CRM interactions.
+6. **Cross-Tenant Data Isolation**: Every database query in `business_ext` includes `WHERE tenant_id = $1` with parameterized bindings. Cross-tenant access attempts return `404 Not Found` to prevent entity enumeration.
+7. **Least-Privilege Database User (`business_app_user`)**:
+   - Executes with `NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT` (`rolsuper = f`).
+   - Granted full DDL/DML privileges exclusively on the `business_ext` schema.
+   - Granted strictly read-only `SELECT` access on Dograh's `public.organizations`, `public.workflows`, `public.workflow_definitions`, `public.workflow_runs`, and `public.users`.
+   - Direct write attempts to `public.*` tables are denied at the database engine level with `insufficient_privilege` (`42501`).
 
 ---
 

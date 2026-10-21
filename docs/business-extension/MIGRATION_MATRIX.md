@@ -74,5 +74,10 @@ The following files represent custom infrastructure that directly duplicates or 
 
 ## Conclusion & Gate Status
 - **Stage 0 Complete**: All source candidates reviewed, classified, and mapped.
-- **Stage 1 Authorized Scope**: Business Profiles CRUD, CRM Contacts & Interaction timeline, Organization mapping, provisional branding, and two-organization integration tests.
-- **Out of Scope for Stage 1**: Bookings, Marketplace execution, Live telephony, Paid AI inference.
+- **Stage 1 Verification Complete**:
+  - Independent fork published and Draft PR created: [https://github.com/tejinder-gh/dograh/pull/1](https://github.com/tejinder-gh/dograh/pull/1) against pinned upstream base `b677cac4acc6f0dc18010457c98af75e137f8181`.
+  - Authentication and tenant isolation verified: zero trust in client headers, internal secret enforcement (HTTP 401 fail-closed), active organization gating (HTTP 403), cross-tenant workflow/run ownership enforcement.
+  - Database test isolation: local Dograh database preserved intact; disposable test database (`dograh_business_test`) verified using dedicated non-superuser role `business_app_user` (`rolsuper = f`).
+  - Source/runtime parity: 77 Dograh backend pytest regression tests passed, 410 UI vitest tests passed.
+  - Live integrated UI/HTTP tests: 18/18 live automated tests passed in `work/e2e-stage1-verification.ts`.
+- **Strict Approval Gate**: Work halted after Stage 1 corrections. No Stage 2 (escalations), Stage 3 (bookings/marketplace), or Stage 4 (script intelligence) work has been started. Awaiting Staff Engineer review.
