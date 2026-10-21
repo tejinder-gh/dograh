@@ -183,26 +183,38 @@ jobs:
       - name: Start Business Extension Service
         working-directory: extensions/business-api
         run: |
-          bun run src/index.ts &
+          bun run src/server.ts &
+          HEALTHY=false
           for i in {1..30}; do
             if curl -s http://127.0.0.1:4000/health >/dev/null; then
               echo "Business API is healthy on port 4000."
+              HEALTHY=true
               break
             fi
             sleep 1
           done
+          if [ "$HEALTHY" = "false" ]; then
+            echo "Business API failed to start on port 4000."
+            exit 1
+          fi
 
       - name: Start Mock Acuity Core Auth Service
         working-directory: extensions/business-api
         run: |
           bun run scripts/mock-auth-server.ts &
+          AUTH_HEALTHY=false
           for i in {1..30}; do
             if curl -s http://127.0.0.1:8000/health >/dev/null; then
               echo "Mock Acuity Core Auth service is healthy on port 8000."
+              AUTH_HEALTHY=true
               break
             fi
             sleep 1
           done
+          if [ "$AUTH_HEALTHY" = "false" ]; then
+            echo "Mock Acuity Core Auth service failed to start on port 8000."
+            exit 1
+          fi
 
       - name: Install UI Dependencies
         working-directory: ui
@@ -212,13 +224,19 @@ jobs:
         working-directory: ui
         run: |
           UI_PORT=3000 bun run dev &
+          NEXT_HEALTHY=false
           for i in {1..40}; do
             if curl -s http://127.0.0.1:3000 >/dev/null; then
               echo "Next.js dev server is ready on port 3000."
+              NEXT_HEALTHY=true
               break
             fi
             sleep 1
           done
+          if [ "$NEXT_HEALTHY" = "false" ]; then
+            echo "Next.js server failed to start on port 3000."
+            exit 1
+          fi
 
       - name: Run Live Wire HTTP Authentication & Proxy Integration Suite
         working-directory: ui
