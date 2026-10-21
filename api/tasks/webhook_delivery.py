@@ -113,9 +113,12 @@ def _log_webhook_request(
             if key.lower()
             in {
                 "content-type",
-                "x-Acuity-delivery-id",
-                "x-Acuity-workflow-run-id",
-                "x-Acuity-delivery-attempt",
+                "x-acuity-delivery-id",
+                "x-acuity-workflow-run-id",
+                "x-acuity-delivery-attempt",
+                "x-dograh-delivery-id",
+                "x-dograh-workflow-run-id",
+                "x-dograh-delivery-attempt",
             }
             else _REDACTED
         )
