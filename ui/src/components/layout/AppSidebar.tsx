@@ -5,6 +5,7 @@ import {
   ArrowUpCircle,
   AudioLines,
   Brain,
+  Briefcase,
   ChevronLeft,
   ChevronRight,
   CircleDollarSign,
@@ -21,6 +22,7 @@ import {
   ShieldCheck,
   TrendingUp,
   UserRound,
+  Users,
   Workflow,
   Wrench,
 } from "lucide-react";
@@ -55,6 +57,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { branding } from "@/config/branding";
 import { useAppConfig } from "@/context/AppConfigContext";
 import { useLeadForms } from "@/context/LeadFormsContext";
 import { useTelephonyConfigWarnings } from "@/context/TelephonyConfigWarningsContext";
@@ -84,6 +87,21 @@ const NAV_SECTIONS: SidebarNavSection[] = [
         title: "Overview",
         url: "/overview",
         icon: Home,
+      },
+    ],
+  },
+  {
+    label: "BUSINESS",
+    items: [
+      {
+        title: "Business Profiles",
+        url: "/business/profiles",
+        icon: Briefcase,
+      },
+      {
+        title: "CRM Contacts",
+        url: "/business/contacts",
+        icon: Users,
       },
     ],
   },
@@ -300,9 +318,8 @@ export function AppSidebar() {
     </Button>
   );
 
-  // "Hire an Expert" CTA, rendered INSIDE the shared footer pill next to the
-  // profile icon. Expanded: label pill filling the row. Collapsed: icon-only.
-  const hireExpertButton = isCollapsed ? (
+  // "Hire an Expert" CTA is hidden when SaaS upsells are disabled in branding config.
+  const hireExpertButton = !branding.features.showSaaSUpsells ? null : isCollapsed ? (
     <Tooltip>
       <TooltipTrigger asChild>
         <Button

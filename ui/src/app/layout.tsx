@@ -32,9 +32,11 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+import { branding } from "@/config/branding";
+
 export const metadata: Metadata = {
-  title: "Dograh",
-  description: "Open Source Voice Assistant Workflow Builder",
+  title: branding.productName,
+  description: branding.productDescription,
 };
 
 export default function RootLayout({
@@ -47,7 +49,7 @@ export default function RootLayout({
   const reoClientId = process.env.NEXT_PUBLIC_REO_CLIENT_ID?.trim();
   // Dograh Cloud only. Self-hosted/OSS installs leave this blank and never
   // render the event bar — same gating shape as the Meta Pixel above.
-  const showEventBanner = process.env.NEXT_PUBLIC_EVENT_BANNER?.trim() === "1";
+  const showEventBanner = branding.features.showEventBanner && process.env.NEXT_PUBLIC_EVENT_BANNER?.trim() === "1";
 
   return (
     <html lang="en" className="dark" suppressHydrationWarning>

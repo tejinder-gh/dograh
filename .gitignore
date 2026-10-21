@@ -31,3 +31,10 @@ node_modules/
 .superpowers/
 docs/superpowers/
 .gstack/
+
+# Local development harness & scratch
+.docker-local/
+docker-compose.override.yaml
+local.sh
+work/
+SETUP.local.md
