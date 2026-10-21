@@ -3,12 +3,16 @@ import { adminQuery } from '../src/tests/test-admin';
 import { resolveTenantContext } from '../src/services/tenant-mapping.service';
 
 async function seed() {
-  console.log('[seed] Starting enterprise analytics seeding...');
+  if (process.env.NODE_ENV === 'production' || process.env.ALLOW_ANALYTICS_SEED !== 'true') {
+    console.error(
+      '[seed] ERROR: Seeding is blocked. To run this script against an isolated test/development database, explicitly set ALLOW_ANALYTICS_SEED=true and ensure NODE_ENV != "production".'
+    );
+    process.exit(1);
+  }
 
-  // 1. Ensure user 1 is superuser for platform admin testing (via admin connection)
-  await adminQuery("UPDATE public.users SET is_superuser = true WHERE id = 1");
+  console.log('[seed] Starting enterprise analytics seeding in development environment...');
 
-  // 2. Resolve durable tenant mapping for Organization 1
+  // 1. Resolve durable tenant mapping for Organization 1
   const tenantCtx = await resolveTenantContext(1, 'default');
   const tenantId = tenantCtx.businessTenantId;
   console.log('[seed] Resolved Tenant ID for Org 1:', tenantId);

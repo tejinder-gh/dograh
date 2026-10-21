@@ -105,3 +105,109 @@ jobs:
       - name: Run UI Test Suite
         working-directory: ui
         run: bun run test
+
+  auth-proxy-integration-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://business_app_user:test_business_pass@localhost:5432/postgres
+      TEST_ADMIN_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      MIGRATION_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      BUSINESS_EXT_SECRET: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      OSS_JWT_SECRET: 6492a2ab59b7edc5a21071720f29313b91f6ccc3289b60b998fcdb03be8108ff
+      BUSINESS_API_URL: http://127.0.0.1:4000
+      TEST_NEXTJS_URL: http://127.0.0.1:3000
+      NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
+      UI_PORT: "3000"
+      REQUIRE_LIVE_TESTS: "true"
+      PORT: "4000"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install PostgreSQL Client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+
+      - name: Setup Test Database Roles and Schema
+        run: |
+          # 1. Apply authoritative Acuity public schema
+          docker exec -i $(docker ps -q --filter ancestor=pgvector/pgvector:pg17) psql -U postgres -d postgres < extensions/business-api/scripts/dograh_public_schema.sql
+
+          # 2. Configure unprivileged runtime user and least privilege grants
+          docker exec -i $(docker ps -q --filter ancestor=pgvector/pgvector:pg17) psql -U postgres -d postgres << 'EOF'
+          DO $$
+          BEGIN
+            IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'business_app_user') THEN
+              CREATE ROLE business_app_user WITH LOGIN PASSWORD 'test_business_pass' NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT;
+            END IF;
+          END
+          $$;
+
+          -- Grant SELECT on all public tables to business_app_user (read-only Acuity access)
+          GRANT USAGE ON SCHEMA public TO business_app_user;
+          GRANT SELECT ON ALL TABLES IN SCHEMA public TO business_app_user;
+          ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO business_app_user;
+          EOF
+
+      - name: Install Business API Dependencies & Run Migrations
+        working-directory: extensions/business-api
+        run: |
+          bun install
+          bun run src/config/migrator.ts
+
+      - name: Start Business Extension Service
+        working-directory: extensions/business-api
+        run: |
+          bun run src/index.ts &
+          for i in {1..30}; do
+            if curl -s http://127.0.0.1:4000/health >/dev/null; then
+              echo "Business API is healthy on port 4000."
+              break
+            fi
+            sleep 1
+          done
+
+      - name: Install UI Dependencies
+        working-directory: ui
+        run: bun install
+
+      - name: Start Next.js Server
+        working-directory: ui
+        run: |
+          UI_PORT=3000 bun run dev &
+          for i in {1..40}; do
+            if curl -s http://127.0.0.1:3000 >/dev/null; then
+              echo "Next.js dev server is ready on port 3000."
+              break
+            fi
+            sleep 1
+          done
+
+      - name: Run Live Wire HTTP Authentication & Proxy Integration Suite
+        working-directory: ui
+        run: |
+          bunx vitest run src/app/api/business/business-auth.test.ts src/app/api/business/analytics-proxy.test.ts

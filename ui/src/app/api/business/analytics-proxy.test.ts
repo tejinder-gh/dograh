@@ -30,6 +30,12 @@ function checkLiveEnvironment(): boolean {
 
 const isLiveReady = checkLiveEnvironment();
 
+if (process.env.REQUIRE_LIVE_TESTS === 'true' && !isLiveReady) {
+  throw new Error(
+    'REQUIRE_LIVE_TESTS=true but live environment check failed. MIGRATION_DATABASE_URL is either missing or psql connection failed.'
+  );
+}
+
 function generateAcuityToken(userId: number, email: string, expOffsetSec: number = 3600): string {
   const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
   const now = Math.floor(Date.now() / 1000);
@@ -57,7 +63,7 @@ describe.skipIf(!isLiveReady)('Next.js Analytics & Platform Command Center Proxy
     superuserToken = generateAcuityToken(1, 'test_admin@example.com');
   });
 
-  describe('Unauthenticated Protection', () => {
+  describe('Unauthenticated & Cryptographic Token Protection', () => {
     it('rejects unauthenticated request to client analytics with 401', async () => {
       const res = await fetch(`${NEXTJS_URL}/api/business/analytics/overview`);
       expect(res.status).toBe(401);
@@ -70,6 +76,26 @@ describe.skipIf(!isLiveReady)('Next.js Analytics & Platform Command Center Proxy
       expect(res.status).toBe(401);
       const json = await res.json();
       expect(json.error).toContain('Unauthorized');
+    });
+
+    it('rejects expired JWT token with 401 Unauthorized', async () => {
+      const expiredToken = generateAcuityToken(551, 'user551@example.com', -3600);
+      const res = await fetch(`${NEXTJS_URL}/api/business/analytics/overview?preset=30d`, {
+        headers: {
+          Authorization: `Bearer ${expiredToken}`,
+        },
+      });
+      expect(res.status).toBe(401);
+    });
+
+    it('rejects forged token signature with 401 Unauthorized', async () => {
+      const forgedSigToken = `${regularUserToken.split('.').slice(0, 2).join('.')}.invalid_forged_sig_12345`;
+      const res = await fetch(`${NEXTJS_URL}/api/business/analytics/overview?preset=30d`, {
+        headers: {
+          Authorization: `Bearer ${forgedSigToken}`,
+        },
+      });
+      expect(res.status).toBe(401);
     });
   });
 

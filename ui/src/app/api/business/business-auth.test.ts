@@ -57,6 +57,12 @@ function checkLiveEnvironment(): boolean {
 
 const isLiveReady = checkLiveEnvironment();
 
+if (process.env.REQUIRE_LIVE_TESTS === 'true' && !isLiveReady) {
+  throw new Error(
+    'REQUIRE_LIVE_TESTS=true but live environment check failed. MIGRATION_DATABASE_URL is either missing or psql connection failed.'
+  );
+}
+
 describe.skipIf(!isLiveReady)('Next.js Real HTTP Proxy Route Boundary & Two-Account Isolation Suite (Blocker 2 Proof)', () => {
   const orgBId = 502;
   const userAId = 551;

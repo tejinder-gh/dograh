@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS business_ext.appointments (
     tenant_id UUID NOT NULL REFERENCES business_ext.organization_mappings(business_tenant_id) ON DELETE CASCADE,
     contact_id UUID REFERENCES business_ext.contacts(id) ON DELETE SET NULL,
     acuity_workflow_id INTEGER,
+    acuity_run_id VARCHAR(255),
     title VARCHAR(255) NOT NULL,
     status VARCHAR(50) NOT NULL DEFAULT 'scheduled'
         CHECK (status IN ('scheduled', 'confirmed', 'completed', 'cancelled', 'no_show', 'rescheduled')),
@@ -25,8 +26,12 @@ CREATE INDEX IF NOT EXISTS idx_appointments_contact
     ON business_ext.appointments(tenant_id, contact_id);
 CREATE INDEX IF NOT EXISTS idx_appointments_start_time
     ON business_ext.appointments(tenant_id, start_time);
+CREATE INDEX IF NOT EXISTS idx_appointments_tenant_time
+    ON business_ext.appointments(tenant_id, start_time DESC);
 CREATE INDEX IF NOT EXISTS idx_appointments_status
     ON business_ext.appointments(tenant_id, status);
+CREATE INDEX IF NOT EXISTS idx_appointments_run
+    ON business_ext.appointments(tenant_id, acuity_run_id);
 
 -- Least privilege grants for runtime role
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE business_ext.appointments TO business_app_user;

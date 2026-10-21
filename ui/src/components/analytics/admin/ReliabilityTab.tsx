@@ -63,22 +63,25 @@ export function ReliabilityTab({ data }: ReliabilityTabProps) {
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
             <div className="flex justify-between items-center py-2 border-b border-border/40">
-              <span className="text-muted-foreground">Speech-to-Text (Deepgram / Live STT)</span>
-              <span className="font-mono font-semibold">~180ms</span>
+              <span className="text-muted-foreground">Speech-to-Text (Live STT)</span>
+              <span className="font-mono text-xs text-muted-foreground">Telemetry Pending</span>
             </div>
             <div className="flex justify-between items-center py-2 border-b border-border/40">
               <span className="text-muted-foreground">LLM First-Token Time to First Byte</span>
-              <span className="font-mono font-semibold">~360ms</span>
+              <span className="font-mono text-xs text-muted-foreground">Telemetry Pending</span>
             </div>
             <div className="flex justify-between items-center py-2 border-b border-border/40">
               <span className="text-muted-foreground">Text-to-Speech Streaming Synthesis</span>
-              <span className="font-mono font-semibold">~220ms</span>
+              <span className="font-mono text-xs text-muted-foreground">Telemetry Pending</span>
             </div>
             <div className="flex justify-between items-center py-2 font-semibold">
               <span>Overall Conversational P95 Turn Latency</span>
-              <span className="font-mono text-emerald-600 dark:text-emerald-400">
-                {kpis.turnLatencyP95Ms.value ?? 840}ms
+              <span className="font-mono text-muted-foreground">
+                {kpis.turnLatencyP95Ms.value !== null ? `${kpis.turnLatencyP95Ms.value}ms` : 'Unavailable'}
               </span>
+            </div>
+            <div className="pt-2 text-xs text-muted-foreground leading-relaxed">
+              Real-time component turn latency metrics require end-to-end telemetry collection across STT, LLM inference, and audio synthesizer workers.
             </div>
           </CardContent>
         </Card>
@@ -87,7 +90,7 @@ export function ReliabilityTab({ data }: ReliabilityTabProps) {
         <Card className="border-border/60">
           <CardHeader>
             <CardTitle className="text-base font-semibold flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4 text-emerald-500" />
+              <ShieldCheck className="h-4 w-4 text-muted-foreground" />
               Carrier Gateway & WebRTC Connectivity
             </CardTitle>
             <CardDescription>Real-time channel connectivity status</CardDescription>
@@ -95,24 +98,24 @@ export function ReliabilityTab({ data }: ReliabilityTabProps) {
           <CardContent className="space-y-4 text-sm">
             <div className="flex justify-between items-center">
               <span className="text-muted-foreground">Twilio SIP Trunking Gateway</span>
-              <Badge variant="outline" className="border-emerald-500/20 bg-emerald-500/10 text-emerald-600 text-xs">
-                Operational
+              <Badge variant="secondary" className="border-border/60 text-muted-foreground text-xs font-normal">
+                Telemetry Pending
               </Badge>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-muted-foreground">Telnyx Elastic Voice Pipeline</span>
-              <Badge variant="outline" className="border-emerald-500/20 bg-emerald-500/10 text-emerald-600 text-xs">
-                Operational
+              <Badge variant="secondary" className="border-border/60 text-muted-foreground text-xs font-normal">
+                Telemetry Pending
               </Badge>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-muted-foreground">WebRTC Fast-Audio Channel</span>
-              <Badge variant="outline" className="border-emerald-500/20 bg-emerald-500/10 text-emerald-600 text-xs">
-                Operational
+              <Badge variant="secondary" className="border-border/60 text-muted-foreground text-xs font-normal">
+                Telemetry Pending
               </Badge>
             </div>
             <div className="pt-2 text-xs text-muted-foreground leading-relaxed">
-              Automated carrier failover is active. Any SIP trunking error automatically triggers backup routing without terminating active customer sessions.
+              Carrier gateway health checks and automated carrier failover telemetry have not been connected to live probe reporting. Measured failover latency will display here when probe monitors are provisioned.
             </div>
           </CardContent>
         </Card>
