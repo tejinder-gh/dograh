@@ -20,7 +20,7 @@ export async function fetchPlatformExecutiveSummary(
   const orgsSql = `
     SELECT
       COUNT(*)::int AS total_clients,
-      COUNT(*) FILTER (WHERE created_at >= $1 AND created_at <= $2)::int AS new_clients,
+      COUNT(*) FILTER (WHERE o.created_at >= $1 AND o.created_at <= $2)::int AS new_clients,
       COUNT(DISTINCT w.organization_id)::int AS active_clients
     FROM public.organizations o
     LEFT JOIN public.workflows w ON w.organization_id = o.id
@@ -33,7 +33,7 @@ export async function fetchPlatformExecutiveSummary(
     SELECT
       COUNT(*)::int AS total_calls,
       COUNT(*) FILTER (WHERE state = 'completed' OR COALESCE((usage_info->>'call_duration_seconds')::numeric, 0) > 0)::int AS answered_calls,
-      COUNT(*) FILTER (WHERE state IN ('failed', 'timed_out'))::int AS failed_calls,
+      COUNT(*) FILTER (WHERE is_completed = false AND (state = 'completed' OR extra->>'telephony_status' IN ('failed', 'error')))::int AS failed_calls,
       COALESCE(SUM((usage_info->>'call_duration_seconds')::numeric) / 60.0, 0)::float AS total_minutes,
       COALESCE(SUM(COALESCE((cost_info->>'total_cost_usd')::numeric, (cost_info->>'charge_usd')::numeric, 0)), 0)::float AS total_ai_cost_usd
     FROM public.workflow_runs
@@ -80,7 +80,7 @@ export async function fetchPlatformClientPortfolio(
   const sql = `
     SELECT
       o.id AS organization_id,
-      o.name AS organization_name,
+      COALESCE(bp.name, o.provider_id, 'Client #' || o.id::text) AS organization_name,
       COALESCE(om.id::text, '') AS tenant_id,
       o.created_at,
       COUNT(DISTINCT w.id)::int AS active_agents_count,
@@ -89,11 +89,12 @@ export async function fetchPlatformClientPortfolio(
       COALESCE(SUM(COALESCE((wr.cost_info->>'total_cost_usd')::numeric, 0)), 0)::float AS total_cost_usd
     FROM public.organizations o
     LEFT JOIN business_ext.organization_mappings om ON om.acuity_organization_id = o.id
+    LEFT JOIN business_ext.business_profiles bp ON bp.tenant_id = om.id
     LEFT JOIN public.workflows w ON w.organization_id = o.id
     LEFT JOIN public.workflow_runs wr ON wr.workflow_id = w.id
       AND wr.created_at >= $1
       AND wr.created_at <= $2
-    GROUP BY o.id, o.name, om.id, o.created_at
+    GROUP BY o.id, bp.name, o.provider_id, om.id, o.created_at
     ORDER BY total_calls DESC, o.id ASC
   `;
   const res = await query(sql, [from, to]);
@@ -120,7 +121,7 @@ export async function fetchPlatformUsageTrend(
       DATE_TRUNC('day', created_at) AS day_ts,
       COUNT(*)::int AS total_calls,
       COUNT(*) FILTER (WHERE state = 'completed' OR COALESCE((usage_info->>'call_duration_seconds')::numeric, 0) > 0)::int AS answered_calls,
-      COUNT(*) FILTER (WHERE state IN ('failed', 'timed_out'))::int AS failed_calls,
+      COUNT(*) FILTER (WHERE is_completed = false AND (state = 'completed' OR extra->>'telephony_status' IN ('failed', 'error')))::int AS failed_calls,
       COALESCE(SUM(COALESCE((cost_info->>'total_cost_usd')::numeric, 0)), 0)::float AS ai_cost_usd,
       COALESCE(SUM((usage_info->>'call_duration_seconds')::numeric), 0)::float AS talk_time_seconds
     FROM public.workflow_runs

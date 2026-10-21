@@ -17,7 +17,7 @@ services:
       minio:
         condition: service_healthy
     environment:
-      DATABASE_URL: "${Acuity_DATABASE_URL:-${DATABASE_URL}}"
+      DATABASE_URL: "${ACUITY_DATABASE_URL:-${DOGRAH_DATABASE_URL}}"
     volumes:
       - ./api:/app/api
     ports: !override

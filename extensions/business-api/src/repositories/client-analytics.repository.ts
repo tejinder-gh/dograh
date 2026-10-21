@@ -45,7 +45,7 @@ export async function fetchClientCallSummary(
     SELECT
       COUNT(*)::int AS total_calls,
       COUNT(*) FILTER (WHERE wr.state = 'completed' OR COALESCE((wr.usage_info->>'call_duration_seconds')::numeric, 0) > 0)::int AS answered_calls,
-      COUNT(*) FILTER (WHERE wr.state IN ('failed', 'timed_out'))::int AS failed_calls,
+      COUNT(*) FILTER (WHERE wr.is_completed = false AND (wr.state = 'completed' OR wr.extra->>'telephony_status' IN ('failed', 'error')))::int AS failed_calls,
       COUNT(*) FILTER (WHERE wr.call_type = 'inbound' AND wr.state = 'initialized')::int AS missed_calls,
       COALESCE(SUM((wr.usage_info->>'call_duration_seconds')::numeric), 0)::float AS total_duration_seconds,
       COALESCE(SUM(COALESCE((wr.cost_info->>'total_cost_usd')::numeric, (wr.cost_info->>'charge_usd')::numeric, 0)), 0)::float AS total_cost_usd
@@ -170,7 +170,7 @@ export async function fetchClientCallTimeSeries(
       DATE_TRUNC('day', wr.created_at) AS day_ts,
       COUNT(*)::int AS total_calls,
       COUNT(*) FILTER (WHERE wr.state = 'completed' OR COALESCE((wr.usage_info->>'call_duration_seconds')::numeric, 0) > 0)::int AS answered_calls,
-      COUNT(*) FILTER (WHERE wr.state IN ('failed', 'timed_out'))::int AS failed_calls,
+      COUNT(*) FILTER (WHERE wr.is_completed = false AND (wr.state = 'completed' OR wr.extra->>'telephony_status' IN ('failed', 'error')))::int AS failed_calls,
       COALESCE(SUM(COALESCE((wr.cost_info->>'total_cost_usd')::numeric, 0)), 0)::float AS ai_cost_usd,
       COALESCE(SUM((wr.usage_info->>'call_duration_seconds')::numeric), 0)::float AS talk_time_seconds
     FROM public.workflow_runs wr
