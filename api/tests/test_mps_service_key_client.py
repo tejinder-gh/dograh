@@ -248,8 +248,8 @@ def test_validate_service_key_classifies_mps_http_failure(monkeypatch):
     assert len(emitted) == 1
     failure, context = emitted[0]
     assert failure.type == ErrorType.SYSTEM_ERROR
-    assert failure.code == "Acuity-503"
-    assert failure.provider == "Acuity"
+    assert failure.code == "acuity-503"
+    assert failure.provider == "acuity"
     assert failure.error_owner.value == "operator"
     assert "mps_sk_secret" not in failure.internal_message
     assert context == {
@@ -295,7 +295,7 @@ def test_validate_service_key_classifies_mps_connection_failure(monkeypatch):
     assert len(emitted) == 1
     failure, context = emitted[0]
     assert failure.type == ErrorType.SYSTEM_ERROR
-    assert failure.code == "Acuity-connection"
+    assert failure.code == "acuity-connection"
     assert failure.retryable is True
     assert context == {
         "organization_id": 42,
@@ -338,12 +338,12 @@ async def test_pricing_and_voice_failures_each_emit_one_classified_record(monkey
     assert len(emitted) == 2
     pricing_failure, pricing_context = emitted[0]
     voice_failure, voice_context = emitted[1]
-    assert pricing_failure.code == "Acuity-502"
+    assert pricing_failure.code == "acuity-502"
     assert pricing_context == {
         "organization_id": 42,
         "operation": "get_billing_pricing",
     }
-    assert voice_failure.code == "Acuity-503"
+    assert voice_failure.code == "acuity-503"
     assert voice_context == {
         "organization_id": 42,
         "operation": "get_voices",

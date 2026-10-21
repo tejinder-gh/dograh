@@ -158,11 +158,16 @@ def sections_from_v2(value):
     value = _as_object(value)
     if value is None:
         raise Unconvertible("not_an_object")
-    if value.get("mode") == "Acuity":
-        managed = _as_object(value.get("Acuity")) or {}
+    if value.get("mode") in ("Acuity", "acuity", "dograh"):
+        managed = (
+            _as_object(value.get("Acuity"))
+            or _as_object(value.get("acuity"))
+            or _as_object(value.get("dograh"))
+            or {}
+        )
         if not managed.get("api_key"):
             raise Unconvertible("missing_Acuity_service_key")
-        shared = {"provider": "Acuity", "api_key": managed["api_key"]}
+        shared = {"provider": "acuity", "api_key": managed["api_key"]}
         llm = dict(shared)
         if managed.get("temperature") is not None:
             llm["temperature"] = managed["temperature"]

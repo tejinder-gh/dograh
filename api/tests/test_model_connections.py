@@ -147,7 +147,7 @@ async def test_new_provider_drops_previous_provider_settings(catalog):
     )
     assert result.effective.llm.temperature == 0.8
     assert result.effective.llm.model != "saved-tier"
-    assert result.effective.tts.provider == "Acuity"
+    assert result.effective.tts.provider == "acuity"
 
 
 @pytest.mark.asyncio
@@ -607,7 +607,7 @@ async def test_embedding_index_compatibility_checks_only_selected_documents(
 @pytest.mark.parametrize(
     "provider,expected_provider",
     [
-        ("Acuity", "Acuity"),
+        ("Acuity", "acuity"),
         ("openai_realtime", "openai"),
         ("google_realtime", "google"),
         ("google_vertex_realtime", "google_vertex"),
@@ -731,7 +731,7 @@ async def test_Acuity_override_must_disable_inherited_fallbacks(catalog):
 
     override["llm_fallback"] = {"rules": []}
     resolved = await service.resolve_model_configuration(1, api_override=override)
-    assert resolved.effective.llm.provider == "Acuity"
+    assert resolved.effective.llm.provider == "acuity"
     assert resolved.effective.llm_fallback.rules == []
 
 

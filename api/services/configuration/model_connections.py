@@ -511,10 +511,10 @@ async def _resolve_spec(
             key == "llm"
             and spec.llm_fallback
             and spec.llm_fallback.rules
-            and row.provider == "Acuity"
+            and row.provider in ("acuity", "Acuity")
         ):
             raise _invalid("LLM fallbacks are unavailable in Acuity mode")
-        if key.startswith("fallback_") and row.provider == "Acuity":
+        if key.startswith("fallback_") and row.provider in ("acuity", "Acuity"):
             raise _invalid(
                 "Acuity manages its own fallbacks and cannot be a fallback target"
             )
@@ -546,7 +546,7 @@ async def _resolve_spec(
             raise _invalid("Fallback target must differ from the primary LLM")
     Acuity_keys = []
     for row, service in services.values():
-        if row.provider == "Acuity":
+        if row.provider in ("acuity", "Acuity"):
             Acuity_keys.append(set(service.get_all_api_keys()))
     common = set.intersection(*Acuity_keys) if Acuity_keys else set()
     if Acuity_keys and not common:
@@ -572,7 +572,7 @@ async def _resolve_spec(
             if row.uuid not in selected:
                 selected[row.uuid] = (
                     keys.index(Acuity_key)
-                    if row.provider == "Acuity"
+                    if row.provider in ("acuity", "Acuity")
                     else choice(range(len(keys)))
                 )
             index = selected[row.uuid]

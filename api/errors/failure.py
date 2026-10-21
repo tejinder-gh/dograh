@@ -345,7 +345,7 @@ def classify_http_response(
     normalized_provider = _normalize_provider(provider)
     internal_message = redact_failure_message(message)
 
-    if normalized_provider == "Acuity":
+    if normalized_provider in ("acuity", "dograh"):
         if status_code == 402:
             error_type, detail, retryable = (
                 ErrorType.QUOTA_ERROR,
@@ -394,7 +394,7 @@ def classify_message(
 
     internal_message = redact_failure_message(message)
     normalized_provider = _normalize_provider(provider)
-    if normalized_provider == "Acuity":
+    if normalized_provider in ("acuity", "dograh"):
         error_type, detail, retryable = (
             ErrorType.SYSTEM_ERROR,
             "unknown",
@@ -471,7 +471,7 @@ def classify_exception(
         )
 
     normalized_provider = _normalize_provider(provider)
-    if normalized_provider == "Acuity":
+    if normalized_provider in ("acuity", "dograh"):
         exception_identity = f"{type(exc).__module__}.{type(exc).__name__}".lower()
         transient = isinstance(
             exc,
@@ -490,10 +490,10 @@ def classify_exception(
         return AcuityFailure(
             source=source,
             type=ErrorType.SYSTEM_ERROR,
-            code=f"Acuity-{detail_code}",
+            code=f"acuity-{detail_code}",
             internal_message=internal_message,
             external_message=_external_message(source, ErrorType.SYSTEM_ERROR),
-            provider="Acuity",
+            provider="acuity",
             provider_error_code=provider_error_code,
             error_owner=ErrorOwner.OPERATOR,
             retryable=True if transient else None,

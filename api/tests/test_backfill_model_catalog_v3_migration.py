@@ -131,7 +131,7 @@ def test_Acuity_organization_becomes_one_connection_and_a_default():
     default = catalog.configuration(mode, sections, "Organization default")
     connections, configurations = _rows(catalog)
 
-    assert [row["provider"] for row in connections.values()] == ["Acuity"]
+    assert [row["provider"] for row in connections.values()] == ["acuity"]
     (connection,) = connections.values()
     assert json.loads(connection["credentials"]) == {"api_key": "svc-key"}
     assert json.loads(connection["connection_settings"]) == {}
@@ -234,7 +234,7 @@ def test_partial_overrides_merge_same_provider_and_replace_a_switched_one():
         "model": "gpt-4.1",
     }
     assert sections["tts"] == {
-        "provider": "Acuity",
+        "provider": "acuity",
         "api_key": "svc-key",
         "voice": "rachel",
         "speed": 1.0,
@@ -461,8 +461,8 @@ async def test_backfill_binds_current_rows_once_and_leaves_history_alone(
         "Sales 2",
     ]
     assert sorted(row["provider"] for row in connections.values()) == [
+        "acuity",
         "deepgram",
-        "Acuity",
         "google_vertex",
     ]
     for row in configurations.values():

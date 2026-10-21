@@ -332,7 +332,14 @@ def get_provider_definition(provider_id: str) -> Provider | None:
     for configurations in REGISTRY.values():
         for runtime_id, cls in configurations.items():
             definition = cls.provider_definition
-            if provider_id in (runtime_id, definition.id):
+            if provider_id in (runtime_id, definition.id) or (
+                isinstance(provider_id, str)
+                and provider_id.lower()
+                in (
+                    getattr(runtime_id, "value", str(runtime_id)).lower(),
+                    definition.id.lower(),
+                )
+            ):
                 return definition
     return None
 
@@ -423,7 +430,7 @@ GOOGLE_PROVIDER = Provider("google", "Google")
 GROQ_PROVIDER = Provider("groq", "Groq")
 OPENROUTER_PROVIDER = Provider("openrouter", "Open Router")
 AZURE_OPENAI_PROVIDER = Provider("azure", "Azure OpenAI")
-Acuity_PROVIDER = Provider("Acuity", "Acuity")
+Acuity_PROVIDER = Provider("acuity", "Acuity")
 AWS_BEDROCK_PROVIDER = Provider("aws_bedrock", "AWS Bedrock")
 GOOGLE_VERTEX_PROVIDER = Provider("google_vertex", "Google Vertex")
 GROK_REALTIME_PROVIDER = Provider("grok_realtime", "Grok")
