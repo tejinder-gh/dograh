@@ -15,11 +15,11 @@ metadata:
   name: {{ .Release.Name }}-postgresql
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "dograh.labels" . | nindent 4 }}
+    {{- include "Acuity.labels" . | nindent 4 }}
     app.kubernetes.io/component: postgresql
 type: Opaque
 stringData:
-  password: {{ include "dograh.postgresPassword" . | quote }}
+  password: {{ include "Acuity.postgresPassword" . | quote }}
 ---
 apiVersion: v1
 kind: Service
@@ -27,7 +27,7 @@ metadata:
   name: {{ .Release.Name }}-postgresql
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "dograh.labels" . | nindent 4 }}
+    {{- include "Acuity.labels" . | nindent 4 }}
     app.kubernetes.io/component: postgresql
 spec:
   type: ClusterIP
@@ -36,7 +36,7 @@ spec:
       port: 5432
       targetPort: postgresql
   selector:
-    {{- include "dograh.selectorLabels" . | nindent 4 }}
+    {{- include "Acuity.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: postgresql
 ---
 apiVersion: apps/v1
@@ -45,19 +45,19 @@ metadata:
   name: {{ .Release.Name }}-postgresql
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "dograh.labels" . | nindent 4 }}
+    {{- include "Acuity.labels" . | nindent 4 }}
     app.kubernetes.io/component: postgresql
 spec:
   serviceName: {{ .Release.Name }}-postgresql
   replicas: 1
   selector:
     matchLabels:
-      {{- include "dograh.selectorLabels" . | nindent 6 }}
+      {{- include "Acuity.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: postgresql
   template:
     metadata:
       labels:
-        {{- include "dograh.selectorLabels" . | nindent 8 }}
+        {{- include "Acuity.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: postgresql
     spec:
       securityContext:

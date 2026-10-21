@@ -111,7 +111,7 @@ export const VoiceSelector: React.FC<VoiceSelectorProps> = ({
         }
         // The backend's voice_catalog field metadata opts providers into this control.
         const providerKey = provider as VoiceCatalogProvider;
-        if (providerKey !== "dograh" && !providerConnectionUuid) {
+        if (providerKey !== "Acuity" && !providerConnectionUuid) {
             setVoices([]);
             setError("Select a provider connection to load voices.");
             setIsLoading(false);
@@ -138,7 +138,7 @@ export const VoiceSelector: React.FC<VoiceSelectorProps> = ({
                     query: {
                         ...(model ? { model } : {}),
                         ...(language ? { language } : {}),
-                        ...(providerKey !== "dograh" ? { provider_connection_uuid: providerConnectionUuid } : {}),
+                        ...(providerKey !== "Acuity" ? { provider_connection_uuid: providerConnectionUuid } : {}),
                     },
                     signal: controller.signal,
                 });
@@ -351,95 +351,95 @@ export const VoiceSelector: React.FC<VoiceSelectorProps> = ({
                                 <p role="alert" className="text-sm text-red-500">{error}</p>
                                 <Button type="button" variant="ghost" size="sm" onClick={handleReload}>Retry</Button>
                             </div>
-                            ) : isLoading ? (
-                                <div className="flex items-center justify-center py-4">
-                                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                                </div>
-                            ) : filteredVoices.length === 0 ? (
-                                <p className="text-sm text-muted-foreground text-center py-4">
-                                    No voices found
-                                </p>
-                            ) : (
-                                filteredVoices.map((voice) => (
-                                    <div
-                                        key={voice.voice_id}
-                                        className={cn(
-                                            "flex items-start space-x-3 p-2 hover:bg-accent rounded-sm cursor-pointer",
-                                            value === voice.voice_id && "bg-accent"
-                                        )}
-                                        onClick={() => handleSelectVoice(voice.voice_id)}
-                                    >
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2">
-                                                <p className="text-sm font-medium truncate">
-                                                    {voice.name}
-                                                </p>
-                                                {voice.gender && (
-                                                    <span className="text-xs text-muted-foreground capitalize">
-                                                        {voice.gender}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            {voice.description && (
-                                                <p className="text-xs text-muted-foreground line-clamp-2">
-                                                    {voice.description}
-                                                </p>
-                                            )}
-                                            <div className="flex items-center gap-2 mt-1">
-                                                {voice.accent && (
-                                                    <span className="text-xs bg-secondary px-1.5 py-0.5 rounded capitalize">
-                                                        {voice.accent}
-                                                    </span>
-                                                )}
-                                                {voice.language && (
-                                                    <span className="text-xs bg-secondary px-1.5 py-0.5 rounded uppercase">
-                                                        {voice.language}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-                                        {voice.preview_url && (
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="h-8 w-8 p-0 shrink-0"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    playPreview(voice.preview_url!, voice.voice_id);
-                                                }}
-                                            >
-                                                <Volume2
-                                                    className={cn(
-                                                        "h-4 w-4",
-                                                        playingPreview === voice.voice_id &&
-                                                            "text-primary animate-pulse"
-                                                    )}
-                                                />
-                                            </Button>
-                                        )}
-                                    </div>
-                                ))
-                            )}
-                        </div>
-
-                        <div className="p-2 border-t flex items-center justify-between shrink-0 bg-popover">
-                            {!isStatic && (
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 text-xs text-muted-foreground hover:text-foreground px-2"
-                                    onClick={handleReload}
-                                    disabled={isLoading}
-                                >
-                                    <RotateCw className={cn("h-3 w-3 mr-1", isLoading && "animate-spin")} />
-                                    Refresh
-                                </Button>
-                            )}
-                            <p className={cn("text-xs text-muted-foreground", isStatic && "ml-auto")}>
-                                {filteredVoices.length} of {voices.length} voices
+                        ) : isLoading ? (
+                            <div className="flex items-center justify-center py-4">
+                                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                            </div>
+                        ) : filteredVoices.length === 0 ? (
+                            <p className="text-sm text-muted-foreground text-center py-4">
+                                No voices found
                             </p>
-                        </div>
+                        ) : (
+                            filteredVoices.map((voice) => (
+                                <div
+                                    key={voice.voice_id}
+                                    className={cn(
+                                        "flex items-start space-x-3 p-2 hover:bg-accent rounded-sm cursor-pointer",
+                                        value === voice.voice_id && "bg-accent"
+                                    )}
+                                    onClick={() => handleSelectVoice(voice.voice_id)}
+                                >
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2">
+                                            <p className="text-sm font-medium truncate">
+                                                {voice.name}
+                                            </p>
+                                            {voice.gender && (
+                                                <span className="text-xs text-muted-foreground capitalize">
+                                                    {voice.gender}
+                                                </span>
+                                            )}
+                                        </div>
+                                        {voice.description && (
+                                            <p className="text-xs text-muted-foreground line-clamp-2">
+                                                {voice.description}
+                                            </p>
+                                        )}
+                                        <div className="flex items-center gap-2 mt-1">
+                                            {voice.accent && (
+                                                <span className="text-xs bg-secondary px-1.5 py-0.5 rounded capitalize">
+                                                    {voice.accent}
+                                                </span>
+                                            )}
+                                            {voice.language && (
+                                                <span className="text-xs bg-secondary px-1.5 py-0.5 rounded uppercase">
+                                                    {voice.language}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                    {voice.preview_url && (
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-8 w-8 p-0 shrink-0"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                playPreview(voice.preview_url!, voice.voice_id);
+                                            }}
+                                        >
+                                            <Volume2
+                                                className={cn(
+                                                    "h-4 w-4",
+                                                    playingPreview === voice.voice_id &&
+                                                    "text-primary animate-pulse"
+                                                )}
+                                            />
+                                        </Button>
+                                    )}
+                                </div>
+                            ))
+                        )}
+                    </div>
+
+                    <div className="p-2 border-t flex items-center justify-between shrink-0 bg-popover">
+                        {!isStatic && (
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 text-xs text-muted-foreground hover:text-foreground px-2"
+                                onClick={handleReload}
+                                disabled={isLoading}
+                            >
+                                <RotateCw className={cn("h-3 w-3 mr-1", isLoading && "animate-spin")} />
+                                Refresh
+                            </Button>
+                        )}
+                        <p className={cn("text-xs text-muted-foreground", isStatic && "ml-auto")}>
+                            {filteredVoices.length} of {voices.length} voices
+                        </p>
+                    </div>
                 </PopoverContent>
             </Popover>
         </div>

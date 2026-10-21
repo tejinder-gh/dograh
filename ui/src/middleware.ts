@@ -5,7 +5,7 @@ import { getServerBackendUrl } from '@/lib/apiClient';
 import { OSS_TOKEN_COOKIE } from '@/lib/auth/cookies';
 
 // Paths that don't require authentication in OSS mode.
-// `/embed` serves the public website widget (e.g. /embed/dograh-widget.js),
+// `/embed` serves the public website widget (e.g. /embed/Acuity-widget.js),
 // which must be fetchable without a session cookie so third-party sites can
 // embed it — otherwise the middleware 307-redirects the asset to /auth/login.
 const PUBLIC_PATHS = ['/auth/login', '/auth/signup', '/embed'];
@@ -52,6 +52,14 @@ export async function middleware(request: NextRequest) {
   const token = request.cookies.get(OSS_TOKEN_COOKIE)?.value;
   const { pathname } = request.nextUrl;
 
+  // If root path (/): authenticated users land on /dashboard; unauthenticated visitors see landing page
+  if (pathname === '/') {
+    if (token) {
+      return NextResponse.redirect(new URL('/dashboard', request.url));
+    }
+    return NextResponse.next();
+  }
+
   // Allow public paths without auth. Match on a path-segment boundary (exact
   // match or a `/`-delimited subpath) rather than a bare prefix, so a public
   // entry like `/embed` exempts `/embed` and `/embed/...` but NOT sibling
@@ -79,7 +87,7 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - public static assets (anything with a file extension, e.g. /dograh-logo.png)
+     * - public static assets (anything with a file extension, e.g. /Acuity-logo.png)
      */
     '/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:png|jpe?g|gif|svg|webp|avif|ico|woff2?|ttf|otf)).*)',
   ],

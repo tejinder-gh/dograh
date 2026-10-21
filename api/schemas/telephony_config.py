@@ -125,7 +125,7 @@ class TrunkResponse(BaseModel):
 
     ``settings`` is the provider's own trunk schema (validated on write against
     ``ProviderSpec.trunk_settings_cls``). The provider-side identifier is
-    Dograh's bookkeeping and is not exposed.
+    Acuity's bookkeeping and is not exposed.
     """
 
     model_config = ConfigDict(from_attributes=True)
@@ -172,12 +172,12 @@ class TelephonyConfigurationDetail(BaseModel):
     sip_connectivity: SIPConnectivityDetails | None = None
     supports_outbound: bool = True
     setup_checklist: ProviderSetupChecklist | None = None
-    # Whether the provider's Dograh integration models trunks at all. Distinct
+    # Whether the provider's Acuity integration models trunks at all. Distinct
     # from ``trunks`` being empty, which is equally the state of a trunk-capable
     # configuration nobody has added one to yet — the UI needs to tell those
     # apart to know whether to offer the "add a trunk" affordance.
     supports_trunks: bool = False
-    # Empty unless the provider's Dograh integration models trunks; the
+    # Empty unless the provider's Acuity integration models trunks; the
     # call-control integrations route through the account itself.
     trunks: List[TrunkResponse] = Field(default_factory=list)
     # Whether the provider can list the numbers its account holds, so the UI

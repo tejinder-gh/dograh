@@ -28,7 +28,7 @@ from api.constants import DEFAULT_WEBHOOK_DELIVERY_CONFIG
 from api.db import db_client
 from api.db.models import WebhookDeliveryModel
 from api.errors.failure import (
-    DograhFailure,
+    AcuityFailure,
     ErrorSource,
     classify_exception,
     classify_http_response,
@@ -113,6 +113,9 @@ def _log_webhook_request(
             if key.lower()
             in {
                 "content-type",
+                "x-acuity-delivery-id",
+                "x-acuity-workflow-run-id",
+                "x-acuity-delivery-attempt",
                 "x-dograh-delivery-id",
                 "x-dograh-workflow-run-id",
                 "x-dograh-delivery-attempt",
@@ -205,9 +208,9 @@ async def _build_headers(delivery: WebhookDeliveryModel, attempt: int) -> dict:
             headers[key] = value
 
     # Stable idempotency signal so the receiver can dedupe retried deliveries.
-    headers["X-Dograh-Delivery-Id"] = delivery.delivery_uuid
-    headers["X-Dograh-Workflow-Run-Id"] = str(delivery.workflow_run_id)
-    headers["X-Dograh-Delivery-Attempt"] = str(attempt)
+    headers["X-Acuity-Delivery-Id"] = delivery.delivery_uuid
+    headers["X-Acuity-Workflow-Run-Id"] = str(delivery.workflow_run_id)
+    headers["X-Acuity-Delivery-Attempt"] = str(attempt)
     return headers
 
 
@@ -243,7 +246,7 @@ async def _handle_transient_failure(
 
 
 def _log_dead_letter_failure(
-    delivery: WebhookDeliveryModel, failure: DograhFailure
+    delivery: WebhookDeliveryModel, failure: AcuityFailure
 ) -> None:
     log_failure(
         failure,
@@ -365,7 +368,7 @@ async def deliver_webhook(_ctx, delivery_id: int) -> None:
     # The receiver accepted the payload (2xx). Recording success must NOT be able
     # to dead-letter an already-delivered webhook: if this DB write fails, log and
     # leave the row claimed-but-pending so the sweeper reconciles it once the
-    # lease expires (the receiver dedups the re-send via X-Dograh-Delivery-Id).
+    # lease expires (the receiver dedups the re-send via X-Acuity-Delivery-Id).
     try:
         await db_client.mark_webhook_delivery_succeeded(
             delivery.id, attempt, response.status_code

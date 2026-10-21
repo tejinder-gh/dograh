@@ -13,7 +13,7 @@ import {
     getServiceKeysApiV1UserServiceKeysGet,
     reactivateApiKeyApiV1UserApiKeysApiKeyIdReactivatePut
 } from '@/client/sdk.gen';
-import type { ApiKeyResponse, CreateApiKeyResponse, CreateServiceKeyResponse,ServiceKeyResponse } from '@/client/types.gen';
+import type { ApiKeyResponse, CreateApiKeyResponse, CreateServiceKeyResponse, ServiceKeyResponse } from '@/client/types.gen';
 import { PageLayout, PageSection } from '@/components/layout/PageLayout';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -87,7 +87,7 @@ export default function APIKeysPage() {
             const response = await getApiKeysApiV1UserApiKeysGet({
                 query: {
 
-                        include_archived: showArchived
+                    include_archived: showArchived
 
                 },
                 headers: {
@@ -271,7 +271,7 @@ export default function APIKeysPage() {
             await reactivateApiKeyApiV1UserApiKeysApiKeyIdReactivatePut({
                 path: {
 
-                        api_key_id: keyId
+                    api_key_id: keyId
 
                 },
                 headers: {
@@ -321,7 +321,7 @@ export default function APIKeysPage() {
 
     return (
         <>
-            <PageLayout title="Developer Portal" description="Manage your API keys to access Dograh services programmatically">
+            <PageLayout title="Developer Portal" description="Manage your API keys to access Acuity services programmatically">
 
                 {error && (
                     <div className="mb-4 p-4 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive">
@@ -423,9 +423,9 @@ export default function APIKeysPage() {
                     )}
                 </PageSection>
 
-                {/* Dograh Service Keys Section */}
-                <PageSection title="Dograh Service Keys"
-                    description="Manage service keys for accessing Dograh AI services (LLM, TTS, STT)"
+                {/* Acuity Service Keys Section */}
+                <PageSection title="Acuity Service Keys"
+                    description="Manage service keys for accessing Acuity AI services (LLM, TTS, STT)"
                     actions={<>{showServiceKeyArchiveControls && (
                         <Button
                             variant="outline"
@@ -446,7 +446,7 @@ export default function APIKeysPage() {
                             </Button>
                         ) : (
                             <span className="text">
-                                To generate additional service keys, <a href="https://app.dograh.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Sign up on app.dograh.com</a>
+                                To generate additional service keys, <a href="https://app.Acuity.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Sign up on app.Acuity.com</a>
                             </span>
                         )}</>}>
                     {isServiceKeysLoading ? (
@@ -613,7 +613,7 @@ export default function APIKeysPage() {
                     <DialogHeader>
                         <DialogTitle>Create New Service Key</DialogTitle>
                         <DialogDescription>
-                            Create a service key to access Dograh AI services (LLM, TTS, STT)
+                            Create a service key to access Acuity AI services (LLM, TTS, STT)
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
@@ -666,7 +666,7 @@ export default function APIKeysPage() {
                             </div>
                             <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
                                 <p className="text-sm text-blue-600 dark:text-blue-500">
-                                    This key provides access to Dograh AI services including LLM, Text-to-Speech, and Speech-to-Text.
+                                    This key provides access to Acuity AI services including LLM, Text-to-Speech, and Speech-to-Text.
                                     {createdServiceKey.expires_at && (
                                         <span className="block mt-1">
                                             Expires on: {formatDate(createdServiceKey.expires_at)}

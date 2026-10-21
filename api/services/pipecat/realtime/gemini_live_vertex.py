@@ -1,14 +1,14 @@
-"""Dograh subclass of pipecat's Gemini Live Vertex AI LLM service.
+"""Acuity subclass of pipecat's Gemini Live Vertex AI LLM service.
 
-Diamond inheritance: combines the Dograh engine-integration overrides from
-:class:`DograhGeminiLiveLLMService` with the Vertex-specific tweaks from
+Diamond inheritance: combines the Acuity engine-integration overrides from
+:class:`AcuityGeminiLiveLLMService` with the Vertex-specific tweaks from
 upstream's :class:`GeminiLiveVertexLLMService` (no history config,
 ``NON_BLOCKING`` tools disabled, service-account credentials).
 
 MRO::
 
-    DograhGeminiLiveVertexLLMService
-      -> DograhGeminiLiveLLMService
+    AcuityGeminiLiveVertexLLMService
+      -> AcuityGeminiLiveLLMService
       -> RealtimeConversationMixin
       -> GeminiLiveVertexLLMService
       -> GeminiLiveLLMService
@@ -22,18 +22,18 @@ from api.services.pipecat.google_credentials import (
     get_google_credentials,
     prepare_google_credentials,
 )
-from api.services.pipecat.realtime.gemini_live import DograhGeminiLiveLLMService
+from api.services.pipecat.realtime.gemini_live import AcuityGeminiLiveLLMService
 from pipecat.services.google.gemini_live.llm import GeminiLiveLLMService
 from pipecat.services.google.gemini_live.vertex.llm import (
     GeminiLiveVertexLLMService,
 )
 
 
-class DograhGeminiLiveVertexLLMService(
-    DograhGeminiLiveLLMService,
+class AcuityGeminiLiveVertexLLMService(
+    AcuityGeminiLiveLLMService,
     GeminiLiveVertexLLMService,
 ):
-    """Vertex AI variant of Gemini Live with Dograh integration quirks."""
+    """Vertex AI variant of Gemini Live with Acuity integration quirks."""
 
     _get_credentials = staticmethod(get_google_credentials)
 
@@ -50,10 +50,10 @@ class DograhGeminiLiveVertexLLMService(
 
 
 # Guard against MRO regressions: a future refactor that flips inheritance
-# order or breaks the diamond would silently bypass the Dograh overrides.
-_mro = DograhGeminiLiveVertexLLMService.__mro__
-assert _mro[1] is DograhGeminiLiveLLMService, (
-    f"Expected DograhGeminiLiveLLMService at MRO[1], got {_mro[1]}"
+# order or breaks the diamond would silently bypass the Acuity overrides.
+_mro = AcuityGeminiLiveVertexLLMService.__mro__
+assert _mro[1] is AcuityGeminiLiveLLMService, (
+    f"Expected AcuityGeminiLiveLLMService at MRO[1], got {_mro[1]}"
 )
 assert _mro.index(GeminiLiveVertexLLMService) < _mro.index(GeminiLiveLLMService), (
     "Vertex overrides must precede the base Gemini implementation"

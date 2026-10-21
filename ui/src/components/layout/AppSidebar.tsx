@@ -5,6 +5,7 @@ import {
   ArrowUpCircle,
   AudioLines,
   Brain,
+  Briefcase,
   ChevronLeft,
   ChevronRight,
   CircleDollarSign,
@@ -21,6 +22,7 @@ import {
   ShieldCheck,
   TrendingUp,
   UserRound,
+  Users,
   Workflow,
   Wrench,
 } from "lucide-react";
@@ -55,6 +57,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { branding } from "@/config/branding";
 import { useAppConfig } from "@/context/AppConfigContext";
 import { useLeadForms } from "@/context/LeadFormsContext";
 import { useTelephonyConfigWarnings } from "@/context/TelephonyConfigWarningsContext";
@@ -84,6 +87,26 @@ const NAV_SECTIONS: SidebarNavSection[] = [
         title: "Overview",
         url: "/overview",
         icon: Home,
+      },
+    ],
+  },
+  {
+    label: "BUSINESS",
+    items: [
+      {
+        title: "Client Intelligence",
+        url: "/dashboard",
+        icon: TrendingUp,
+      },
+      {
+        title: "Business Profiles",
+        url: "/business/profiles",
+        icon: Briefcase,
+      },
+      {
+        title: "CRM Contacts",
+        url: "/business/contacts",
+        icon: Users,
       },
     ],
   },
@@ -160,7 +183,12 @@ const NAV_SECTIONS: SidebarNavSection[] = [
         title: "Reports",
         url: "/reports",
         icon: FileText,
-      }
+      },
+      {
+        title: "Platform Command",
+        url: "/admin/dashboard",
+        icon: ShieldCheck,
+      },
     ],
   },
 ];
@@ -229,7 +257,7 @@ export function AppSidebar() {
         className={cn(
           "rounded-xl transition-colors hover:bg-accent hover:text-accent-foreground",
           isItemActive &&
-            "bg-cta/15 font-semibold text-foreground hover:bg-cta/20 hover:text-foreground"
+          "bg-cta/15 font-semibold text-foreground hover:bg-cta/20 hover:text-foreground"
         )}
       >
         <Link
@@ -300,9 +328,8 @@ export function AppSidebar() {
     </Button>
   );
 
-  // "Hire an Expert" CTA, rendered INSIDE the shared footer pill next to the
-  // profile icon. Expanded: label pill filling the row. Collapsed: icon-only.
-  const hireExpertButton = isCollapsed ? (
+  // "Hire an Expert" CTA is hidden when SaaS upsells are disabled in branding config.
+  const hireExpertButton = !branding.features.showSaaSUpsells ? null : isCollapsed ? (
     <Tooltip>
       <TooltipTrigger asChild>
         <Button
@@ -353,7 +380,7 @@ export function AppSidebar() {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <a
-                    href="https://docs.dograh.com/deployment/update"
+                    href="https://docs.acuity.com/deployment/update"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1 rounded-md border bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium leading-none text-amber-900 transition-opacity hover:opacity-80 dark:bg-amber-950 dark:text-amber-200"

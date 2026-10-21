@@ -151,18 +151,23 @@ def _complete(mode, sections):
 def sections_from_v2(value):
     """Return (mode, {role: service}) for a V2 payload.
 
-    Mirrors compile_ai_model_configuration_v2: Dograh mode expands the single
+    Mirrors compile_ai_model_configuration_v2: Acuity mode expands the single
     managed key into one service per role; BYOK mode already stores a service
     per role.
     """
     value = _as_object(value)
     if value is None:
         raise Unconvertible("not_an_object")
-    if value.get("mode") == "dograh":
-        managed = _as_object(value.get("dograh")) or {}
+    if value.get("mode") in ("Acuity", "acuity", "dograh"):
+        managed = (
+            _as_object(value.get("Acuity"))
+            or _as_object(value.get("acuity"))
+            or _as_object(value.get("dograh"))
+            or {}
+        )
         if not managed.get("api_key"):
-            raise Unconvertible("missing_dograh_service_key")
-        shared = {"provider": "dograh", "api_key": managed["api_key"]}
+            raise Unconvertible("missing_Acuity_service_key")
+        shared = {"provider": "acuity", "api_key": managed["api_key"]}
         llm = dict(shared)
         if managed.get("temperature") is not None:
             llm["temperature"] = managed["temperature"]

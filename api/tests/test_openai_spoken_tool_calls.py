@@ -1,4 +1,4 @@
-"""Exercise recovery through Dograh's OpenAI-compatible provider path."""
+"""Exercise recovery through Acuity's OpenAI-compatible provider path."""
 
 import asyncio
 import json
@@ -25,7 +25,7 @@ from pipecat.processors.frame_processor import FrameDirection, FrameProcessorSet
 from pipecat.utils.asyncio.task_manager import TaskManager
 
 from api.services.pipecat.service_factory import (
-    DograhLLMService,
+    AcuityLLMService,
     MiniMaxLLMService,
     create_llm_service_from_provider,
 )
@@ -86,7 +86,7 @@ def install_stream(service, steps, finish="stop", *, paused=None):
 
 
 def instrument(service=None):
-    service = service or DograhLLMService(api_key="offline-key")
+    service = service or AcuityLLMService(api_key="offline-key")
     frames, calls = [], []
     service._setup = FrameProcessorSetup(
         clock=SystemClock(),
@@ -128,7 +128,7 @@ def speech(frames):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("width", [1, 3, 1000])
-async def test_dograh_text_call_executes_once_without_speech(width):
+async def test_Acuity_text_call_executes_once_without_speech(width):
     service, frames, calls = instrument()
     text = "severe:default_api:end_call{}"
     closed = install_stream(
@@ -250,7 +250,7 @@ async def test_stale_response_cannot_recover(change):
 @pytest.mark.parametrize(
     "provider, model",
     [
-        ("dograh", "default"),
+        ("acuity", "default"),
         ("openai", "gpt-4o"),
         ("atlascloud", "offline"),
         ("hopper", "offline"),
@@ -359,9 +359,9 @@ async def test_interleaved_native_arguments_do_not_drop_calls_or_duplicate_recov
 
 
 @pytest.mark.asyncio
-async def test_dograh_request_metadata_and_usage_survive_recovery():
+async def test_Acuity_request_metadata_and_usage_survive_recovery():
     service, frames, calls = instrument(
-        DograhLLMService(
+        AcuityLLMService(
             api_key="offline-key",
             correlation_id="corr-123",
             usage_context="voice-call",
@@ -428,8 +428,8 @@ async def test_cancellation_closes_http_response_and_iterator():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("harness", [DograhLLMService], indirect=True)
-async def test_dograh_fallback_only_winner_executes_recovered_tool(harness):
+@pytest.mark.parametrize("harness", [AcuityLLMService], indirect=True)
+async def test_Acuity_fallback_only_winner_executes_recovered_tool(harness):
     saved = []
 
     async def save(params):
@@ -474,8 +474,8 @@ async def test_dograh_fallback_only_winner_executes_recovered_tool(harness):
         ),
     ],
 )
-async def test_dograh_tts_and_assistant_context(text, expected_speech, name, args):
-    service = DograhLLMService(api_key="offline-key")
+async def test_Acuity_tts_and_assistant_context(text, expected_speech, name, args):
+    service = AcuityLLMService(api_key="offline-key")
     ctx = context()
     called = asyncio.Event()
 

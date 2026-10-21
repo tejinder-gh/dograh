@@ -1551,7 +1551,7 @@ class PipecatEngine:
             call_disposition
         )
 
-        # Tagged with the untranslated disposition. Tags are Dograh's own
+        # Tagged with the untranslated disposition. Tags are Acuity's own
         # vocabulary -- `user_speech`, `not_connected` -- and are what the
         # mapping-less view of a run is read from.
         self.record_call_tags([call_disposition])

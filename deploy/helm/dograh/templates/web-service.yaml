@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "dograh.web.fullname" . }}
+  name: {{ include "Acuity.web.fullname" . }}
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "dograh.labels" . | nindent 4 }}
+    {{- include "Acuity.labels" . | nindent 4 }}
     app.kubernetes.io/component: web
   {{- with .Values.web.service.annotations }}
   annotations:
@@ -18,5 +18,5 @@ spec:
       targetPort: http
       protocol: TCP
   selector:
-    {{- include "dograh.selectorLabels" . | nindent 4 }}
+    {{- include "Acuity.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: web

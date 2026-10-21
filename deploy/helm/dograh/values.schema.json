@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Dograh Helm chart values",
+  "title": "Acuity Helm chart values",
   "type": "object",
   "properties": {
     "database": {

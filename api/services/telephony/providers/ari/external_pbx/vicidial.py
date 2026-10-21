@@ -25,7 +25,7 @@ _CUSTOM_FIELDS_UPDATED = "CUSTOM FIELDS VALUES UPDATED"
 # organization's mapped disposition, so an org that wants VICIdial suppression
 # maps its do-not-call outcomes onto VICIdial's own DNC code.
 _DNC_STATUS = "DNC"
-# ``vicidial_list.status`` is VARCHAR(6). Dograh's own dispositions are longer
+# ``vicidial_list.status`` is VARCHAR(6). Acuity's own dispositions are longer
 # than that (``voicemail_detected``), which is why an organization has to map
 # them onto its VICIdial codes before they can be written at all.
 _MAX_STATUS_LENGTH = 6
@@ -80,8 +80,8 @@ def _response_summary(response_text: str) -> str:
     not worth logging is the block VICIdial appends after it, which repeats the
     API user and the search values it was given:
 
-        ERROR: update_lead NO MATCHES FOUND IN THE SYSTEM: |DOGRAHAPI|1||
-        ERROR: update_lead NO VALID SEARCH METHOD - DOGRAHAPI|LEAD_ID|||
+        ERROR: update_lead NO MATCHES FOUND IN THE SYSTEM: |AcuityAPI|1||
+        ERROR: update_lead NO VALID SEARCH METHOD - AcuityAPI|LEAD_ID|||
 
     Either ``|`` or `` - `` can introduce that block, so cut at whichever comes
     first and keep only the reason ahead of it.
@@ -104,11 +104,11 @@ class VicidialAdapter(ExternalPBXAdapter):
         self._agent_url = str(agent_api.get("url", "")).strip()
         self._agent_user = str(agent_api.get("username", "")).strip()
         self._agent_password = str(agent_api.get("password", ""))
-        self._agent_source = str(agent_api.get("source", "dograh")).strip()
+        self._agent_source = str(agent_api.get("source", "Acuity")).strip()
         self._non_agent_url = str(non_agent_api.get("url", "")).strip()
         self._non_agent_user = str(non_agent_api.get("username", "")).strip()
         self._non_agent_password = str(non_agent_api.get("password", ""))
-        self._non_agent_source = str(non_agent_api.get("source", "dograh")).strip()
+        self._non_agent_source = str(non_agent_api.get("source", "Acuity")).strip()
         # The ceiling matters beyond this call: a hangup runs inside the
         # pipeline's terminal-frame handling, and pipecat gives a CancelFrame
         # `CANCEL_TIMEOUT_SECS` (20s) to reach the end of the pipeline before it

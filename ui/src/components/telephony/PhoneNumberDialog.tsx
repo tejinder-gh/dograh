@@ -193,7 +193,7 @@ export function PhoneNumberDialog({
       if (providerSync && !providerSync.ok) {
         toast.warning(
           providerSync.message ??
-            "Saved, but failed to sync inbound webhook to the provider.",
+          "Saved, but failed to sync inbound webhook to the provider.",
         );
       }
       onOpenChange(false);
@@ -308,7 +308,7 @@ export function PhoneNumberDialog({
               <p className="text-xs text-muted-foreground">
                 {trunks.length > 1
                   ? "Calls from this number leave on this trunk. Pick the one whose carrier authorised the number — carriers reject a caller ID they do not own."
-                  : "Calls from this number leave on this trunk. With a single trunk Dograh falls back to it anyway."}
+                  : "Calls from this number leave on this trunk. With a single trunk Acuity falls back to it anyway."}
               </p>
             </div>
           )}

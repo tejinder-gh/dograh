@@ -2,10 +2,10 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "dograh.fullname" . }}
+  name: {{ include "Acuity.fullname" . }}
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "dograh.labels" . | nindent 4 }}
+    {{- include "Acuity.labels" . | nindent 4 }}
   annotations:
     # Sensible defaults for WebSocket-heavy signaling traffic. These are
     # nginx-ingress style; if you use a different controller, override
@@ -40,7 +40,7 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: {{ include "dograh.web.fullname" . }}
+                name: {{ include "Acuity.web.fullname" . }}
                 port:
                   number: {{ .Values.web.service.port }}
           {{- if or (eq .Values.storage.mode "internalMinio") (eq .Values.storage.mode "externalMinio") }}
@@ -49,11 +49,11 @@ spec:
             backend:
               service:
                 {{- if eq .Values.storage.mode "internalMinio" }}
-                name: {{ include "dograh.minioHost" . }}
+                name: {{ include "Acuity.minioHost" . }}
                 {{- else }}
                 # externalMinio: requires an ExternalName Service named
                 # <release>-minio-external pointing at storage.externalMinio.endpoint.
-                name: {{ include "dograh.fullname" . }}-minio-external
+                name: {{ include "Acuity.fullname" . }}-minio-external
                 {{- end }}
                 port:
                   number: 9000
@@ -63,7 +63,7 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: {{ include "dograh.ui.fullname" . }}
+                name: {{ include "Acuity.ui.fullname" . }}
                 port:
                   number: {{ .Values.ui.service.port }}
           {{- end }}

@@ -40,8 +40,8 @@ from pipecat.utils.asyncio.task_manager import TaskManager
 
 from api.services.pipecat.gemini_spoken_tool_calls import GeminiSpokenToolCallMixin
 from api.services.pipecat.service_factory import (
-    DograhGoogleLLMService,
-    DograhGoogleVertexLLMService,
+    AcuityGoogleLLMService,
+    AcuityGoogleVertexLLMService,
 )
 from api.tests import test_fallback_llm_processor as fallback_tests
 from api.tests.test_fallback_llm_processor import Stream, generate, install_streams
@@ -49,12 +49,12 @@ from api.tests.test_fallback_llm_processor import Stream, generate, install_stre
 harness = fallback_tests.harness
 
 
-GuardedGoogle = DograhGoogleLLMService
+GuardedGoogle = AcuityGoogleLLMService
 
 
 def test_both_gemini_provider_paths_enable_recovery():
-    assert issubclass(DograhGoogleLLMService, GeminiSpokenToolCallMixin)
-    assert issubclass(DograhGoogleVertexLLMService, GeminiSpokenToolCallMixin)
+    assert issubclass(AcuityGoogleLLMService, GeminiSpokenToolCallMixin)
+    assert issubclass(AcuityGoogleVertexLLMService, GeminiSpokenToolCallMixin)
 
 
 def chunk(*parts, finish=None):

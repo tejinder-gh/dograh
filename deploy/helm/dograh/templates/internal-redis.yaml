@@ -5,7 +5,7 @@ password-protected, AOF persistence. For production set redis.mode=external and
 point secrets.redisUrl at a managed Redis/Valkey.
 
 Service name is <release>-redisinternal-master (kept from the previous packaging)
-so dograh.redisHost / dograh.redisUrl need no change.
+so Acuity.redisHost / Acuity.redisUrl need no change.
 */}}
 apiVersion: v1
 kind: Secret
@@ -13,11 +13,11 @@ metadata:
   name: {{ .Release.Name }}-redisinternal
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "dograh.labels" . | nindent 4 }}
+    {{- include "Acuity.labels" . | nindent 4 }}
     app.kubernetes.io/component: redis
 type: Opaque
 stringData:
-  redis-password: {{ include "dograh.redisPassword" . | quote }}
+  redis-password: {{ include "Acuity.redisPassword" . | quote }}
 ---
 apiVersion: v1
 kind: Service
@@ -25,7 +25,7 @@ metadata:
   name: {{ .Release.Name }}-redisinternal-master
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "dograh.labels" . | nindent 4 }}
+    {{- include "Acuity.labels" . | nindent 4 }}
     app.kubernetes.io/component: redis
 spec:
   type: ClusterIP
@@ -34,7 +34,7 @@ spec:
       port: 6379
       targetPort: redis
   selector:
-    {{- include "dograh.selectorLabels" . | nindent 4 }}
+    {{- include "Acuity.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: redis
 ---
 apiVersion: apps/v1
@@ -43,19 +43,19 @@ metadata:
   name: {{ .Release.Name }}-redisinternal-master
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "dograh.labels" . | nindent 4 }}
+    {{- include "Acuity.labels" . | nindent 4 }}
     app.kubernetes.io/component: redis
 spec:
   serviceName: {{ .Release.Name }}-redisinternal-master
   replicas: 1
   selector:
     matchLabels:
-      {{- include "dograh.selectorLabels" . | nindent 6 }}
+      {{- include "Acuity.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: redis
   template:
     metadata:
       labels:
-        {{- include "dograh.selectorLabels" . | nindent 8 }}
+        {{- include "Acuity.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: redis
     spec:
       securityContext:

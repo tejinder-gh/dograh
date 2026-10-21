@@ -1,0 +1,52 @@
+/**
+ * Centralized branding configuration for AI Calling Agent OS.
+ * Update these values to customize the application branding without modifying multiple UI files.
+ */
+
+export interface BrandingConfig {
+  readonly productName: string;
+  readonly productShortName: string;
+  readonly productDescription: string;
+  readonly logo: {
+    readonly lightUrl: string;
+    readonly darkUrl: string;
+    readonly markUrl: string;
+    readonly showTypographicLogo: boolean;
+  };
+  readonly links: {
+    readonly supportUrl?: string;
+    readonly docsUrl?: string;
+    readonly privacyUrl?: string;
+    readonly termsUrl?: string;
+  };
+  readonly features: {
+    readonly showCommunityBadge: boolean;
+    readonly showSaaSUpsells: boolean;
+    readonly showEventBanner: boolean;
+  };
+}
+
+export const branding: BrandingConfig = {
+  productName: process.env.NEXT_PUBLIC_PRODUCT_NAME || "Acuity",
+  productShortName: process.env.NEXT_PUBLIC_PRODUCT_SHORT_NAME || "Acuity",
+  productDescription:
+    process.env.NEXT_PUBLIC_PRODUCT_DESCRIPTION ||
+    "Acuity Voice AI Platform - Intelligent Calling & Business Automation",
+  logo: {
+    lightUrl: "/acuity-logo.png",
+    darkUrl: "/acuity-logo-inverse.png",
+    markUrl: "/acuity-mark.png",
+    // When true, renders a clean, accessible typographic badge alongside/in place of the image
+    showTypographicLogo: true,
+  },
+  links: {
+    supportUrl: process.env.NEXT_PUBLIC_SUPPORT_URL,
+    docsUrl: process.env.NEXT_PUBLIC_DOCS_URL || "/docs",
+  },
+  features: {
+    // Hide public SaaS community prompts and GitHub star badges on customer product UI
+    showCommunityBadge: false,
+    showSaaSUpsells: false,
+    showEventBanner: false,
+  },
+};

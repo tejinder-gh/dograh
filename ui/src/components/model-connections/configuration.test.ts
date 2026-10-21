@@ -5,25 +5,41 @@ import type { ConfigurationSpec, ModelConnectionCatalog, ProviderConnection } fr
 
 const connection = (uuid: string, provider: string): ProviderConnection => ({ uuid, provider, name: uuid, connection_settings: {}, configured_credentials: ["api_key"], revision: 1, is_active: true });
 const connections = [connection("openai-primary", "openai"), connection("openai-secondary", "openai"), connection("google", "google")];
-const catalog: ModelConnectionCatalog = { services: { llm: {
-    openai: { credential_fields: {}, connection_fields: {}, settings_schema: { properties: {
-        model: { default: "gpt-4.1" },
-        temperature: { default: 0.1, model_constraints: [{ pattern: "^gpt-5", supported: false }] },
-    } } },
-    google: { credential_fields: {}, connection_fields: {}, settings_schema: { properties: { model: { default: "gemini-3.5-flash" }, temperature: { default: 0.7 } } } },
-} } };
+const catalog: ModelConnectionCatalog = {
+    services: {
+        llm: {
+            openai: {
+                credential_fields: {}, connection_fields: {}, settings_schema: {
+                    properties: {
+                        model: { default: "gpt-4.1" },
+                        temperature: { default: 0.1, model_constraints: [{ pattern: "^gpt-5", supported: false }] },
+                    }
+                }
+            },
+            google: { credential_fields: {}, connection_fields: {}, settings_schema: { properties: { model: { default: "gemini-3.5-flash" }, temperature: { default: 0.7 } } } },
+        }
+    }
+};
 const base: ConfigurationSpec = { version: 3, mode: "pipeline", llm: { provider_connection_uuid: "openai-primary", settings: { model: "gpt-4.1", temperature: 0.2 } }, stt: { provider_connection_uuid: "stt", settings: { model: "transcriber" } }, tts: { provider_connection_uuid: "tts", settings: { voice: "Alice" } }, embeddings: { provider_connection_uuid: "embedding", settings: {} } };
 
 describe("model connection editor settings", () => {
     it.each(["openai", "google"])("reuses a %s account with role-specific model defaults", provider => {
         const account = connection("shared-account", provider);
         const realtimeModel = provider === "openai" ? "gpt-realtime-2" : "gemini-3.8-live";
-        const shared: ModelConnectionCatalog = { services: {
-            ...catalog.services,
-            realtime: { [provider]: { ...catalog.services.llm![provider], settings_schema: { properties: {
-                model: { default: realtimeModel },
-            } } } },
-        } };
+        const shared: ModelConnectionCatalog = {
+            services: {
+                ...catalog.services,
+                realtime: {
+                    [provider]: {
+                        ...catalog.services.llm![provider], settings_schema: {
+                            properties: {
+                                model: { default: realtimeModel },
+                            }
+                        }
+                    }
+                },
+            }
+        };
         const cascade = configurationForMode("cascade", base, shared, [account]);
         const realtime = configurationForMode("realtime", cascade, shared, [account]);
         expect(realtime.llm).toEqual(cascade.llm);
@@ -33,7 +49,7 @@ describe("model connection editor settings", () => {
     });
 
     it("preserves mixed managed and external providers on a rename-only save", () => {
-        const available = [...connections, connection("managed", "dograh")];
+        const available = [...connections, connection("managed", "Acuity")];
         const mixed: ConfigurationSpec = { ...base, llm: { provider_connection_uuid: "managed", settings: {} }, embeddings: null };
         expect(configurationMode(mixed, available)).toBe("cascade");
         const cleaned = cleanConfiguration(mixed, catalog, available);
@@ -104,17 +120,17 @@ describe("model connection editor settings", () => {
         expect(result).toHaveProperty("llm");
     });
 
-    it("preserves fallback rules between Cascade and Realtime and clears them for Dograh", () => {
-        const available = [...connections, connection("dograh", "dograh")];
+    it("preserves fallback rules between Cascade and Realtime and clears them for Acuity", () => {
+        const available = [...connections, connection("Acuity", "Acuity")];
         const configured: ConfigurationSpec = { ...base, llm_fallback: { version: 1, rules: [{ condition: { type: "error" }, target: { provider_connection_uuid: "google", settings: {} } }] } };
         const realtime = configurationForMode("realtime", configured, catalog, available);
         expect(cleanConfiguration(realtime, catalog, available).llm_fallback).toEqual(configured.llm_fallback);
         const cascade = configurationForMode("cascade", realtime, catalog, available);
         expect(cleanConfiguration(cascade, catalog, available).llm_fallback).toEqual(configured.llm_fallback);
-        const dograh = configurationForMode("dograh", cascade, catalog, available);
-        expect(dograh).not.toHaveProperty("llm_fallback");
-        expect(cleanConfiguration({ ...dograh, llm_fallback: configured.llm_fallback }, catalog, available)).not.toHaveProperty("llm_fallback");
-        expect(configurationForMode("cascade", dograh, catalog, available).llm_fallback).toBeUndefined();
+        const Acuity = configurationForMode("Acuity", cascade, catalog, available);
+        expect(Acuity).not.toHaveProperty("llm_fallback");
+        expect(cleanConfiguration({ ...Acuity, llm_fallback: configured.llm_fallback }, catalog, available)).not.toHaveProperty("llm_fallback");
+        expect(configurationForMode("cascade", Acuity, catalog, available).llm_fallback).toBeUndefined();
     });
 
     it("removes both numeric maximum declarations for custom endpoints", () => {

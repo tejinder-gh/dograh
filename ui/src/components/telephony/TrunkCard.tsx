@@ -121,14 +121,14 @@ export function TrunkCard({
       const body = { name: trimmed, enabled, settings };
       const response = editing
         ? await updateTelephonyTrunkApiV1OrganizationsTelephonyConfigsConfigIdTrunksTrunkIdPut(
-            {
-              path: { config_id: configuration.id, trunk_id: editing.id },
-              body,
-            },
-          )
+          {
+            path: { config_id: configuration.id, trunk_id: editing.id },
+            body,
+          },
+        )
         : await createTelephonyTrunkApiV1OrganizationsTelephonyConfigsConfigIdTrunksPost(
-            { path: { config_id: configuration.id }, body },
-          );
+          { path: { config_id: configuration.id }, body },
+        );
       if (response.error) {
         throw new Error(detailFromError(response.error, "Failed to save trunk"));
       }
@@ -302,7 +302,7 @@ export function TrunkCard({
           <DialogHeader>
             <DialogTitle>{editing ? "Edit trunk" : "Add trunk"}</DialogTitle>
             <DialogDescription>
-              Dograh provisions this trunk with {configuration.provider} and dials
+              Acuity provisions this trunk with {configuration.provider} and dials
               your carrier over it.
             </DialogDescription>
           </DialogHeader>

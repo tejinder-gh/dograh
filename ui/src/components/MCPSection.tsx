@@ -24,12 +24,12 @@ export function MCPSection() {
   const endpoints = [
     ...(tunnelUrl
       ? [
-          {
-            key: "tunnel",
-            label: "Public URL (Cloudflare tunnel)",
-            url: `${tunnelUrl}${MCP_PATH}`,
-          },
-        ]
+        {
+          key: "tunnel",
+          label: "Public URL (Cloudflare tunnel)",
+          url: `${tunnelUrl}${MCP_PATH}`,
+        },
+      ]
       : []),
     { key: "backend", label: "Backend URL", url: `${backendUrl}${MCP_PATH}` },
   ];
@@ -104,7 +104,7 @@ export function MCPSection() {
         For step-by-step setup with Claude Code, Claude Desktop, Cursor, and
         other clients, see the{" "}
         <Link
-          href="https://docs.dograh.com/integrations/mcp"
+          href="https://docs.Acuity.com/integrations/mcp"
           target="_blank"
           rel="noopener noreferrer"
           className="text-primary underline hover:no-underline"

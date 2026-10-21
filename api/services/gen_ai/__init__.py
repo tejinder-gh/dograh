@@ -1,10 +1,10 @@
 """Generative AI services for embeddings and document processing."""
 
 from .embedding import (
+    AcuityEmbeddingService,
     AzureEmbeddingAPIKeyNotConfiguredError,
     AzureOpenAIEmbeddingService,
     BaseEmbeddingService,
-    DograhEmbeddingService,
     EmbeddingAPIKeyNotConfiguredError,
     OpenAIEmbeddingService,
     build_embedding_service,
@@ -16,7 +16,7 @@ __all__ = [
     "AzureEmbeddingAPIKeyNotConfiguredError",
     "AzureOpenAIEmbeddingService",
     "BaseEmbeddingService",
-    "DograhEmbeddingService",
+    "AcuityEmbeddingService",
     "EmbeddingAPIKeyNotConfiguredError",
     "OpenAIEmbeddingService",
     "build_embedding_service",

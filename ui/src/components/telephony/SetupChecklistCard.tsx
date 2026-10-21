@@ -56,7 +56,7 @@ export function SetupChecklistCard({
         </div>
         <CardDescription>
           {connectivity === "sip"
-            ? "Dograh provides the SIP connection; you connect your own carrier and numbers to it."
+            ? "Acuity provides the SIP connection; you connect your own carrier and numbers to it."
             : "Finish these steps to place and receive calls on this configuration."}
         </CardDescription>
       </CardHeader>
@@ -78,13 +78,12 @@ export function SetupChecklistCard({
               <li key={step.key} className="flex items-start gap-3">
                 <span
                   aria-hidden
-                  className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
-                    step.complete
+                  className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${step.complete
                       ? "border-green-600 bg-green-600 text-white"
                       : blocking
                         ? "border-amber-500 text-amber-600"
                         : "border-muted-foreground/40 text-muted-foreground"
-                  }`}
+                    }`}
                 >
                   {step.complete ? (
                     <Check className="h-3 w-3" />
@@ -94,9 +93,8 @@ export function SetupChecklistCard({
                 </span>
                 <div className="space-y-0.5">
                   <p
-                    className={`text-sm font-medium ${
-                      step.complete ? "text-muted-foreground" : ""
-                    }`}
+                    className={`text-sm font-medium ${step.complete ? "text-muted-foreground" : ""
+                      }`}
                   >
                     {step.title}
                   </p>

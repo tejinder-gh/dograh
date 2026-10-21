@@ -4,12 +4,12 @@ import { resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const widgetSource = readFileSync(
-    resolve(process.cwd(), 'public/embed/dograh-widget.js'),
+    resolve(process.cwd(), 'public/embed/Acuity-widget.js'),
     'utf8',
 );
 
 type WidgetWindow = Window & {
-    DograhWidget?: {
+    AcuityWidget?: {
         init: () => Promise<void>;
         start: () => Promise<void>;
         startChat: () => Promise<void>;
@@ -69,7 +69,7 @@ function createFetchMock(autoStart: boolean) {
                     settings: {
                         widgetType: 'chat',
                         embedMode: 'inline',
-                        containerId: 'dograh-inline-container',
+                        containerId: 'Acuity-inline-container',
                     },
                     texts: WIDGET_TEXTS,
                     auto_start: autoStart,
@@ -105,13 +105,13 @@ async function loadWidget(fetchMock: ReturnType<typeof createFetchMock>) {
     window.eval(widgetSource);
     await flushMicrotasks();
 
-    const widget = (window as WidgetWindow).DograhWidget;
+    const widget = (window as WidgetWindow).AcuityWidget;
     expect(widget).toBeDefined();
     if (fetchMock.mock.calls.length === 0) {
         await widget?.init();
     }
     await flushMicrotasks();
-    return widget as NonNullable<WidgetWindow['DograhWidget']>;
+    return widget as NonNullable<WidgetWindow['AcuityWidget']>;
 }
 
 describe('public embed widget chat lifecycle', () => {
@@ -119,13 +119,13 @@ describe('public embed widget chat lifecycle', () => {
         vi.useFakeTimers();
         document.head.innerHTML = '';
         document.body.innerHTML = `
-            <script src="http://widget.test/embed/dograh-widget.js?token=emb_TEST"></script>
-            <div id="dograh-inline-container"></div>
+            <script src="http://widget.test/embed/Acuity-widget.js?token=emb_TEST"></script>
+            <div id="Acuity-inline-container"></div>
         `;
     });
 
     afterEach(() => {
-        delete (window as WidgetWindow).DograhWidget;
+        delete (window as WidgetWindow).AcuityWidget;
         vi.useRealTimers();
         vi.unstubAllGlobals();
         vi.restoreAllMocks();
@@ -140,23 +140,23 @@ describe('public embed widget chat lifecycle', () => {
         await flushMicrotasks();
 
         expect(countInitCalls(fetchMock)).toBe(1);
-        expect(document.querySelector('.dograh-chat-inline-cta')).toBeNull();
-        expect(document.querySelector('.dograh-chat-panel--inline')).not.toBeNull();
+        expect(document.querySelector('.Acuity-chat-inline-cta')).toBeNull();
+        expect(document.querySelector('.Acuity-chat-panel--inline')).not.toBeNull();
     });
 
     it('public startChat opens the inline panel and reuses its session', async () => {
         const fetchMock = createFetchMock(false);
         const widget = await loadWidget(fetchMock);
 
-        expect(document.querySelector('.dograh-chat-inline-cta')).not.toBeNull();
+        expect(document.querySelector('.Acuity-chat-inline-cta')).not.toBeNull();
         expect(countInitCalls(fetchMock)).toBe(0);
 
         await widget.startChat();
         await flushMicrotasks();
 
         expect(countInitCalls(fetchMock)).toBe(1);
-        expect(document.querySelector('.dograh-chat-inline-cta')).toBeNull();
-        expect(document.querySelector('.dograh-chat-panel--inline')).not.toBeNull();
+        expect(document.querySelector('.Acuity-chat-inline-cta')).toBeNull();
+        expect(document.querySelector('.Acuity-chat-panel--inline')).not.toBeNull();
 
         await widget.startChat();
         await flushMicrotasks();
@@ -170,7 +170,7 @@ describe('public embed widget chat lifecycle', () => {
         await widget.startChat();
         await flushMicrotasks();
 
-        const endButton = document.querySelector<HTMLButtonElement>('.dograh-chat-end');
+        const endButton = document.querySelector<HTMLButtonElement>('.Acuity-chat-end');
         expect(endButton).not.toBeNull();
         expect(endButton?.disabled).toBe(false);
 
@@ -181,13 +181,13 @@ describe('public embed widget chat lifecycle', () => {
             String(url).endsWith('/api/v1/public/embed/chat/emb_session_TEST/end'),
         )).toBe(false);
 
-        expect(document.querySelector('.dograh-chat-end-confirmation')?.textContent)
+        expect(document.querySelector('.Acuity-chat-end-confirmation')?.textContent)
             .toContain(WIDGET_TEXTS.endChatConfirmText);
-        expect(document.querySelector('.dograh-chat-end-confirm-cancel')?.textContent)
+        expect(document.querySelector('.Acuity-chat-end-confirm-cancel')?.textContent)
             .toBe(WIDGET_TEXTS.endChatCancelText);
 
         const confirmEndButton = document.querySelector<HTMLButtonElement>(
-            '.dograh-chat-end-confirm-submit',
+            '.Acuity-chat-end-confirm-submit',
         );
         expect(confirmEndButton).not.toBeNull();
         confirmEndButton?.click();
@@ -198,8 +198,8 @@ describe('public embed widget chat lifecycle', () => {
         );
         expect(endCalls).toHaveLength(1);
         expect(widget.getState().chat.status).toBe('ended');
-        expect(document.querySelector('.dograh-chat-banner')?.textContent).toContain('Conversation ended.');
-        expect(document.querySelector<HTMLButtonElement>('.dograh-chat-send')?.disabled).toBe(true);
+        expect(document.querySelector('.Acuity-chat-banner')?.textContent).toContain('Conversation ended.');
+        expect(document.querySelector<HTMLButtonElement>('.Acuity-chat-send')?.disabled).toBe(true);
     });
 
     it('generic start waits for chat configuration before choosing a flow', async () => {
@@ -228,7 +228,7 @@ describe('public embed widget chat lifecycle', () => {
 
         window.eval(widgetSource);
         await flushMicrotasks();
-        const widget = (window as WidgetWindow).DograhWidget;
+        const widget = (window as WidgetWindow).AcuityWidget;
         expect(widget).toBeDefined();
 
         const startPromise = widget?.start();
@@ -245,7 +245,7 @@ describe('public embed widget chat lifecycle', () => {
                 settings: {
                     widgetType: 'chat',
                     embedMode: 'inline',
-                    containerId: 'dograh-inline-container',
+                    containerId: 'Acuity-inline-container',
                 },
                 auto_start: false,
             }),
@@ -259,7 +259,7 @@ describe('public embed widget chat lifecycle', () => {
         expect(configCalls).toHaveLength(1);
         expect(countInitCalls(fetchMock)).toBe(1);
         expect(getUserMedia).not.toHaveBeenCalled();
-        expect(document.querySelector('.dograh-chat-panel--inline')).not.toBeNull();
+        expect(document.querySelector('.Acuity-chat-panel--inline')).not.toBeNull();
     });
 
     it('renders and notifies the announcement before a delayed result, without duplicates', async () => {
@@ -283,21 +283,25 @@ describe('public embed widget chat lifecycle', () => {
         controller.enqueue(bytes.slice(split, -1));
         controller.enqueue(bytes.slice(-1));
         await vi.advanceTimersByTimeAsync(0);
-        expect(document.querySelectorAll('.dograh-chat-bubble--assistant')).toHaveLength(1);
-        expect(document.querySelector('.dograh-chat-bubble--assistant')?.textContent).toBe(announcement.text);
+        expect(document.querySelectorAll('.Acuity-chat-bubble--assistant')).toHaveLength(1);
+        expect(document.querySelector('.Acuity-chat-bubble--assistant')?.textContent).toBe(announcement.text);
         expect(widget.getState().chat.status).toBe('waiting');
-        expect(document.querySelector<HTMLButtonElement>('.dograh-chat-send')?.disabled).toBe(true);
+        expect(document.querySelector<HTMLButtonElement>('.Acuity-chat-send')?.disabled).toBe(true);
         expect(onMessage.mock.calls.map(([text]) => text)).toEqual([announcement.text]);
 
         const result = { text: 'Found it.' };
         controller.enqueue(encodeEvent({ type: 'message', turn_id: turn.id, index: 1, message: result }));
-        controller.enqueue(encodeEvent({ type: 'complete', session: {
-            ...pending, revision: 4, turns: [{ ...turn, status: 'completed',
-                assistant_messages: [announcement, result], assistant_message: { text: 'I’ll check… Found it.' } }],
-        } }));
+        controller.enqueue(encodeEvent({
+            type: 'complete', session: {
+                ...pending, revision: 4, turns: [{
+                    ...turn, status: 'completed',
+                    assistant_messages: [announcement, result], assistant_message: { text: 'I’ll check… Found it.' }
+                }],
+            }
+        }));
         controller.close();
         await sending;
-        expect(Array.from(document.querySelectorAll('.dograh-chat-bubble--assistant')).map((el) => el.textContent))
+        expect(Array.from(document.querySelectorAll('.Acuity-chat-bubble--assistant')).map((el) => el.textContent))
             .toEqual([announcement.text, result.text]);
         expect(onMessage.mock.calls.map(([text]) => text)).toEqual([announcement.text, result.text]);
         expect(widget.getState().chat.status).toBe('ready');
@@ -324,7 +328,7 @@ describe('public embed widget chat lifecycle', () => {
         await vi.advanceTimersByTimeAsync(0);
         controller.close();
         await vi.advanceTimersByTimeAsync(0);
-        expect(document.querySelector('.dograh-chat-bubble--assistant')?.textContent).toBe(announcement.text);
+        expect(document.querySelector('.Acuity-chat-bubble--assistant')?.textContent).toBe(announcement.text);
         expect(widget.getState().chat.status).toBe('waiting');
         await widget.sendMessage('duplicate');
         await vi.advanceTimersByTimeAsync(1000);
@@ -347,7 +351,7 @@ describe('public embed widget chat lifecycle', () => {
         controller.enqueue(encodeEvent({ type: 'session', session_token: 'emb_session_TEST', session: pending }));
         controller.enqueue(encodeEvent({ type: 'message', turn_id: turn.id, index: 0, message: greeting }));
         await vi.advanceTimersByTimeAsync(0);
-        expect(document.querySelector('.dograh-chat-bubble--assistant')?.textContent).toBe(greeting.text);
+        expect(document.querySelector('.Acuity-chat-bubble--assistant')?.textContent).toBe(greeting.text);
         expect(widget.getState().chat.status).toBe('starting');
         controller.enqueue(encodeEvent({ type: 'complete', session: { ...pending, turns: [{ ...turn, status: 'completed', assistant_messages: [greeting] }] } }));
         controller.close();
@@ -362,17 +366,19 @@ describe('public embed widget chat lifecycle', () => {
         await widget.startChat();
         fetchMock.mockRejectedValueOnce(new Error('Connection dropped before an SSE event'));
         fetchMock.mockResolvedValueOnce(new Response(JSON.stringify(accepted ? {
-            ...initialSession, revision: 4, turns: [{ id: 'turn1', status: 'completed',
-                user_message: { text: 'Look it up' }, assistant_messages: [{ text: 'Done.' }] }],
+            ...initialSession, revision: 4, turns: [{
+                id: 'turn1', status: 'completed',
+                user_message: { text: 'Look it up' }, assistant_messages: [{ text: 'Done.' }]
+            }],
         } : initialSession)));
-        const input = document.querySelector<HTMLTextAreaElement>('.dograh-chat-input')!;
+        const input = document.querySelector<HTMLTextAreaElement>('.Acuity-chat-input')!;
         input.value = 'Look it up';
         input.dispatchEvent(new Event('input'));
-        document.querySelector<HTMLButtonElement>('.dograh-chat-send')!.click();
+        document.querySelector<HTMLButtonElement>('.Acuity-chat-send')!.click();
         await vi.advanceTimersByTimeAsync(0);
         expect(input.value).toBe(accepted ? '' : 'Look it up');
         expect(widget.getState().chat.status).toBe('ready');
-        if (!accepted) expect(document.querySelector('.dograh-chat-banner')?.textContent).toContain('Message not sent');
+        if (!accepted) expect(document.querySelector('.Acuity-chat-banner')?.textContent).toContain('Message not sent');
         expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/messages/stream'))).toHaveLength(1);
     });
 
@@ -382,13 +388,13 @@ describe('public embed widget chat lifecycle', () => {
         await widget.startChat();
         fetchMock.mockRejectedValueOnce(new Error('Connection dropped'));
         for (let i = 0; i < 3; i += 1) fetchMock.mockRejectedValueOnce(new Error('Offline'));
-        const input = document.querySelector<HTMLTextAreaElement>('.dograh-chat-input')!;
+        const input = document.querySelector<HTMLTextAreaElement>('.Acuity-chat-input')!;
         input.value = 'Look it up';
         input.dispatchEvent(new Event('input'));
-        document.querySelector<HTMLButtonElement>('.dograh-chat-send')!.click();
+        document.querySelector<HTMLButtonElement>('.Acuity-chat-send')!.click();
         await vi.advanceTimersByTimeAsync(2000);
         expect(widget.getState().chat.status).toBe('recovering');
-        expect(document.querySelector<HTMLButtonElement>('.dograh-chat-send')?.disabled).toBe(true);
+        expect(document.querySelector<HTMLButtonElement>('.Acuity-chat-send')?.disabled).toBe(true);
         await widget.sendMessage('Do it again');
         await widget.endChat();
         expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/messages/stream'))).toHaveLength(1);
@@ -399,7 +405,7 @@ describe('public embed widget chat lifecycle', () => {
         await widget.startChat();
         expect(widget.getState().chat.status).toBe('ready');
         expect(input.value).toBe(accepted ? '' : 'Look it up');
-        if (accepted) expect(document.querySelector('.dograh-chat-bubble--assistant')?.textContent).toBe('Done.');
+        if (accepted) expect(document.querySelector('.Acuity-chat-bubble--assistant')?.textContent).toBe('Done.');
         expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/messages/stream'))).toHaveLength(1);
     });
 

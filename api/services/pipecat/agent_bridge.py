@@ -3,7 +3,7 @@
 import asyncio
 from collections.abc import Awaitable, Callable
 
-from api.services.pipecat.pipeline_worker import DograhPipelineWorker
+from api.services.pipecat.pipeline_worker import AcuityPipelineWorker
 from pipecat.bus.bridge_processor import BusBridgeProcessor
 from pipecat.bus.messages import BusFrameMessage, BusMessage
 from pipecat.frames.frames import (
@@ -159,7 +159,7 @@ class AgentBridgeProcessor(BusBridgeProcessor):
         await super().on_bus_message(message)
 
 
-class AgentWorker(DograhPipelineWorker):
+class AgentWorker(AcuityPipelineWorker):
     """A child exchanges frames with its call, never with another child."""
 
     def __init__(self, *args, call_worker_name: str, **kwargs):
