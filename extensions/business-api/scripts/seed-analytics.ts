@@ -3,9 +3,15 @@ import { adminQuery } from '../src/tests/test-admin';
 import { resolveTenantContext } from '../src/services/tenant-mapping.service';
 
 async function seed() {
-  if (process.env.NODE_ENV === 'production' || process.env.ALLOW_ANALYTICS_SEED !== 'true') {
+  const dbUrl = process.env.DATABASE_URL || '';
+  if (
+    process.env.NODE_ENV === 'production' ||
+    process.env.ALLOW_ANALYTICS_SEED !== 'true' ||
+    process.env.IS_TEST_DATABASE !== 'true' ||
+    dbUrl.includes('ai_calling_os')
+  ) {
     console.error(
-      '[seed] ERROR: Seeding is blocked. To run this script against an isolated test/development database, explicitly set ALLOW_ANALYTICS_SEED=true and ensure NODE_ENV != "production".'
+      '[seed] ERROR: Seeding is blocked. The seeder is strictly forbidden from executing against the primary application database (ai_calling_os). To seed an isolated test database, explicitly set ALLOW_ANALYTICS_SEED=true and IS_TEST_DATABASE=true on an isolated ephemeral database.'
     );
     process.exit(1);
   }

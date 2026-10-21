@@ -231,7 +231,7 @@ async def test_enqueue_webhook_delivery_keeps_all_custom_headers():
     persisted = db.create_webhook_delivery.call_args.kwargs["custom_headers"]
     assert persisted == [
         {"key": "Authorization", "value": "Bearer secret-token"},
-        {"key": "x-Acuity-secret", "value": "abc"},
+        {"key": "x-acuity-secret", "value": "abc"},
         {"key": "X-Idempotency-Key", "value": "idem-1"},
         {"key": "X-Source", "value": "Acuity"},
     ]
