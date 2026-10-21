@@ -45,6 +45,7 @@ function generateDograhToken(userId: number, email: string, expOffsetSec: number
 }
 
 function checkLiveEnvironment(): boolean {
+  if (!MIGRATION_DATABASE_URL) return false;
   try {
     execSync(`psql "${MIGRATION_DATABASE_URL}" -c "SELECT 1;"`, { stdio: 'ignore' });
     return true;
