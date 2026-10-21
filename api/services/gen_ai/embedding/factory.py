@@ -14,7 +14,7 @@ from api.db.db_client import DBClient
 
 from .acuity_service import AcuityEmbeddingService
 from .azure_openai_service import AzureOpenAIEmbeddingService
-from .Acuitymport BaseEmbeddAcuityvice
+from .base import BaseEmbeddingService
 from .openai_service import OpenAIEmbeddingService
 
 DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small"

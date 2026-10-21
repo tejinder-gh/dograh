@@ -1,7 +1,7 @@
 """GENERATED — do not edit by hand.
 
-Regenerate with `python -m dograh_sdk.codegen` against the target
-Dograh backend. Source of truth: the backend's model-backed node-spec
+Regenerate with `python -m Acuity_sdk.codegen` against the target
+Acuity backend. Source of truth: the backend's model-backed node-spec
 catalog served from `/api/v1/node-types`.
 """
 
@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, ClassVar, Literal, Optional
 
-from dograh_sdk.typed._base import TypedNode
+from Acuity_sdk.typed._base import TypedNode
 
 
 @dataclass(kw_only=True)
@@ -45,7 +45,7 @@ class Tuner(TypedNode):
 
     tuner_enabled: bool = True
     """
-    When false, Dograh skips exporting this call to Tuner.
+    When false, Acuity skips exporting this call to Tuner.
     """
 
     cost_calculation_enabled: bool = False

@@ -23,7 +23,7 @@ from api.db.organization_configuration_client import LEASE_COMPLETED
 from api.enums import OrganizationConfigurationKey
 from api.errors.mps import MPSUnavailableError
 from api.services.configuration.model_connections import (
-    Acuity_model_configuration_spec,
+    acuity_model_configuration_spec,
 )
 from api.services.mps_billing import ensure_hosted_mps_billing_account_v2
 from api.services.mps_service_key_client import mps_service_key_client
@@ -175,7 +175,7 @@ async def _bootstrap_organization(
             provider="Acuity",
             credentials={"api_key": service_key},
             configuration_name=DEFAULT_CONFIGURATION_NAME,
-            configuration_for=Acuity_model_configuration_spec,
+            configuration_for=acuity_model_configuration_spec,
         )
 
     if sip_provisioned:

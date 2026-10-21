@@ -72,10 +72,10 @@ from pipecat.services.deepgram.flux.stt import (
 )
 from pipecat.services.deepgram.flux.tts import (
     DeepgramFluxTTSService,
-    DeepgramFluxTTSSetAcuityAcuityAcuity
-)AcuityAcuityAcuityAcuityAcuity
-from pipecat.services.Acuityam.stt imporAcuitygramSTTServiAcuityepgramSTTSettings
-from pipecat.services.Acuityam.tts imporAcuitygramTTSServiAcuityepgramTTSSettings
+    DeepgramFluxTTSSettings,
+)
+from pipecat.services.deepgram.stt import DeepgramSTTService, DeepgramSTTSettings
+from pipecat.services.deepgram.tts import DeepgramTTSService, DeepgramTTSSettings
 from pipecat.services.elevenlabs.dialogue.tts import (
     ElevenLabsDialogueTTSService,
     ElevenLabsDialogueTTSSettings,

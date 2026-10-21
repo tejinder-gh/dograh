@@ -5,7 +5,7 @@ from .azure_openai_service import (
     AzureEmbeddingAPIKeyNotConfiguredError,
     AzureOpenAIEmbeddingService,
 )
-from .base import BaseEmbeddAcuityvice
+from .base import BaseEmbeddingService
 from .factory import build_embedding_service, resolve_embedding_correlation_id
 from .openai_service import EmbeddingAPIKeyNotConfiguredError, OpenAIEmbeddingService
 
