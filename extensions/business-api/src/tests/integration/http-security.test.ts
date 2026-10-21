@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
+import crypto from 'node:crypto';
 import { z } from 'zod';
 import { createApp } from '../../app';
 import { runMigrations } from '../../config/migrator';
@@ -8,6 +9,7 @@ import { env } from '../../config/env';
 import {
   createInternalAssertion,
   clearNonceCacheForTesting,
+  setNonceStoreOverrideForTesting,
   KNOWN_INSECURE_SECRETS,
 } from '../../config/signed-assertion';
 
@@ -23,13 +25,13 @@ describe('HTTP Security & Tenant Isolation Boundary (A2 Attack Suite)', () => {
     await runMigrations();
 
     // Clean up any stale mappings or test data
-    await query("DELETE FROM business_ext.organization_mappings WHERE dograh_organization_id IN (601, 602)");
+    await query("DELETE FROM business_ext.organization_mappings WHERE acuity_organization_id IN (601, 602)");
     await adminQuery("DELETE FROM public.workflows WHERE organization_id IN (601, 602)");
     await adminQuery("DELETE FROM public.organization_users WHERE user_id IN (601, 602)");
     await adminQuery("DELETE FROM public.users WHERE id IN (601, 602)");
     await adminQuery("DELETE FROM public.organizations WHERE id IN (601, 602)");
 
-    // Seed Dograh organizations 601 (Org A) and 602 (Org B)
+    // Seed Acuity organizations 601 (Org A) and 602 (Org B)
     await adminQuery(`
       INSERT INTO public.organizations (id, provider_id)
       VALUES (601, 'org_http_601'), (602, 'org_http_602')
@@ -76,7 +78,7 @@ describe('HTTP Security & Tenant Isolation Boundary (A2 Attack Suite)', () => {
     clearNonceCacheForTesting();
     await query("DELETE FROM business_ext.contacts WHERE name IN ('Jane HTTP', 'Replay Test Lead')");
     await query("DELETE FROM business_ext.business_profiles WHERE domain IN ('apex-orga.com')");
-    await query("DELETE FROM business_ext.organization_mappings WHERE dograh_organization_id IN (601, 602)");
+    await query("DELETE FROM business_ext.organization_mappings WHERE acuity_organization_id IN (601, 602)");
     await adminQuery("DELETE FROM public.workflows WHERE organization_id IN (601, 602)");
     await adminQuery("DELETE FROM public.organization_users WHERE user_id IN (601, 602)");
     await adminQuery("DELETE FROM public.users WHERE id IN (601, 602)");
@@ -100,7 +102,7 @@ describe('HTTP Security & Tenant Isolation Boundary (A2 Attack Suite)', () => {
       createInternalAssertion({
         userId: '601',
         orgId: 601,
-        deploymentId: env.DOGRAH_DEPLOYMENT_ID,
+        deploymentId: env.Acuity_DEPLOYMENT_ID,
         secret: insecureSecret,
       })
     ).toThrow('Insecure or missing service secret');
@@ -111,7 +113,7 @@ describe('HTTP Security & Tenant Isolation Boundary (A2 Attack Suite)', () => {
     const validAssertion = createInternalAssertion({
       userId: '601',
       orgId: 601,
-      deploymentId: env.DOGRAH_DEPLOYMENT_ID,
+      deploymentId: env.Acuity_DEPLOYMENT_ID,
       secret: validSecret,
       method: 'GET',
       path: '/api/contacts',
@@ -161,7 +163,7 @@ describe('HTTP Security & Tenant Isolation Boundary (A2 Attack Suite)', () => {
     const expiredAssertion = createInternalAssertion({
       userId: '601',
       orgId: 601,
-      deploymentId: env.DOGRAH_DEPLOYMENT_ID,
+      deploymentId: env.Acuity_DEPLOYMENT_ID,
       secret: validSecret,
       ttlSeconds: -10, // Expired 10 seconds ago
       method: 'GET',
@@ -194,7 +196,7 @@ describe('HTTP Security & Tenant Isolation Boundary (A2 Attack Suite)', () => {
     const assertion = createInternalAssertion({
       userId: '601',
       orgId: 601,
-      deploymentId: env.DOGRAH_DEPLOYMENT_ID,
+      deploymentId: env.Acuity_DEPLOYMENT_ID,
       secret: validSecret,
       customNonce: fixedNonce,
       method: 'POST',
@@ -247,7 +249,7 @@ describe('HTTP Security & Tenant Isolation Boundary (A2 Attack Suite)', () => {
     const assertion = createInternalAssertion({
       userId: '601',
       orgId: 601,
-      deploymentId: env.DOGRAH_DEPLOYMENT_ID,
+      deploymentId: env.Acuity_DEPLOYMENT_ID,
       secret: validSecret,
       customNonce: sharedNonce,
       method: 'POST',
@@ -286,7 +288,7 @@ describe('HTTP Security & Tenant Isolation Boundary (A2 Attack Suite)', () => {
       const getAssertion = createInternalAssertion({
         userId: '601',
         orgId: 601,
-        deploymentId: env.DOGRAH_DEPLOYMENT_ID,
+        deploymentId: env.Acuity_DEPLOYMENT_ID,
         secret: validSecret,
         method: 'GET',
         path: '/api/contacts',
@@ -309,7 +311,7 @@ describe('HTTP Security & Tenant Isolation Boundary (A2 Attack Suite)', () => {
       const contactsAssertion = createInternalAssertion({
         userId: '601',
         orgId: 601,
-        deploymentId: env.DOGRAH_DEPLOYMENT_ID,
+        deploymentId: env.Acuity_DEPLOYMENT_ID,
         secret: validSecret,
         method: 'POST',
         path: '/api/contacts',
@@ -336,7 +338,7 @@ describe('HTTP Security & Tenant Isolation Boundary (A2 Attack Suite)', () => {
       const assertion = createInternalAssertion({
         userId: '601',
         orgId: 601,
-        deploymentId: env.DOGRAH_DEPLOYMENT_ID,
+        deploymentId: env.Acuity_DEPLOYMENT_ID,
         secret: validSecret,
         method: 'POST',
         path: '/api/contacts',
@@ -355,6 +357,193 @@ describe('HTTP Security & Tenant Isolation Boundary (A2 Attack Suite)', () => {
       const json = (await res.json()) as { error: string };
       expect(json.error).toContain('Request body hash mismatch');
     });
+
+    it('rejects assertion missing required request method claim (mth) with 401', async () => {
+      const header = { alg: 'HS256', typ: 'JWT' };
+      const payload = {
+        v: 1,
+        iss: 'acuity-ui-proxy',
+        aud: 'business-extension-api',
+        sub: '601',
+        org: 601,
+        dep: env.Acuity_DEPLOYMENT_ID,
+        uri: '/api/contacts',
+        bdy: crypto.createHash('sha256').update('').digest('hex'),
+        iat: Math.floor(Date.now() / 1000),
+        exp: Math.floor(Date.now() / 1000) + 60,
+        nonce: 'missing-mth-nonce',
+      };
+      const headerB64 = Buffer.from(JSON.stringify(header)).toString('base64url');
+      const payloadB64 = Buffer.from(JSON.stringify(payload)).toString('base64url');
+      const data = `${headerB64}.${payloadB64}`;
+      const sig = crypto.createHmac('sha256', validSecret).update(data).digest('base64url');
+      const badAssertion = `${data}.${sig}`;
+
+      const res = await app.request('/api/contacts', {
+        method: 'GET',
+        headers: { 'X-Internal-Assertion': badAssertion },
+      });
+      expect(res.status).toBe(401);
+      const json = (await res.json()) as { error: string };
+      expect(json.error).toContain('missing required request method claim');
+    });
+
+    it('rejects assertion missing required request URI claim (uri) with 401', async () => {
+      const header = { alg: 'HS256', typ: 'JWT' };
+      const payload = {
+        v: 1,
+        iss: 'acuity-ui-proxy',
+        aud: 'business-extension-api',
+        sub: '601',
+        org: 601,
+        dep: env.Acuity_DEPLOYMENT_ID,
+        mth: 'GET',
+        bdy: crypto.createHash('sha256').update('').digest('hex'),
+        iat: Math.floor(Date.now() / 1000),
+        exp: Math.floor(Date.now() / 1000) + 60,
+        nonce: 'missing-uri-nonce',
+      };
+      const headerB64 = Buffer.from(JSON.stringify(header)).toString('base64url');
+      const payloadB64 = Buffer.from(JSON.stringify(payload)).toString('base64url');
+      const data = `${headerB64}.${payloadB64}`;
+      const sig = crypto.createHmac('sha256', validSecret).update(data).digest('base64url');
+      const badAssertion = `${data}.${sig}`;
+
+      const res = await app.request('/api/contacts', {
+        method: 'GET',
+        headers: { 'X-Internal-Assertion': badAssertion },
+      });
+      expect(res.status).toBe(401);
+      const json = (await res.json()) as { error: string };
+      expect(json.error).toContain('missing required request URI claim');
+    });
+
+    it('rejects assertion missing required request body hash claim (bdy) with 401', async () => {
+      const header = { alg: 'HS256', typ: 'JWT' };
+      const payload = {
+        v: 1,
+        iss: 'acuity-ui-proxy',
+        aud: 'business-extension-api',
+        sub: '601',
+        org: 601,
+        dep: env.Acuity_DEPLOYMENT_ID,
+        mth: 'GET',
+        uri: '/api/contacts',
+        iat: Math.floor(Date.now() / 1000),
+        exp: Math.floor(Date.now() / 1000) + 60,
+        nonce: 'missing-bdy-nonce',
+      };
+      const headerB64 = Buffer.from(JSON.stringify(header)).toString('base64url');
+      const payloadB64 = Buffer.from(JSON.stringify(payload)).toString('base64url');
+      const data = `${headerB64}.${payloadB64}`;
+      const sig = crypto.createHmac('sha256', validSecret).update(data).digest('base64url');
+      const badAssertion = `${data}.${sig}`;
+
+      const res = await app.request('/api/contacts', {
+        method: 'GET',
+        headers: { 'X-Internal-Assertion': badAssertion },
+      });
+      expect(res.status).toBe(401);
+      const json = (await res.json()) as { error: string };
+      expect(json.error).toContain('missing required request body hash claim');
+    });
+
+    it('rejects assertion when query parameters in URI are tampered with 401', async () => {
+      const assertion = createInternalAssertion({
+        userId: '601',
+        orgId: 601,
+        deploymentId: env.Acuity_DEPLOYMENT_ID,
+        secret: validSecret,
+        method: 'GET',
+        path: '/api/contacts?limit=10&page=1',
+      });
+
+      // Attacker tries to change query parameter page to 2
+      const res = await app.request('/api/contacts?limit=10&page=2', {
+        method: 'GET',
+        headers: {
+          'X-Internal-Assertion': assertion,
+        },
+      });
+      expect(res.status).toBe(401);
+      const json = (await res.json()) as { error: string };
+      expect(json.error).toContain('Request URI mismatch');
+    });
+
+    it('accepts assertion with permuted query parameters due to canonical query normalization', async () => {
+      // Signed with page=1&limit=10
+      const assertion = createInternalAssertion({
+        userId: '601',
+        orgId: 601,
+        deploymentId: env.Acuity_DEPLOYMENT_ID,
+        secret: validSecret,
+        method: 'GET',
+        path: '/api/contacts?page=1&limit=10',
+      });
+
+      // Request sent with limit=10&page=1 (sorted order matches normalized URI)
+      const res = await app.request('/api/contacts?limit=10&page=1', {
+        method: 'GET',
+        headers: {
+          'X-Internal-Assertion': assertion,
+        },
+      });
+      expect(res.status).toBe(200);
+    });
+  });
+
+  describe('Fail-Closed Replay Defense on Nonce Store Failure', () => {
+    it('fails closed with 503 Service Unavailable and prevents mutation when nonce store errors', async () => {
+      const uniqueEmail = `fault.injection.${Date.now()}@example.com`;
+      const contactPayload = {
+        name: 'Fault Test Contact',
+        email: uniqueEmail,
+        phone: '+15559876543',
+        status: 'new',
+      };
+      const bodyStr = JSON.stringify(contactPayload);
+
+      const assertion = createInternalAssertion({
+        userId: '601',
+        orgId: 601,
+        deploymentId: env.Acuity_DEPLOYMENT_ID,
+        secret: validSecret,
+        method: 'POST',
+        path: '/api/contacts',
+        body: bodyStr,
+      });
+
+      // Inject simulated database error into atomic nonce store
+      setNonceStoreOverrideForTesting(async () => {
+        throw new Error('PostgreSQL connection pool exhausted or database unreachable');
+      });
+
+      try {
+        const res = await app.request('/api/contacts', {
+          method: 'POST',
+          headers: {
+            'X-Internal-Assertion': assertion,
+            'Content-Type': 'application/json',
+          },
+          body: bodyStr,
+        });
+
+        // Must fail closed with 503 Service Unavailable
+        expect(res.status).toBe(503);
+        const json = (await res.json()) as { error: string };
+        expect(json.error).toContain('Replay protection store is unavailable');
+
+        // Verify that NO contact was created despite core database being intact
+        const checkRes = await query(
+          'SELECT id FROM business_ext.contacts WHERE email = $1',
+          [uniqueEmail]
+        );
+        expect(checkRes.rows.length).toBe(0);
+      } finally {
+        // Reset override
+        setNonceStoreOverrideForTesting(null);
+      }
+    });
   });
 
   // A2.7: Valid Org A request cannot access Org B
@@ -371,7 +560,7 @@ describe('HTTP Security & Tenant Isolation Boundary (A2 Attack Suite)', () => {
     const assertionOrgA = createInternalAssertion({
       userId: '601',
       orgId: 601,
-      deploymentId: env.DOGRAH_DEPLOYMENT_ID,
+      deploymentId: env.Acuity_DEPLOYMENT_ID,
       secret: validSecret,
       method: 'POST',
       path: '/api/contacts',
@@ -394,7 +583,7 @@ describe('HTTP Security & Tenant Isolation Boundary (A2 Attack Suite)', () => {
     const assertionOrgB = createInternalAssertion({
       userId: '602',
       orgId: 602,
-      deploymentId: env.DOGRAH_DEPLOYMENT_ID,
+      deploymentId: env.Acuity_DEPLOYMENT_ID,
       secret: validSecret,
       method: 'GET',
       path: `/api/contacts/${contactAId}`,
@@ -414,14 +603,14 @@ describe('HTTP Security & Tenant Isolation Boundary (A2 Attack Suite)', () => {
       name: 'Apex Org A',
       domain: 'apex-orga.com',
       industry: 'FinTech',
-      dograhWorkflowId: wfBId, // Belongs to Org B (602)!
+      acuityWorkflowId: wfBId, // Belongs to Org B (602)!
     };
     const bodyStr = JSON.stringify(profilePayload);
 
     const assertionOrgA = createInternalAssertion({
       userId: '601',
       orgId: 601,
-      deploymentId: env.DOGRAH_DEPLOYMENT_ID,
+      deploymentId: env.Acuity_DEPLOYMENT_ID,
       secret: validSecret,
       method: 'POST',
       path: '/api/business-profiles',
@@ -482,7 +671,7 @@ describe('HTTP Security & Tenant Isolation Boundary (A2 Attack Suite)', () => {
     const invalidMembershipAssertion = createInternalAssertion({
       userId: '601',
       orgId: 602,
-      deploymentId: env.DOGRAH_DEPLOYMENT_ID,
+      deploymentId: env.Acuity_DEPLOYMENT_ID,
       secret: validSecret,
       method: 'GET',
       path: '/api/contacts',

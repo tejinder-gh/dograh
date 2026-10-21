@@ -14,12 +14,13 @@ describe('Integration: Multi-Tenant Organization Mapping', () => {
     await query("DELETE FROM business_ext.organization_mappings WHERE deployment_id = 'test-deploy'");
   });
 
-  it('creates a durable, unique mapping for a Dograh organization', async () => {
+  it('creates a durable, unique mapping for an Acuity organization', async () => {
     const deploymentId = 'test-deploy';
     const orgId = 101;
 
     const ctx1 = await resolveTenantContext(orgId, deploymentId);
-    expect(ctx1.dograhOrganizationId).toBe(101);
+    expect(ctx1.acuityOrganizationId).toBe(101);
+    expect(ctx1.acuityOrganizationId).toBe(101);
     expect(ctx1.deploymentId).toBe('test-deploy');
     expect(ctx1.businessTenantId).toBeDefined();
 
@@ -28,7 +29,7 @@ describe('Integration: Multi-Tenant Organization Mapping', () => {
     expect(ctx2.businessTenantId).toBe(ctx1.businessTenantId);
   });
 
-  it('generates distinct tenant IDs for different Dograh organizations', async () => {
+  it('generates distinct tenant IDs for different Acuity organizations', async () => {
     const deploymentId = 'test-deploy';
     const orgA = 201;
     const orgB = 202;
@@ -39,7 +40,7 @@ describe('Integration: Multi-Tenant Organization Mapping', () => {
     expect(ctxA.businessTenantId).not.toBe(ctxB.businessTenantId);
   });
 
-  it('enforces database-level uniqueness on (deployment_id, dograh_organization_id)', async () => {
+  it('enforces database-level uniqueness on (deployment_id, acuity_organization_id)', async () => {
     const deploymentId = 'test-deploy';
     const orgId = 301;
 

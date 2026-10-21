@@ -24,7 +24,7 @@ venv/
 .playwright-mcp
 coturn/
 *.wav
-dograh_pcm_cache/
+acuity_pcm_cache/
 node_modules/
 
 # Superpowers brainstorm mockups (local only)
@@ -40,4 +40,3 @@ local.sh
 dev.sh
 work/
 SETUP.local.md
-

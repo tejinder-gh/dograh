@@ -33,13 +33,14 @@ jobs:
           --health-retries 5
 
     env:
-      DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
-      TEST_ADMIN_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+      DATABASE_URL: postgresql://business_app_user:test_business_pass@localhost:5432/postgres
+      TEST_ADMIN_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      MIGRATION_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
       BUSINESS_EXT_SECRET: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
       POSTGRES_HOST: localhost
       POSTGRES_PORT: 5432
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: business_app_user
+      POSTGRES_PASSWORD: test_business_pass
       POSTGRES_DB: postgres
 
     steps:
@@ -53,72 +54,23 @@ jobs:
 
       - name: Setup Test Database Roles and Schema
         run: |
+          # 1. Apply authoritative Acuity public schema (31 tables, enums, triggers, constraints)
+          docker exec -i $(docker ps -q --filter ancestor=pgvector/pgvector:pg17) psql -U postgres -d postgres < extensions/business-api/scripts/dograh_public_schema.sql
+
+          # 2. Configure unprivileged runtime user and least privilege grants
           docker exec -i $(docker ps -q --filter ancestor=pgvector/pgvector:pg17) psql -U postgres -d postgres << 'EOF'
-          -- Create business_app_user for role and privilege tests
           DO $$
           BEGIN
             IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'business_app_user') THEN
-              CREATE ROLE business_app_user WITH LOGIN PASSWORD 'test_business_pass' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
+              CREATE ROLE business_app_user WITH LOGIN PASSWORD 'test_business_pass' NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT;
             END IF;
           END
           $$;
 
-          -- Create Dograh core public tables needed for foreign key & membership tests
-          CREATE TABLE IF NOT EXISTS public.organizations (
-            id SERIAL PRIMARY KEY,
-            provider_id VARCHAR(255) NOT NULL UNIQUE,
-            created_at TIMESTAMPTZ DEFAULT NOW(),
-            updated_at TIMESTAMPTZ DEFAULT NOW()
-          );
-
-          CREATE TABLE IF NOT EXISTS public.users (
-            id SERIAL PRIMARY KEY,
-            email VARCHAR(255) NOT NULL UNIQUE,
-            provider_id VARCHAR(255) NOT NULL,
-            selected_organization_id INTEGER REFERENCES public.organizations(id),
-            created_at TIMESTAMPTZ DEFAULT NOW(),
-            updated_at TIMESTAMPTZ DEFAULT NOW()
-          );
-
-          CREATE TABLE IF NOT EXISTS public.organization_users (
-            user_id INTEGER NOT NULL REFERENCES public.users(id),
-            organization_id INTEGER NOT NULL REFERENCES public.organizations(id),
-            role VARCHAR(50) DEFAULT 'member',
-            PRIMARY KEY (user_id, organization_id)
-          );
-
-          CREATE TABLE IF NOT EXISTS public.workflows (
-            id SERIAL PRIMARY KEY,
-            organization_id INTEGER NOT NULL REFERENCES public.organizations(id),
-            name VARCHAR(255) NOT NULL,
-            workflow_definition JSONB DEFAULT '{}'::jsonb,
-            template_context_variables JSONB DEFAULT '{}'::jsonb,
-            call_disposition_codes JSONB DEFAULT '[]'::jsonb,
-            workflow_configurations JSONB DEFAULT '{}'::jsonb,
-            workflow_uuid VARCHAR(255) DEFAULT gen_random_uuid()::text,
-            created_at TIMESTAMPTZ DEFAULT NOW(),
-            updated_at TIMESTAMPTZ DEFAULT NOW()
-          );
-
-          CREATE TABLE IF NOT EXISTS public.workflow_definitions (
-            id SERIAL PRIMARY KEY,
-            workflow_id INTEGER NOT NULL REFERENCES public.workflows(id),
-            version INTEGER NOT NULL DEFAULT 1,
-            created_at TIMESTAMPTZ DEFAULT NOW(),
-            updated_at TIMESTAMPTZ DEFAULT NOW()
-          );
-
-          CREATE TABLE IF NOT EXISTS public.workflow_runs (
-            id SERIAL PRIMARY KEY,
-            workflow_id INTEGER NOT NULL REFERENCES public.workflows(id),
-            run_uuid VARCHAR(255) NOT NULL UNIQUE,
-            created_at TIMESTAMPTZ DEFAULT NOW(),
-            updated_at TIMESTAMPTZ DEFAULT NOW()
-          );
-
-          -- Grant SELECT on public tables to business_app_user
+          -- Grant SELECT on all public tables to business_app_user (read-only Acuity access)
           GRANT USAGE ON SCHEMA public TO business_app_user;
           GRANT SELECT ON ALL TABLES IN SCHEMA public TO business_app_user;
+          ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO business_app_user;
           EOF
 
       - name: Install Dependencies

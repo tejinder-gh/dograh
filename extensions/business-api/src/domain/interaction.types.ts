@@ -30,6 +30,9 @@ export const interactionSchema = z.object({
   id: z.string().uuid(),
   tenantId: z.string().uuid(),
   contactId: z.string().uuid().nullable().optional(),
+  acuityWorkflowId: z.number().int().positive().nullable().optional(),
+  acuityDefinitionId: z.number().int().positive().nullable().optional(),
+  acuityRunId: z.string().max(255).nullable().optional(),
   dograhWorkflowId: z.number().int().positive().nullable().optional(),
   dograhDefinitionId: z.number().int().positive().nullable().optional(),
   dograhRunId: z.string().max(255).nullable().optional(),
@@ -48,6 +51,9 @@ export type Interaction = z.infer<typeof interactionSchema>;
 
 export const createInteractionSchema = z.object({
   contactId: z.string().uuid().optional().nullable(),
+  acuityWorkflowId: z.number().int().positive().optional().nullable(),
+  acuityDefinitionId: z.number().int().positive().optional().nullable(),
+  acuityRunId: z.string().max(255).optional().nullable(),
   dograhWorkflowId: z.number().int().positive().optional().nullable(),
   dograhDefinitionId: z.number().int().positive().optional().nullable(),
   dograhRunId: z.string().max(255).optional().nullable(),

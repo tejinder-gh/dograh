@@ -64,7 +64,7 @@ describe('Integration: Business Profile CRUD & Multi-Tenant Boundaries', () => {
     await query("DELETE FROM business_ext.organization_mappings WHERE deployment_id = 'prof-test'");
   });
 
-  it('allows Organization A to create a business profile linked to its Dograh workflow', async () => {
+  it('allows Organization A to create a business profile linked to its Acuity workflow', async () => {
     const profile = await businessProfileService.createProfile(orgA, {
       name: 'Apex Advisory Services',
       domain: 'apex-advisory.com',
@@ -87,13 +87,14 @@ describe('Integration: Business Profile CRUD & Multi-Tenant Boundaries', () => {
           verified: true,
         },
       ],
-      dograhWorkflowId: workflowAId,
+      acuityWorkflowId: workflowAId,
     });
 
     expect(profile.id).toBeDefined();
     expect(profile.tenantId).toBe(orgA.businessTenantId);
     expect(profile.name).toBe('Apex Advisory Services');
-    expect(profile.dograhWorkflowId).toBe(workflowAId);
+    expect(profile.acuityWorkflowId).toBe(workflowAId);
+    expect(profile.acuityWorkflowId).toBe(workflowAId);
   });
 
   it('rejects Organization A attempting to bind a workflow owned by Organization B', async () => {
@@ -102,21 +103,22 @@ describe('Integration: Business Profile CRUD & Multi-Tenant Boundaries', () => {
         name: 'Spoofed Org Profile',
         domain: 'spoof.com',
         industry: 'Testing',
-        dograhWorkflowId: workflowBId, // Belongs to Org B (882), not Org A (881)
+        acuityWorkflowId: workflowBId, // Belongs to Org B (882), not Org A (881)
       })
     ).rejects.toThrow(`Workflow ID ${workflowBId} does not exist or does not belong to your organization`);
   });
 
-  it('allows a profile with no assigned workflow (dograhWorkflowId: null)', async () => {
+  it('allows a profile with no assigned workflow (acuityWorkflowId: null)', async () => {
     const profile = await businessProfileService.createProfile(orgA, {
       name: 'Unassigned Brand',
       domain: 'unassigned-brand.io',
       industry: 'Technology',
-      dograhWorkflowId: null,
+      acuityWorkflowId: null,
     });
 
     expect(profile.id).toBeDefined();
-    expect(profile.dograhWorkflowId).toBeNull();
+    expect(profile.acuityWorkflowId).toBeNull();
+    expect(profile.acuityWorkflowId).toBeNull();
   });
 
   it('prohibits Organization B from reading or modifying Organization A profile', async () => {

@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 
 export interface InternalAssertionPayload {
   v: 1;
-  iss: 'dograh-ui-proxy';
+  iss: 'acuity-ui-proxy' | 'acuity-ui-proxy';
   aud: 'business-extension-api';
   sub: string;
   org: number;
@@ -13,6 +13,7 @@ export interface InternalAssertionPayload {
   iat: number;
   exp: number;
   nonce: string;
+  isAdm?: boolean;
 }
 
 export const KNOWN_INSECURE_SECRETS = new Set([
@@ -30,6 +31,26 @@ function base64UrlEncode(strOrBuffer: string | Buffer): string {
   return buf.toString('base64url');
 }
 
+export function normalizeUri(pathOrUrl: string): string {
+  if (!pathOrUrl) return '/';
+  try {
+    const parsed = new URL(pathOrUrl, 'http://localhost');
+    const pathname = parsed.pathname.replace(/\/+$/, '') || '/';
+    const searchParams = parsed.searchParams;
+    searchParams.sort();
+    const search = searchParams.toString();
+    return search ? `${pathname}?${search}` : pathname;
+  } catch {
+    const [pathPart, queryPart] = pathOrUrl.split('?');
+    const pathname = (pathPart || '/').replace(/\/+$/, '') || '/';
+    if (!queryPart) return pathname;
+    const params = new URLSearchParams(queryPart);
+    params.sort();
+    const search = params.toString();
+    return search ? `${pathname}?${search}` : pathname;
+  }
+}
+
 export function computeBodyHash(rawBody?: string | null): string {
   return crypto.createHash('sha256').update(rawBody || '').digest('hex');
 }
@@ -45,6 +66,7 @@ export function createInternalAssertion(params: {
   ttlSeconds?: number;
   customNonce?: string;
   customIat?: number;
+  isPlatformAdmin?: boolean;
 }): string {
   if (!params.secret || params.secret.length < MIN_SECRET_LENGTH || KNOWN_INSECURE_SECRETS.has(params.secret)) {
     throw new Error('Cannot create assertion: Insecure or missing service secret');
@@ -53,13 +75,13 @@ export function createInternalAssertion(params: {
   const now = params.customIat ?? Math.floor(Date.now() / 1000);
   const ttl = params.ttlSeconds ?? 60;
   const method = (params.method || 'GET').toUpperCase();
-  const uri = (params.path || '/').split('?')[0] || '/';
+  const uri = normalizeUri(params.path || '/');
   const bdy = computeBodyHash(params.body);
 
   const header = { alg: 'HS256', typ: 'JWT' };
   const payload: InternalAssertionPayload = {
     v: 1,
-    iss: 'dograh-ui-proxy',
+    iss: 'acuity-ui-proxy',
     aud: 'business-extension-api',
     sub: params.userId,
     org: params.orgId,
@@ -70,6 +92,7 @@ export function createInternalAssertion(params: {
     iat: now,
     exp: now + ttl,
     nonce: params.customNonce ?? crypto.randomBytes(16).toString('hex'),
+    isAdm: params.isPlatformAdmin ? true : undefined,
   };
 
   const headerB64 = base64UrlEncode(JSON.stringify(header));

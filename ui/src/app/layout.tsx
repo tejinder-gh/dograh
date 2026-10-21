@@ -47,7 +47,7 @@ export default function RootLayout({
   const gtmId = process.env.NEXT_PUBLIC_GTM_ID?.trim();
   const metaPixelId = process.env.NEXT_PUBLIC_META_PIXEL_ID?.trim();
   const reoClientId = process.env.NEXT_PUBLIC_REO_CLIENT_ID?.trim();
-  // Dograh Cloud only. Self-hosted/OSS installs leave this blank and never
+  // Acuity Cloud only. Self-hosted/OSS installs leave this blank and never
   // render the event bar — same gating shape as the Meta Pixel above.
   const showEventBanner = branding.features.showEventBanner && process.env.NEXT_PUBLIC_EVENT_BANNER?.trim() === "1";
 

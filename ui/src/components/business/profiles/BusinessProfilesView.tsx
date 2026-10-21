@@ -13,12 +13,12 @@ import {
   Workflow,
 } from "lucide-react";
 import Link from "next/link";
-import React, { useCallback,useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent,CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 import {
   type BusinessProfileData,
@@ -55,7 +55,7 @@ export function BusinessProfilesView() {
 
   const fetchWorkflows = useCallback(async () => {
     try {
-      // In Dograh, workflows can be queried from the backend /api/v1/workflow/fetch or via SDK
+      // In Acuity, workflows can be queried from the backend /api/v1/workflow/fetch or via SDK
       const res = await fetch("/api/v1/workflow/fetch?status=active");
       if (res.ok) {
         const json = await res.json();
@@ -121,7 +121,7 @@ export function BusinessProfilesView() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Business Profiles</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Manage company domains, operating goals, brand tones, and Dograh voice workflow bindings.
+            Manage company domains, operating goals, brand tones, and Acuity voice workflow bindings.
           </p>
         </div>
         <Button onClick={handleCreateNew} className="gap-2 shrink-0">
@@ -142,7 +142,7 @@ export function BusinessProfilesView() {
             <Briefcase className="h-10 w-10 text-muted-foreground mb-3" />
             <h3 className="text-base font-semibold">No business profiles yet</h3>
             <p className="text-sm text-muted-foreground max-w-sm mt-1 mb-4">
-              Create your organization&apos;s first business profile to link your domain to Dograh voice agents.
+              Create your organization&apos;s first business profile to link your domain to Acuity voice agents.
             </p>
             <Button onClick={handleCreateNew} size="sm" className="gap-2">
               <Plus className="h-4 w-4" />
@@ -153,7 +153,7 @@ export function BusinessProfilesView() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {profiles.map((profile) => {
-            const linkedWf = workflows.find((w) => w.id === profile.dograhWorkflowId);
+            const linkedWf = workflows.find((w) => w.id === profile.acuityWorkflowId);
 
             return (
               <Card key={profile.id} className="relative flex flex-col justify-between hover:border-primary/50 transition-colors">
@@ -185,12 +185,12 @@ export function BusinessProfilesView() {
                       <span className="text-muted-foreground flex items-center gap-1 font-medium">
                         <Workflow className="h-3.5 w-3.5" /> Voice Workflow:
                       </span>
-                      {profile.dograhWorkflowId ? (
+                      {profile.acuityWorkflowId ? (
                         <Link
-                          href={`/workflow/${profile.dograhWorkflowId}`}
+                          href={`/workflow/${profile.acuityWorkflowId}`}
                           className="font-medium text-primary hover:underline flex items-center gap-1"
                         >
-                          {linkedWf?.name || `Workflow #${profile.dograhWorkflowId}`}
+                          {linkedWf?.name || `Workflow #${profile.acuityWorkflowId}`}
                           <ExternalLink className="h-3 w-3" />
                         </Link>
                       ) : (

@@ -1,6 +1,6 @@
 -- Migration: 001_business_ext_init.sql
--- Description: Isolated business extension schema for AI Calling Agent OS on Dograh
--- Target Schema: business_ext (Co-located in Dograh PostgreSQL, strictly isolated)
+-- Description: Isolated business extension schema for AI Calling Agent OS on Acuity
+-- Target Schema: business_ext (Co-located in Acuity PostgreSQL, strictly isolated)
 
 CREATE SCHEMA IF NOT EXISTS business_ext;
 
@@ -14,17 +14,17 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE TABLE IF NOT EXISTS business_ext.organization_mappings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     deployment_id VARCHAR(100) NOT NULL DEFAULT 'default',
-    dograh_organization_id INTEGER NOT NULL,
+    acuity_organization_id INTEGER NOT NULL,
     business_tenant_id UUID NOT NULL DEFAULT gen_random_uuid(),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT uq_deployment_org UNIQUE (deployment_id, dograh_organization_id),
+    CONSTRAINT uq_deployment_org UNIQUE (deployment_id, acuity_organization_id),
     CONSTRAINT uq_business_tenant UNIQUE (business_tenant_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_org_mappings_lookup 
-    ON business_ext.organization_mappings(deployment_id, dograh_organization_id);
-CREATE INDEX IF NOT EXISTS idx_org_mappings_tenant 
+CREATE INDEX IF NOT EXISTS idx_org_mappings_lookup
+    ON business_ext.organization_mappings(deployment_id, acuity_organization_id);
+CREATE INDEX IF NOT EXISTS idx_org_mappings_tenant
     ON business_ext.organization_mappings(business_tenant_id);
 
 -- ============================================================================
@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS business_ext.business_profiles (
     operating_hours JSONB NOT NULL DEFAULT '{"timezone":"America/New_York","schedule":{}}'::jsonb,
     knowledge_sources JSONB NOT NULL DEFAULT '[]'::jsonb,
     escalation_preferences JSONB NOT NULL DEFAULT '{"supervisorEmail":"","urgencyThreshold":"high"}'::jsonb,
-    dograh_workflow_id INTEGER,
+    acuity_workflow_id INTEGER,
     is_active BOOLEAN NOT NULL DEFAULT true,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -52,9 +52,9 @@ CREATE TABLE IF NOT EXISTS business_ext.business_profiles (
     CONSTRAINT uq_business_profiles_tenant_id UNIQUE (tenant_id, id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_business_profiles_tenant 
+CREATE INDEX IF NOT EXISTS idx_business_profiles_tenant
     ON business_ext.business_profiles(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_business_profiles_domain 
+CREATE INDEX IF NOT EXISTS idx_business_profiles_domain
     ON business_ext.business_profiles(tenant_id, domain);
 
 -- ============================================================================
@@ -69,9 +69,9 @@ CREATE TABLE IF NOT EXISTS business_ext.contacts (
     email VARCHAR(255),
     phone VARCHAR(50),
     avatar TEXT,
-    status VARCHAR(50) NOT NULL DEFAULT 'new' 
+    status VARCHAR(50) NOT NULL DEFAULT 'new'
         CHECK (status IN ('new', 'contacted', 'qualified', 'nurturing', 'booked', 'closed')),
-    lifecycle_status VARCHAR(50) NOT NULL DEFAULT 'new' 
+    lifecycle_status VARCHAR(50) NOT NULL DEFAULT 'new'
         CHECK (lifecycle_status IN ('new', 'queued_outbound', 'calling', 'connected', 'qualified', 'booked', 'escalated', 'failed_retry', 'closed')),
     lead_score INTEGER CHECK (lead_score >= 0 AND lead_score <= 100),
     estimated_value VARCHAR(100),
@@ -86,15 +86,15 @@ CREATE TABLE IF NOT EXISTS business_ext.contacts (
     CONSTRAINT uq_contacts_tenant_id UNIQUE (tenant_id, id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_contacts_tenant 
+CREATE INDEX IF NOT EXISTS idx_contacts_tenant
     ON business_ext.contacts(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_contacts_email 
+CREATE INDEX IF NOT EXISTS idx_contacts_email
     ON business_ext.contacts(tenant_id, email);
-CREATE INDEX IF NOT EXISTS idx_contacts_phone 
+CREATE INDEX IF NOT EXISTS idx_contacts_phone
     ON business_ext.contacts(tenant_id, phone);
-CREATE INDEX IF NOT EXISTS idx_contacts_lifecycle 
+CREATE INDEX IF NOT EXISTS idx_contacts_lifecycle
     ON business_ext.contacts(tenant_id, lifecycle_status);
-CREATE INDEX IF NOT EXISTS idx_contacts_score 
+CREATE INDEX IF NOT EXISTS idx_contacts_score
     ON business_ext.contacts(tenant_id, lead_score DESC NULLS LAST);
 
 -- ============================================================================
@@ -108,46 +108,46 @@ CREATE TABLE IF NOT EXISTS business_ext.contact_timeline_events (
     details TEXT NOT NULL DEFAULT '',
     status VARCHAR(50) NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT fk_timeline_contact 
-        FOREIGN KEY (tenant_id, contact_id) 
+    CONSTRAINT fk_timeline_contact
+        FOREIGN KEY (tenant_id, contact_id)
         REFERENCES business_ext.contacts(tenant_id, id) ON DELETE CASCADE
 );
 
-CREATE INDEX IF NOT EXISTS idx_contact_timeline 
+CREATE INDEX IF NOT EXISTS idx_contact_timeline
     ON business_ext.contact_timeline_events(tenant_id, contact_id, created_at DESC);
 
 -- ============================================================================
--- 5. INTERACTIONS (Correlated with Dograh Workflow Runs)
+-- 5. INTERACTIONS (Correlated with Acuity Workflow Runs)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS business_ext.interactions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID NOT NULL REFERENCES business_ext.organization_mappings(business_tenant_id) ON DELETE CASCADE,
     contact_id UUID,
-    dograh_workflow_id INTEGER,
-    dograh_definition_id INTEGER,
-    dograh_run_id VARCHAR(255),
-    channel VARCHAR(50) NOT NULL DEFAULT 'call_inbound' 
+    acuity_workflow_id INTEGER,
+    acuity_definition_id INTEGER,
+    acuity_run_id VARCHAR(255),
+    channel VARCHAR(50) NOT NULL DEFAULT 'call_inbound'
         CHECK (channel IN ('call_inbound', 'call_outbound', 'sms', 'whatsapp', 'webchat')),
     duration_seconds INTEGER NOT NULL DEFAULT 0,
-    sentiment_score INTEGER NOT NULL DEFAULT 50 
+    sentiment_score INTEGER NOT NULL DEFAULT 50
         CHECK (sentiment_score >= -100 AND sentiment_score <= 100),
-    sentiment_category VARCHAR(50) NOT NULL DEFAULT 'neutral' 
+    sentiment_category VARCHAR(50) NOT NULL DEFAULT 'neutral'
         CHECK (sentiment_category IN ('positive', 'neutral', 'frustrated', 'critical')),
     was_escalated BOOLEAN NOT NULL DEFAULT false,
     escalation_reason TEXT,
     summary TEXT NOT NULL DEFAULT '',
     transcript JSONB NOT NULL DEFAULT '[]'::jsonb,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT fk_interactions_contact 
-        FOREIGN KEY (tenant_id, contact_id) 
+    CONSTRAINT fk_interactions_contact
+        FOREIGN KEY (tenant_id, contact_id)
         REFERENCES business_ext.contacts(tenant_id, id) ON DELETE SET NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_interactions_tenant 
+CREATE INDEX IF NOT EXISTS idx_interactions_tenant
     ON business_ext.interactions(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_interactions_contact 
+CREATE INDEX IF NOT EXISTS idx_interactions_contact
     ON business_ext.interactions(tenant_id, contact_id);
-CREATE INDEX IF NOT EXISTS idx_interactions_created 
+CREATE INDEX IF NOT EXISTS idx_interactions_created
     ON business_ext.interactions(tenant_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_interactions_dograh_run 
-    ON business_ext.interactions(tenant_id, dograh_run_id);
+CREATE INDEX IF NOT EXISTS idx_interactions_acuity_run
+    ON business_ext.interactions(tenant_id, acuity_run_id);

@@ -27,15 +27,15 @@ export interface BrandingConfig {
 }
 
 export const branding: BrandingConfig = {
-  productName: process.env.NEXT_PUBLIC_PRODUCT_NAME || "AI Calling Agent OS",
-  productShortName: process.env.NEXT_PUBLIC_PRODUCT_SHORT_NAME || "AI Calling",
+  productName: process.env.NEXT_PUBLIC_PRODUCT_NAME || "Acuity",
+  productShortName: process.env.NEXT_PUBLIC_PRODUCT_SHORT_NAME || "Acuity",
   productDescription:
     process.env.NEXT_PUBLIC_PRODUCT_DESCRIPTION ||
-    "AI-powered business calling and automation platform",
+    "Acuity Voice AI Platform - Intelligent Calling & Business Automation",
   logo: {
-    lightUrl: "/dograh-logo.png",
-    darkUrl: "/dograh-logo-inverse.png",
-    markUrl: "/dograh-mark.png",
+    lightUrl: "/acuity-logo.png",
+    darkUrl: "/acuity-logo-inverse.png",
+    markUrl: "/acuity-mark.png",
     // When true, renders a clean, accessible typographic badge alongside/in place of the image
     showTypographicLogo: true,
   },
@@ -44,7 +44,7 @@ export const branding: BrandingConfig = {
     docsUrl: process.env.NEXT_PUBLIC_DOCS_URL || "/docs",
   },
   features: {
-    // Hide public Dograh SaaS community prompts and GitHub star badges on customer product UI
+    // Hide public SaaS community prompts and GitHub star badges on customer product UI
     showCommunityBadge: false,
     showSaaSUpsells: false,
     showEventBanner: false,

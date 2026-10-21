@@ -15,13 +15,13 @@ export function BrandLogo({
     return (
       <div
         className={cn(
-          "flex h-7 w-7 items-center justify-center rounded-lg bg-primary font-bold text-primary-foreground shadow-xs select-none shrink-0",
+          "flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 via-primary to-violet-600 font-bold text-primary-foreground shadow-xs select-none shrink-0 ring-1 ring-white/10",
           className
         )}
         title={branding.productName}
         aria-label={branding.productName}
       >
-        <span className="text-xs font-black tracking-tight">AI</span>
+        <span className="text-xs font-black tracking-tighter">A</span>
       </div>
     );
   }
@@ -36,8 +36,8 @@ export function BrandLogo({
       title={branding.productName}
       aria-label={branding.productName}
     >
-      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary font-bold text-primary-foreground shadow-xs shrink-0">
-        <span className="text-xs font-black tracking-tight">AI</span>
+      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 via-primary to-violet-600 font-bold text-primary-foreground shadow-xs shrink-0 ring-1 ring-white/10">
+        <span className="text-xs font-black tracking-tighter">A</span>
       </div>
       <div className="flex flex-col leading-none">
         <span className="text-sm font-bold tracking-tight">

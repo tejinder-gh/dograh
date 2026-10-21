@@ -1,7 +1,7 @@
 {
-  "name": "@dograh/business-api",
+  "name": "@acuity/business-api",
   "version": "1.0.0",
-  "description": "AI Calling Agent OS Business Extension Service for Dograh",
+  "description": "AI Calling Agent OS Business Extension Service for Acuity",
   "private": true,
   "main": "src/server.ts",
   "type": "module",

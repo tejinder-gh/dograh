@@ -2,25 +2,26 @@ import { cookies } from 'next/headers';
 import type { NextRequest } from 'next/server';
 
 import { getServerBackendUrl } from '@/lib/apiClient';
-import { getServerAccessToken } from '@/lib/auth/server';
 import { OSS_TOKEN_COOKIE } from '@/lib/auth/cookies';
+import { getServerAccessToken } from '@/lib/auth/server';
 import {
   createInternalAssertion,
   KNOWN_INSECURE_SECRETS,
 } from '@/lib/businessAssertion';
 
-export interface VerifiedDograhSession {
+export interface VerifiedAcuitySession {
   userId: string;
   email: string;
   organizationId: number;
 }
+export type VerifiedAcuitySession = VerifiedAcuitySession;
 
 // Startup / initialization environment validation
 function validateConfiguration(): { apiUrl: string; secret: string; deploymentId: string } {
   const isProd = process.env.NODE_ENV === 'production';
   const secret = process.env.BUSINESS_EXT_SECRET;
   const apiUrl = process.env.BUSINESS_API_URL;
-  const deploymentId = process.env.DOGRAH_DEPLOYMENT_ID || 'default';
+  const deploymentId = process.env.ACUITY_DEPLOYMENT_ID || process.env.Acuity_DEPLOYMENT_ID || 'default';
 
   if (isProd) {
     if (!secret || secret.length < 32 || KNOWN_INSECURE_SECRETS.has(secret)) {
@@ -63,12 +64,12 @@ function getBusinessApiUrl(): string {
 }
 
 /**
- * Authoritatively verifies Dograh identity against the Dograh core backend.
+ * Authoritatively verifies Acuity identity against the Acuity core backend.
  * Never treats unverified cookie claims (such as OSS_USER) as authorization evidence.
  */
 export async function getVerifiedSession(
   req?: Request | NextRequest
-): Promise<VerifiedDograhSession | null> {
+): Promise<VerifiedAcuitySession | null> {
   let token: string | null = null;
 
   // 1. Check for Bearer token in incoming Request Authorization header
@@ -119,7 +120,7 @@ export async function getVerifiedSession(
     return null;
   }
 
-  // 5. Authoritatively validate the token against Dograh's /api/v1/auth/me
+  // 5. Authoritatively validate the token against Acuity's /api/v1/auth/me
   try {
     const backendUrl = getServerBackendUrl();
     const res = await fetch(`${backendUrl}/api/v1/auth/me`, {
@@ -149,13 +150,13 @@ export async function getVerifiedSession(
 
     return null;
   } catch (err) {
-    console.error('Failed to verify session against Dograh /api/v1/auth/me:', err);
+    console.error('Failed to verify session against Acuity /api/v1/auth/me:', err);
     return null;
   }
 }
 
 /**
- * Resolves verified Dograh organization ID. Never trusts client cookie parameters.
+ * Resolves verified Acuity organization ID. Never trusts client cookie parameters.
  */
 export async function getAuthenticatedOrgId(req?: Request | NextRequest): Promise<number | null> {
   const session = await getVerifiedSession(req);
@@ -184,20 +185,19 @@ export async function callBusinessApi(
 
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
   const method = (options.method || 'GET').toUpperCase();
-  const uri = normalizedPath.split('?')[0] || '/';
   const bodyStr = typeof options.body === 'string' ? options.body : '';
 
   let assertion: string;
   try {
     const secret = getBusinessExtSecret();
-    const deploymentId = process.env.DOGRAH_DEPLOYMENT_ID || config.deploymentId;
+    const deploymentId = process.env.ACUITY_DEPLOYMENT_ID || process.env.Acuity_DEPLOYMENT_ID || config.deploymentId;
     assertion = createInternalAssertion({
       userId: session.userId,
       orgId: session.organizationId,
       deploymentId,
       secret,
       method,
-      path: uri,
+      path: normalizedPath,
       body: bodyStr,
     });
   } catch (err) {
@@ -213,8 +213,10 @@ export async function callBusinessApi(
 
   const headers = new Headers(options.headers || {});
   // Strip any caller-supplied spoofed headers
-  headers.delete('X-Dograh-Organization-Id');
-  headers.delete('X-Dograh-Deployment-Id');
+  headers.delete('X-Acuity-Organization-Id');
+  headers.delete('X-Acuity-Deployment-Id');
+  headers.delete('X-Acuity-Organization-Id');
+  headers.delete('X-Acuity-Deployment-Id');
   headers.delete('X-Extension-Secret');
 
   // Attach verified internal assertion with cryptographic request binding

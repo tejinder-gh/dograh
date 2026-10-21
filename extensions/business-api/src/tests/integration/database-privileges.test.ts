@@ -49,7 +49,7 @@ describe('Database Least-Privilege & Migration Safety Verification (P1-4)', () =
       expect(businessExtSchema?.has_usage).toBe(true);
     });
 
-    it('verifies business_app_user has strictly SELECT only on Dograh public tables', async () => {
+    it('verifies business_app_user has strictly SELECT only on Acuity public tables', async () => {
       const coreTables = ['organizations', 'workflows', 'workflow_definitions', 'workflow_runs', 'users', 'organization_users'];
 
       for (const table of coreTables) {

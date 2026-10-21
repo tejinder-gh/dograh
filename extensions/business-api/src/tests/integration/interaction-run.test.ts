@@ -6,7 +6,7 @@ import { resolveTenantContext } from '../../services/tenant-mapping.service';
 import { crmService } from '../../services/crm.service';
 import type { TenantContext } from '../../domain/tenant-mapping.types';
 
-describe('Integration: Interaction & Dograh Run Correlation', () => {
+describe('Integration: Interaction & Acuity Run Correlation', () => {
   let orgA: TenantContext;
   let orgB: TenantContext;
   let workflowAId: number;
@@ -90,7 +90,7 @@ describe('Integration: Interaction & Dograh Run Correlation', () => {
     await adminQuery('DELETE FROM public.organizations WHERE id IN (771, 772)');
   });
 
-  it('records interaction correlated to Dograh workflow, definition, and run ID', async () => {
+  it('records interaction correlated to Acuity workflow, definition, and run ID', async () => {
     // 1. Create contact
     const contact = await crmService.createContact(orgA, {
       name: 'Bob Miller',
@@ -104,12 +104,12 @@ describe('Integration: Interaction & Dograh Run Correlation', () => {
 
     const initialScore = contact.leadScore ?? 0;
 
-    // 2. Record synthetic Dograh voice run outcome
+    // 2. Record synthetic Acuity voice run outcome
     const interaction = await crmService.recordInteraction(orgA, {
       contactId: contact.id,
-      dograhWorkflowId: workflowAId,
-      dograhDefinitionId: definitionAId,
-      dograhRunId: runAUuid,
+      acuityWorkflowId: workflowAId,
+      acuityDefinitionId: definitionAId,
+      acuityRunId: runAUuid,
       channel: 'call_inbound',
       durationSeconds: 195, // >= 180s adds points
       sentimentScore: 82,
@@ -124,8 +124,10 @@ describe('Integration: Interaction & Dograh Run Correlation', () => {
 
     expect(interaction.id).toBeDefined();
     expect(interaction.contactId).toBe(contact.id);
-    expect(interaction.dograhWorkflowId).toBe(workflowAId);
-    expect(interaction.dograhRunId).toBe(runAUuid);
+    expect(interaction.acuityWorkflowId).toBe(workflowAId);
+    expect(interaction.acuityRunId).toBe(runAUuid);
+    expect(interaction.acuityWorkflowId).toBe(workflowAId);
+    expect(interaction.acuityRunId).toBe(runAUuid);
 
     // Verify contact stats were updated
     const updatedContact = await crmService.getContactById(orgA, contact.id);
@@ -151,8 +153,8 @@ describe('Integration: Interaction & Dograh Run Correlation', () => {
     await expect(
       crmService.recordInteraction(orgB, {
         contactId: contactA.id,
-        dograhWorkflowId: workflowAId, // Belongs to Org A
-        dograhRunId: runAUuid,
+        acuityWorkflowId: workflowAId, // Belongs to Org A
+        acuityRunId: runAUuid,
         channel: 'call_outbound',
         durationSeconds: 60,
       })

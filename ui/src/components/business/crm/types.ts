@@ -31,9 +31,9 @@ export interface Interaction {
   id: string;
   tenantId: string;
   contactId: string;
-  dograhWorkflowId: number | null;
-  dograhDefinitionId: number | null;
-  dograhRunId: string | null;
+  acuityWorkflowId: number | null;
+  acuityDefinitionId: number | null;
+  acuityRunId: string | null;
   channel: string;
   direction: 'inbound' | 'outbound';
   durationSeconds: number;

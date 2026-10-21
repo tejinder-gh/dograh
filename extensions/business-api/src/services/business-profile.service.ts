@@ -1,5 +1,5 @@
 import * as profileRepo from '../repositories/business-profile.repository';
-import * as dograhAdapter from '../adapters/dograh-api.adapter';
+import * as acuityAdapter from '../adapters/acuity-api.adapter';
 import type { TenantContext } from '../domain/tenant-mapping.types';
 import type {
   BusinessProfile,
@@ -29,15 +29,17 @@ export class BusinessProfileService {
       throw new Error(`A profile with domain "${dto.domain}" already exists in your organization`);
     }
 
-    // 2. If workflow ID is provided, verify it belongs to this Dograh organization
-    if (dto.dograhWorkflowId !== null && dto.dograhWorkflowId !== undefined) {
-      const isValidWorkflow = await dograhAdapter.verifyWorkflowOwnership(
-        ctx.dograhOrganizationId,
-        dto.dograhWorkflowId
+    // 2. If workflow ID is provided, verify it belongs to this organization
+    const workflowId = dto.acuityWorkflowId ?? dto.acuityWorkflowId ?? null;
+    const orgId = ctx.acuityOrganizationId ?? ctx.acuityOrganizationId!;
+    if (workflowId !== null && workflowId !== undefined) {
+      const isValidWorkflow = await acuityAdapter.verifyWorkflowOwnership(
+        orgId,
+        workflowId
       );
       if (!isValidWorkflow) {
         throw new Error(
-          `Forbidden: Workflow ID ${dto.dograhWorkflowId} does not exist or does not belong to your organization`
+          `Forbidden: Workflow ID ${workflowId} does not exist or does not belong to your organization`
         );
       }
     }
@@ -46,7 +48,8 @@ export class BusinessProfileService {
     const cleanedDto: CreateBusinessProfileDTO = {
       ...dto,
       websiteUrl: dto.websiteUrl ? dto.websiteUrl.trim() : null,
-      dograhWorkflowId: dto.dograhWorkflowId ?? null,
+      acuityWorkflowId: workflowId ?? null,
+      dograhWorkflowId: workflowId ?? null,
     };
 
     return profileRepo.createProfile(ctx.businessTenantId, cleanedDto);
@@ -74,19 +77,25 @@ export class BusinessProfileService {
     }
 
     // Verify workflow ownership if workflow ID is changing
-    if (dto.dograhWorkflowId !== undefined && dto.dograhWorkflowId !== null) {
-      const isValid = await dograhAdapter.verifyWorkflowOwnership(
-        ctx.dograhOrganizationId,
-        dto.dograhWorkflowId
+    const orgId = ctx.acuityOrganizationId ?? ctx.acuityOrganizationId!;
+    const workflowId = dto.acuityWorkflowId ?? dto.acuityWorkflowId;
+    if (workflowId !== undefined && workflowId !== null) {
+      const isValid = await acuityAdapter.verifyWorkflowOwnership(
+        orgId,
+        workflowId
       );
       if (!isValid) {
         throw new Error(
-          `Forbidden: Workflow ID ${dto.dograhWorkflowId} does not belong to your organization`
+          `Forbidden: Workflow ID ${workflowId} does not belong to your organization`
         );
       }
     }
 
-    const updated = await profileRepo.updateProfile(ctx.businessTenantId, id, dto);
+    const updated = await profileRepo.updateProfile(ctx.businessTenantId, id, {
+      ...dto,
+      acuityWorkflowId: workflowId,
+      dograhWorkflowId: workflowId,
+    });
     if (!updated) {
       throw new Error('Failed to update business profile');
     }

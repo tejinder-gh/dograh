@@ -36,27 +36,38 @@ Previously, `signed-assertion.ts` maintained an in-memory `Map<string, number>` 
          expires_at TIMESTAMPTZ NOT NULL
      );
      ```
-   - Atomic consumption is achieved using `INSERT INTO business_ext.consumed_nonces (nonce, expires_at) VALUES ($1, $2) ON CONFLICT DO NOTHING;`. If 0 rows are affected, replay is detected and rejected immediately.
+   - Atomic consumption is achieved using `INSERT INTO business_ext.consumed_nonces (nonce, expires_at) VALUES ($1, $2) ON CONFLICT (nonce) DO NOTHING RETURNING nonce;`. If 0 rows are returned, replay is detected and rejected with 401 Unauthorized.
+   - **Fail-Closed Behavior**: When atomic nonce storage is unavailable or encounters database connectivity errors, `consumeNonce()` fails closed by propagating the exception. `auth.middleware.ts` catches this and returns `503 Service Unavailable` (`Replay protection store is unavailable`), preventing any mutation from executing without atomic replay verification. Mock store fallbacks are strictly prohibited in production and only accessible via explicit test injection (`setNonceStoreOverrideForTesting`).
 2. **Cryptographic Request Binding Claims**:
-   - `ui/src/lib/businessAssertion.ts` binds every assertion to the exact HTTP request:
+   - `ui/src/lib/businessAssertion.ts` and `extensions/business-api/src/config/signed-assertion.ts` bind every assertion to the exact HTTP request:
      - `mth`: Uppercase HTTP method (`GET`, `POST`, `PATCH`, `DELETE`).
-     - `uri`: Canonical path (`/api/contacts`).
+     - `uri`: Canonical path with sorted query parameters (`normalizeUri`).
      - `bdy`: Hex-encoded SHA-256 digest of the request body (`crypto.createHash('sha256').update(rawBody).digest('hex')`).
    - For requests without bodies (e.g. `GET`), `bdy` is the hash of an empty string.
+   - All claims (`mth`, `uri`, `bdy`) are strictly mandatory in `verifyInternalAssertion()`. Missing or tampered claims trigger immediate 401 Unauthorized rejection.
 3. **Stream-Safe Verification in `auth.middleware.ts`**:
    - Clones the raw request stream (`c.req.raw.clone().text()`) to verify the digest without consuming the stream for downstream handlers.
-   - Verifies method, path, and body digest against the signed JWT claims before consuming the nonce atomically.
+   - Normalizes the incoming URL path and sorted query parameters before comparing with the signed `uri` claim.
 
 ### 2.3 Automated Test Evidence ([http-security.test.ts](file:///Users/tejindersingh/dev/AI/agents/mentize/AI%20calling%20agent%20OS/dograh/extensions/business-api/src/tests/integration/http-security.test.ts))
 - **Two Distinct Service Instances Replay Prevention**:
   `app1` processes assertion with nonce `N` -> HTTP 201 Created.  
-  `app2` (separate app instance sharing database) receives identical assertion -> HTTP 401 Unauthorized (`Replay detected: nonce has already been consumed`). (**PASS**)
+  `app2` (separate app instance sharing database) receives identical assertion -> HTTP 401 Unauthorized (`Replay detected: Assertion nonce has already been consumed`). (**PASS**)
 - **Method Substitution Attack**:
-  Assertion signed for `GET` used on `POST /api/contacts` -> HTTP 401 Unauthorized (`Assertion method claim mismatch`). (**PASS**)
+  Assertion signed for `GET` used on `POST /api/contacts` -> HTTP 401 Unauthorized (`Request method mismatch`). (**PASS**)
 - **Path Substitution Attack**:
-  Assertion signed for `/api/contacts` used on `/api/contacts/batch` -> HTTP 401 Unauthorized (`Assertion uri claim mismatch`). (**PASS**)
+  Assertion signed for `/api/contacts` used on `/api/contacts/batch` -> HTTP 401 Unauthorized (`Request URI mismatch`). (**PASS**)
 - **Body Substitution / Tampering Attack**:
-  Assertion signed for body `{"name":"Alice"}` presented with body `{"name":"Mallory"}` -> HTTP 401 Unauthorized (`Assertion body digest mismatch`). (**PASS**)
+  Assertion signed for body `{"name":"Original Contact"}` presented with body `{"name":"Hacked Contact"}` -> HTTP 401 Unauthorized (`Request body hash mismatch`). (**PASS**)
+- **Missing Required Claims Tests**:
+  - Missing `mth` claim -> HTTP 401 Unauthorized (`Assertion missing required request method claim`). (**PASS**)
+  - Missing `uri` claim -> HTTP 401 Unauthorized (`Assertion missing required request URI claim`). (**PASS**)
+  - Missing `bdy` claim -> HTTP 401 Unauthorized (`Assertion missing required request body hash claim`). (**PASS**)
+- **Query Parameter Normalization & Tampering Tests**:
+  - Tampered query parameter (`page=1` changed to `page=2`) -> HTTP 401 Unauthorized (`Request URI mismatch`). (**PASS**)
+  - Permuted query parameters (`page=1&limit=10` vs `limit=10&page=1`) -> HTTP 200 OK via canonical query sorting. (**PASS**)
+- **Fail-Closed Replay Store Fault Injection**:
+  Simulated PostgreSQL pool exhaustion / unreachable nonce store -> HTTP 503 Service Unavailable (`Replay protection store is unavailable`). Confirmed 0 rows inserted into `business_ext.contacts`. (**PASS**)
 
 ---
 
@@ -103,20 +114,22 @@ bun run test -- src/app/api/business/business-auth.test.ts
 
 ## 5. Blocker 4: Database Security Evidence
 
-Audited directly against the active PostgreSQL database (`postgres` in `mentize-dograh-postgres-1`):
+Audited directly against active PostgreSQL database roles and permissions:
 
 ### 5.1 Role Attributes (`pg_roles`)
 ```sql
 SELECT rolname, rolsuper, rolinherit, rolcreaterole, rolcreatedb, rolcanlogin 
 FROM pg_roles 
-WHERE rolname IN ('postgres', 'business_app_user');
+WHERE rolname IN ('postgres', 'ai_calling_owner', 'business_app_user');
 ```
 ```
       rolname      | rolsuper | rolinherit | rolcreaterole | rolcreatedb | rolcanlogin 
 -------------------+----------+------------+---------------+-------------+-------------
  postgres          | t        | t          | t             | t           | t
- business_app_user | f        | f          | f             | f           | t
+ ai_calling_owner  | f        | t          | t             | t           | t
+ business_app_user | f        | t          | f             | f           | t
 ```
+*Note on Neon Role Audit*: `business_app_user` in Neon possesses `rolsuper=false`, `rolcreaterole=false`, `rolcreatedb=false`, and `rolinherit=true` (standard PostgreSQL role inheritance default), strictly lacking all administrative and database creation privileges.
 
 ### 5.2 Schema Ownership (`pg_namespace`)
 ```sql
@@ -133,29 +146,15 @@ WHERE n.nspname IN ('public', 'business_ext');
 ```
 
 ### 5.3 Table Privileges Audit (`information_schema.role_table_grants`)
-- Querying all grants for `grantee = 'business_app_user'` yields exactly 80 rows:
-  - **`business_ext.*` (6 tables)**: `SELECT, INSERT, UPDATE, DELETE, REFERENCES, TRIGGER, TRUNCATE` (50 rows).
-  - **`public.*` (30 tables)**: Strictly `SELECT` only (30 rows). Zero `INSERT`, zero `UPDATE`, zero `DELETE`, zero `TRUNCATE`.
+- Querying all grants for `grantee = 'business_app_user'`:
+  - **`business_ext.*` (6 tables)**: Full DML `SELECT, INSERT, UPDATE, DELETE, REFERENCES, TRIGGER, TRUNCATE`.
+  - **`public.*` (31 tables)**: Strictly `SELECT` only. Zero `INSERT`, zero `UPDATE`, zero `DELETE`, zero `TRUNCATE`.
 
 ### 5.4 Runtime Mutation Denial (Postgres Error 42501 Evidence)
-Executed as `business_app_user`:
-```bash
-docker exec -i mentize-dograh-postgres-1 psql -U business_app_user -d postgres -c \
-  "INSERT INTO public.workflows (name, organization_id) VALUES ('Malicious Workflow', 501);"
-# ERROR:  permission denied for table workflows (PostgreSQL 42501)
-
-docker exec -i mentize-dograh-postgres-1 psql -U business_app_user -d postgres -c \
-  "UPDATE public.organizations SET provider_id = 'hacked' WHERE id = 501;"
-# ERROR:  permission denied for table organizations (PostgreSQL 42501)
-
-docker exec -i mentize-dograh-postgres-1 psql -U business_app_user -d postgres -c \
-  "DELETE FROM public.users WHERE id = 551;"
-# ERROR:  permission denied for table users (PostgreSQL 42501)
-
-docker exec -i mentize-dograh-postgres-1 psql -U business_app_user -d postgres -c \
-  "DROP TABLE public.organizations;"
-# ERROR:  must be owner of table organizations (PostgreSQL 42501)
-```
+Automated in `database-privileges.test.ts` executing directly as `business_app_user`:
+- `INSERT INTO public.workflows` -> Throws code `42501` (permission denied for table workflows). (**PASS**)
+- `UPDATE public.organizations` -> Throws code `42501` (permission denied for table organizations). (**PASS**)
+- `DELETE FROM public.users` -> Throws code `42501` (permission denied for table users). (**PASS**)
 
 ---
 
@@ -168,7 +167,7 @@ cd ui && bun run test
 ```
  Test Files  63 passed (63)
       Tests  418 passed (418)
-   Duration  6.09s
+   Duration  15.67s
 ```
 
 ### 6.2 `extensions/business-api` Test Suite (Bun Test)
@@ -176,15 +175,15 @@ cd ui && bun run test
 cd extensions/business-api && bun test
 ```
 ```
- 53 pass
+ 59 pass
  0 fail
- 163 expect() calls
-Ran 53 tests across 8 files. [195.00ms]
+ 183 expect() calls
+Ran 59 tests across 8 files. [8.07s]
 ```
 All 8 test files:
 - `scoring.test.ts` (6 tests passed)
 - `validation.test.ts` (8 tests passed)
-- `http-security.test.ts` (14 tests passed, including multi-instance replay and method/path/body substitution)
+- `http-security.test.ts` (20 tests passed, including multi-instance replay, fail-closed fault-injection, and method/path/body/query claim verification)
 - `database-privileges.test.ts` (9 tests passed)
 - `tenant-mapping.test.ts` (3 tests passed)
 - `crm-isolation.test.ts` (6 tests passed)
@@ -192,7 +191,7 @@ All 8 test files:
 - `business-profile.test.ts` (5 tests passed)
 
 ### 6.3 CI Actions Workflow
-Added [.github/workflows/business-extension-ci.yml](file:///Users/tejindersingh/dev/AI/agents/mentize/AI%20calling%20agent%20OS/dograh/.github/workflows/business-extension-ci.yml) targeting PR branches touching `ui/**` and `extensions/business-api/**`.
+Updated [.github/workflows/business-extension-ci.yml](file:///Users/tejindersingh/dev/AI/agents/mentize/AI%20calling%20agent%20OS/dograh/.github/workflows/business-extension-ci.yml) targeting PR branches touching `ui/**` and `extensions/business-api/**`. Uses full authoritative Dograh schema dump and separated unprivileged runtime (`business_app_user`) vs migration/admin (`postgres`) roles.
 
 ---
 

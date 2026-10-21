@@ -19,7 +19,7 @@ export type OperatingHours = z.infer<typeof operatingHoursSchema>;
 export const knowledgeSourceRefSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
-  sourceType: z.enum(['document', 'url', 'faq_snippet', 'dograh_knowledge_base']),
+  sourceType: z.enum(['document', 'url', 'faq_snippet', 'acuity_knowledge_base', 'acuity_knowledge_base']),
   verified: z.boolean().default(false),
   referenceUrl: z.string().url().optional(),
 });
@@ -57,6 +57,7 @@ export const businessProfileSchema = z.object({
     urgencyThreshold: 'high',
     autoNotify: true,
   }),
+  acuityWorkflowId: z.number().int().positive().nullable().default(null),
   dograhWorkflowId: z.number().int().positive().nullable().default(null),
   isActive: z.boolean().default(true),
   createdAt: z.string().datetime(),
@@ -85,7 +86,8 @@ export const createBusinessProfileSchema = z.object({
     urgencyThreshold: 'high',
     autoNotify: true,
   }),
-  dograhWorkflowId: z.number().int().positive().optional().nullable().default(null),
+  acuityWorkflowId: z.number().int().positive().optional().nullable(),
+  dograhWorkflowId: z.number().int().positive().optional().nullable(),
   isActive: z.boolean().optional().default(true),
 });
 

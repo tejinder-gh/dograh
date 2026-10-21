@@ -32,7 +32,7 @@ function AppHeader() {
           <>
             <Button variant="ghost" size="sm" asChild>
               <a
-                href="https://join.slack.com/t/dograh-community/shared_invite/zt-4anp45mlu-ukR3jTqwdDFMEpqeBhKn6g"
+                href="https://join.slack.com/t/acuity-community/shared_invite/zt-4anp45mlu-ukR3jTqwdDFMEpqeBhKn6g"
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => posthog.capture(PostHogEvent.SLACK_COMMUNITY_CLICKED, { source: "app_header" })}

@@ -3,7 +3,7 @@ import { query } from './database';
 
 export interface InternalAssertionPayload {
   v: 1;
-  iss: 'dograh-ui-proxy';
+  iss: 'acuity-ui-proxy' | 'acuity-ui-proxy';
   aud: 'business-extension-api';
   sub: string;
   org: number;
@@ -14,6 +14,7 @@ export interface InternalAssertionPayload {
   iat: number;
   exp: number;
   nonce: string;
+  isAdm?: boolean;
 }
 
 import { KNOWN_INSECURE_SECRETS } from './constants';
@@ -34,6 +35,26 @@ export function computeBodyHash(rawBody?: string | null): string {
   return crypto.createHash('sha256').update(rawBody || '').digest('hex');
 }
 
+export function normalizeUri(pathOrUrl: string): string {
+  if (!pathOrUrl) return '/';
+  try {
+    const parsed = new URL(pathOrUrl, 'http://localhost');
+    const pathname = parsed.pathname.replace(/\/+$/, '') || '/';
+    const searchParams = parsed.searchParams;
+    searchParams.sort();
+    const search = searchParams.toString();
+    return search ? `${pathname}?${search}` : pathname;
+  } catch {
+    const [pathPart, queryPart] = pathOrUrl.split('?');
+    const pathname = (pathPart || '/').replace(/\/+$/, '') || '/';
+    if (!queryPart) return pathname;
+    const params = new URLSearchParams(queryPart);
+    params.sort();
+    const search = params.toString();
+    return search ? `${pathname}?${search}` : pathname;
+  }
+}
+
 export function createInternalAssertion(params: {
   userId: string;
   orgId: number;
@@ -45,6 +66,7 @@ export function createInternalAssertion(params: {
   ttlSeconds?: number;
   customNonce?: string;
   customIat?: number;
+  isPlatformAdmin?: boolean;
 }): string {
   if (!params.secret || params.secret.length < MIN_SECRET_LENGTH || KNOWN_INSECURE_SECRETS.has(params.secret)) {
     throw new Error('Cannot create assertion: Insecure or missing service secret');
@@ -53,13 +75,13 @@ export function createInternalAssertion(params: {
   const now = params.customIat ?? Math.floor(Date.now() / 1000);
   const ttl = params.ttlSeconds ?? 60;
   const method = (params.method || 'GET').toUpperCase();
-  const uri = (params.path || '/').split('?')[0] || '/';
+  const uri = normalizeUri(params.path || '/');
   const bdy = computeBodyHash(params.body);
 
   const header = { alg: 'HS256', typ: 'JWT' };
   const payload: InternalAssertionPayload = {
     v: 1,
-    iss: 'dograh-ui-proxy',
+    iss: 'acuity-ui-proxy',
     aud: 'business-extension-api',
     sub: params.userId,
     org: params.orgId,
@@ -70,6 +92,7 @@ export function createInternalAssertion(params: {
     iat: now,
     exp: now + ttl,
     nonce: params.customNonce ?? crypto.randomBytes(16).toString('hex'),
+    isAdm: params.isPlatformAdmin ? true : undefined,
   };
 
   const headerB64 = base64UrlEncode(JSON.stringify(header));
@@ -82,40 +105,39 @@ export function createInternalAssertion(params: {
   return `${data}.${sigB64}`;
 }
 
-// Fallback in-memory cache for test mocks if DB is disconnected
-const fallbackNonceCache = new Map<string, number>();
+export type NonceStoreFn = (nonce: string, expSeconds: number) => Promise<boolean>;
+
+let nonceStoreOverride: NonceStoreFn | null = null;
+
+export function setNonceStoreOverrideForTesting(fn: NonceStoreFn | null): void {
+  nonceStoreOverride = fn;
+}
 
 export function clearNonceCacheForTesting(): void {
-  fallbackNonceCache.clear();
+  nonceStoreOverride = null;
 }
 
 /**
  * Shared atomic replay prevention using database UNIQUE constraint on business_ext.consumed_nonces.
  * Works atomically across multiple workers, processes, or replicas.
+ * Fails closed: if the database errors or is unreachable, the exception is propagated
+ * so the request is denied without executing mutations.
  */
 export async function consumeNonce(nonce: string, expSeconds: number): Promise<boolean> {
-  const expiresAt = new Date(expSeconds * 1000);
-  try {
-    const res = await query(
-      `INSERT INTO business_ext.consumed_nonces (nonce, expires_at)
-       VALUES ($1, $2)
-       ON CONFLICT (nonce) DO NOTHING
-       RETURNING nonce`,
-      [nonce, expiresAt]
-    );
-
-    if ((res.rowCount ?? 0) > 0) {
-      return true;
-    }
-    return false;
-  } catch (err) {
-    // If table is missing (e.g. before initial migration in isolated unit test), use fallback
-    if (fallbackNonceCache.has(nonce)) {
-      return false;
-    }
-    fallbackNonceCache.set(nonce, expSeconds);
-    return true;
+  if (nonceStoreOverride) {
+    return nonceStoreOverride(nonce, expSeconds);
   }
+
+  const expiresAt = new Date(expSeconds * 1000);
+  const res = await query(
+    `INSERT INTO business_ext.consumed_nonces (nonce, expires_at)
+     VALUES ($1, $2)
+     ON CONFLICT (nonce) DO NOTHING
+     RETURNING nonce`,
+    [nonce, expiresAt]
+  );
+
+  return (res.rowCount ?? 0) > 0;
 }
 
 export function verifyInternalAssertion(params: {
@@ -168,7 +190,8 @@ export function verifyInternalAssertion(params: {
   }
 
   // 3. Validate claims
-  if (payload.v !== 1 || payload.iss !== 'dograh-ui-proxy' || payload.aud !== 'business-extension-api') {
+  const isValidIss = payload.iss === 'acuity-ui-proxy' || payload.iss === 'acuity-ui-proxy';
+  if (payload.v !== 1 || !isValidIss || payload.aud !== 'business-extension-api') {
     throw new Error('Invalid assertion audience or issuer');
   }
 
@@ -194,24 +217,35 @@ export function verifyInternalAssertion(params: {
     throw new Error('Assertion issued in the future');
   }
 
-  // 4. Validate cryptographic request binding
+  // 4. Validate cryptographic request binding - STRICT ENFORCEMENT
+  if (!payload.mth || typeof payload.mth !== 'string') {
+    throw new Error('Assertion missing required request method claim (mth)');
+  }
+  if (!payload.uri || typeof payload.uri !== 'string') {
+    throw new Error('Assertion missing required request URI claim (uri)');
+  }
+  if (!payload.bdy || typeof payload.bdy !== 'string') {
+    throw new Error('Assertion missing required request body hash claim (bdy)');
+  }
+
   if (params.expectedMethod) {
     const normExpected = params.expectedMethod.toUpperCase();
-    if (payload.mth && payload.mth !== normExpected) {
+    if (payload.mth !== normExpected) {
       throw new Error(`Request method mismatch: assertion was signed for ${payload.mth}, received ${normExpected}`);
     }
   }
 
   if (params.expectedPath) {
-    const normPath = params.expectedPath.split('?')[0] || '/';
-    if (payload.uri && payload.uri !== normPath) {
-      throw new Error(`Request URI mismatch: assertion was signed for ${payload.uri}, received ${normPath}`);
+    const normExpectedPath = normalizeUri(params.expectedPath);
+    const normPayloadUri = normalizeUri(payload.uri);
+    if (normPayloadUri !== normExpectedPath) {
+      throw new Error(`Request URI mismatch: assertion was signed for ${payload.uri}, received ${normExpectedPath}`);
     }
   }
 
   if (params.expectedBody !== undefined) {
     const expectedHash = computeBodyHash(params.expectedBody);
-    if (payload.bdy && payload.bdy !== expectedHash) {
+    if (payload.bdy !== expectedHash) {
       throw new Error('Request body hash mismatch: payload has been altered or substituted');
     }
   }

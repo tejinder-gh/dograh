@@ -22,7 +22,7 @@ interface BusinessProfileRow {
   operating_hours: OperatingHours;
   knowledge_sources: KnowledgeSourceRef[];
   escalation_preferences: EscalationPreferences;
-  dograh_workflow_id: number | null;
+  acuity_workflow_id: number | null;
   is_active: boolean;
   created_at: Date | string;
   updated_at: Date | string;
@@ -43,7 +43,8 @@ function mapRow(row: BusinessProfileRow): BusinessProfile {
     operatingHours: row.operating_hours,
     knowledgeSources: row.knowledge_sources || [],
     escalationPreferences: row.escalation_preferences,
-    dograhWorkflowId: row.dograh_workflow_id,
+    acuityWorkflowId: row.acuity_workflow_id,
+    dograhWorkflowId: row.acuity_workflow_id,
     isActive: row.is_active,
     createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
     updatedAt: row.updated_at instanceof Date ? row.updated_at.toISOString() : String(row.updated_at),
@@ -92,11 +93,12 @@ export async function createProfile(
   tenantId: string,
   data: CreateBusinessProfileDTO
 ): Promise<BusinessProfile> {
+  const workflowId = data.acuityWorkflowId ?? data.acuityWorkflowId ?? null;
   const res = await query<BusinessProfileRow>(
     `INSERT INTO business_ext.business_profiles (
       tenant_id, name, domain, industry, description, brand_tone,
       website_url, inbound_goal, outbound_goal, operating_hours,
-      knowledge_sources, escalation_preferences, dograh_workflow_id, is_active
+      knowledge_sources, escalation_preferences, acuity_workflow_id, is_active
     ) VALUES (
       $1, $2, $3, $4, $5, $6,
       $7, $8, $9, $10,
@@ -115,7 +117,7 @@ export async function createProfile(
       JSON.stringify(data.operatingHours || { timezone: 'UTC', schedule: {} }),
       JSON.stringify(data.knowledgeSources || []),
       JSON.stringify(data.escalationPreferences || { supervisorEmail: '', urgencyThreshold: 'high', autoNotify: true }),
-      data.dograhWorkflowId ?? null,
+      workflowId,
       data.isActive ?? true,
     ]
   );
@@ -133,6 +135,9 @@ export async function updateProfile(
   const existing = await getProfileById(tenantId, id);
   if (!existing) return null;
 
+  const hasWf = data.acuityWorkflowId !== undefined || data.acuityWorkflowId !== undefined;
+  const targetWfId = hasWf ? (data.acuityWorkflowId ?? data.acuityWorkflowId ?? null) : null;
+
   const res = await query<BusinessProfileRow>(
     `UPDATE business_ext.business_profiles SET
       name = COALESCE($3, name),
@@ -146,7 +151,7 @@ export async function updateProfile(
       operating_hours = COALESCE($11, operating_hours),
       knowledge_sources = COALESCE($12, knowledge_sources),
       escalation_preferences = COALESCE($13, escalation_preferences),
-      dograh_workflow_id = CASE WHEN $14::boolean THEN $15 ELSE dograh_workflow_id END,
+      acuity_workflow_id = CASE WHEN $14::boolean THEN $15 ELSE acuity_workflow_id END,
       is_active = COALESCE($16, is_active),
       updated_at = NOW()
      WHERE tenant_id = $1 AND id = $2
@@ -165,8 +170,8 @@ export async function updateProfile(
       data.operatingHours ? JSON.stringify(data.operatingHours) : null,
       data.knowledgeSources ? JSON.stringify(data.knowledgeSources) : null,
       data.escalationPreferences ? JSON.stringify(data.escalationPreferences) : null,
-      data.dograhWorkflowId !== undefined, // Flag whether dograhWorkflowId was explicitly passed
-      data.dograhWorkflowId ?? null,
+      hasWf,
+      targetWfId,
       data.isActive,
     ]
   );

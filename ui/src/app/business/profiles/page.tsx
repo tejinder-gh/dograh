@@ -7,7 +7,7 @@ export default function BusinessProfilesPage() {
   return (
     <PageLayout
       title="Business Profiles"
-      description="Manage business domains, brand tone, operating hours, and associated Dograh voice workflows."
+      description="Manage business domains, brand tone, operating hours, and associated Acuity voice workflows."
     >
       <BusinessProfilesView />
     </PageLayout>

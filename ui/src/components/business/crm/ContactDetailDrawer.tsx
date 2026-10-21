@@ -10,7 +10,7 @@ import {
   Sparkles,
   Workflow,
 } from "lucide-react";
-import React, { useCallback,useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -25,7 +25,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 
-import type { Contact, Interaction,TimelineEvent } from "./types";
+import type { Contact, Interaction, TimelineEvent } from "./types";
 
 interface ContactDetailDrawerProps {
   contact: Contact | null;
@@ -198,14 +198,14 @@ export function ContactDetailDrawer({
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5">
                         <Workflow className="w-3.5 h-3.5 text-primary" />
-                        <span className="font-semibold">Workflow #{int.dograhWorkflowId ?? "Direct"}</span>
+                        <span className="font-semibold">Workflow #{int.acuityWorkflowId ?? "Direct"}</span>
                       </div>
                       <Badge variant="outline" className="text-[10px]">{int.direction} • {int.durationSeconds}s</Badge>
                     </div>
                     <p className="text-muted-foreground text-xs">{int.summary || "No call summary."}</p>
-                    {int.dograhRunId && (
+                    {int.acuityRunId && (
                       <div className="text-[10px] text-muted-foreground font-mono pt-1">
-                        Run ID: {int.dograhRunId}
+                        Run ID: {int.acuityRunId}
                       </div>
                     )}
                   </div>

@@ -9,7 +9,7 @@ GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA business_ext TO business_app_user
 ALTER DEFAULT PRIVILEGES IN SCHEMA business_ext GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO business_app_user;
 ALTER DEFAULT PRIVILEGES IN SCHEMA business_ext GRANT USAGE, SELECT ON SEQUENCES TO business_app_user;
 
--- Grant least-privilege read access to public schema for Dograh adapter queries
+-- Grant least-privilege read access to public schema for Acuity adapter queries
 GRANT USAGE ON SCHEMA public TO business_app_user;
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO business_app_user;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO business_app_user;

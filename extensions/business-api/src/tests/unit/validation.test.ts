@@ -21,6 +21,7 @@ describe('Domain Validation Schemas', () => {
             },
           },
         },
+        acuityWorkflowId: 10,
         dograhWorkflowId: 10,
       };
 
@@ -28,6 +29,7 @@ describe('Domain Validation Schemas', () => {
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data.name).toBe('Acme Advisory');
+        expect(result.data.acuityWorkflowId).toBe(10);
         expect(result.data.dograhWorkflowId).toBe(10);
       }
     });
@@ -100,9 +102,12 @@ describe('Domain Validation Schemas', () => {
   });
 
   describe('Interaction Schema', () => {
-    it('validates interaction with Dograh run references', () => {
+    it('validates interaction with Acuity run references', () => {
       const input = {
         contactId: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        acuityWorkflowId: 1,
+        acuityDefinitionId: 2,
+        acuityRunId: 'run-98234-xyz',
         dograhWorkflowId: 1,
         dograhDefinitionId: 2,
         dograhRunId: 'run-98234-xyz',
@@ -116,6 +121,11 @@ describe('Domain Validation Schemas', () => {
 
       const result = createInteractionSchema.safeParse(input);
       expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.acuityWorkflowId).toBe(1);
+        expect(result.data.dograhWorkflowId).toBe(1);
+        expect(result.data.acuityRunId).toBe('run-98234-xyz');
+      }
     });
 
     it('rejects sentiment score outside [-100, 100]', () => {

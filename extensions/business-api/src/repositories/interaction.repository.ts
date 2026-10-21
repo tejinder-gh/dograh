@@ -11,9 +11,9 @@ interface InteractionRow {
   id: string;
   tenant_id: string;
   contact_id: string | null;
-  dograh_workflow_id: number | null;
-  dograh_definition_id: number | null;
-  dograh_run_id: string | null;
+  acuity_workflow_id: number | null;
+  acuity_definition_id: number | null;
+  acuity_run_id: string | null;
   channel: ChannelType;
   duration_seconds: number;
   sentiment_score: number;
@@ -30,9 +30,12 @@ function mapRow(row: InteractionRow): Interaction {
     id: row.id,
     tenantId: row.tenant_id,
     contactId: row.contact_id,
-    dograhWorkflowId: row.dograh_workflow_id,
-    dograhDefinitionId: row.dograh_definition_id,
-    dograhRunId: row.dograh_run_id,
+    acuityWorkflowId: row.acuity_workflow_id,
+    acuityDefinitionId: row.acuity_definition_id,
+    acuityRunId: row.acuity_run_id,
+    dograhWorkflowId: row.acuity_workflow_id,
+    dograhDefinitionId: row.acuity_definition_id,
+    dograhRunId: row.acuity_run_id,
     channel: row.channel,
     durationSeconds: row.duration_seconds,
     sentimentScore: row.sentiment_score,
@@ -49,6 +52,7 @@ export async function getInteractions(
   tenantId: string,
   options?: {
     contactId?: string;
+    acuityRunId?: string;
     dograhRunId?: string;
     limit?: number;
     offset?: number;
@@ -63,18 +67,19 @@ export async function getInteractions(
     params.push(options.contactId);
   }
 
-  if (options?.dograhRunId) {
-    conditions.push(`dograh_run_id = $${paramIdx++}`);
-    params.push(options.dograhRunId);
+  const runId = options?.acuityRunId ?? options?.acuityRunId;
+  if (runId) {
+    conditions.push(`acuity_run_id = $${paramIdx++}`);
+    params.push(runId);
   }
 
   const limit = options?.limit ?? 50;
   const offset = options?.offset ?? 0;
 
   const res = await query<InteractionRow>(
-    `SELECT * FROM business_ext.interactions 
-     WHERE ${conditions.join(' AND ')} 
-     ORDER BY created_at DESC 
+    `SELECT * FROM business_ext.interactions
+     WHERE ${conditions.join(' AND ')}
+     ORDER BY created_at DESC
      LIMIT $${paramIdx++} OFFSET $${paramIdx++}`,
     [...params, limit, offset]
   );
@@ -111,11 +116,15 @@ export async function createInteraction(
       }
     }
 
+    const workflowId = data.acuityWorkflowId ?? data.acuityWorkflowId ?? null;
+    const definitionId = data.acuityDefinitionId ?? data.acuityDefinitionId ?? null;
+    const runId = data.acuityRunId ?? data.acuityRunId ?? null;
+
     // 2. Insert interaction
     const res = await client.query<InteractionRow>(
       `INSERT INTO business_ext.interactions (
-        tenant_id, contact_id, dograh_workflow_id, dograh_definition_id,
-        dograh_run_id, channel, duration_seconds, sentiment_score,
+        tenant_id, contact_id, acuity_workflow_id, acuity_definition_id,
+        acuity_run_id, channel, duration_seconds, sentiment_score,
         sentiment_category, was_escalated, escalation_reason, summary, transcript
       ) VALUES (
         $1, $2, $3, $4,
@@ -125,9 +134,9 @@ export async function createInteraction(
       [
         tenantId,
         contactId,
-        data.dograhWorkflowId ?? null,
-        data.dograhDefinitionId ?? null,
-        data.dograhRunId ?? null,
+        workflowId,
+        definitionId,
+        runId,
         data.channel || 'call_inbound',
         data.durationSeconds || 0,
         data.sentimentScore ?? 50,

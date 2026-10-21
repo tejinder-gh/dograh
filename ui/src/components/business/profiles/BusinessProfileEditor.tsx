@@ -1,7 +1,7 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
-import React, { useEffect,useState } from "react";
+import React, { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -33,7 +33,7 @@ export interface BusinessProfileData {
   websiteUrl?: string | null;
   inboundGoal?: string;
   outboundGoal?: string;
-  dograhWorkflowId?: number | null;
+  acuityWorkflowId?: number | null;
   isActive?: boolean;
 }
 
@@ -67,7 +67,7 @@ export function BusinessProfileEditor({
     websiteUrl: "",
     inboundGoal: "Resolve customer inquiries and qualify needs.",
     outboundGoal: "Assess prospect fit and schedule a consultation.",
-    dograhWorkflowId: null,
+    acuityWorkflowId: null,
     isActive: true,
   });
 
@@ -83,7 +83,7 @@ export function BusinessProfileEditor({
         websiteUrl: profile.websiteUrl || "",
         inboundGoal: profile.inboundGoal || "Resolve customer inquiries and qualify needs.",
         outboundGoal: profile.outboundGoal || "Assess prospect fit and schedule a consultation.",
-        dograhWorkflowId: profile.dograhWorkflowId ?? null,
+        acuityWorkflowId: profile.acuityWorkflowId ?? null,
         isActive: profile.isActive ?? true,
       });
     } else {
@@ -96,7 +96,7 @@ export function BusinessProfileEditor({
         websiteUrl: "",
         inboundGoal: "Resolve customer inquiries and qualify needs.",
         outboundGoal: "Assess prospect fit and schedule a consultation.",
-        dograhWorkflowId: null,
+        acuityWorkflowId: null,
         isActive: true,
       });
     }
@@ -229,17 +229,17 @@ export function BusinessProfileEditor({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="dograhWorkflowId">Assigned Dograh Voice Workflow</Label>
+            <Label htmlFor="acuityWorkflowId">Assigned Acuity Voice Workflow</Label>
             <Select
-              value={formData.dograhWorkflowId ? String(formData.dograhWorkflowId) : "unassigned"}
+              value={formData.acuityWorkflowId ? String(formData.acuityWorkflowId) : "unassigned"}
               onValueChange={(val) =>
                 setFormData({
                   ...formData,
-                  dograhWorkflowId: val === "unassigned" ? null : parseInt(val, 10),
+                  acuityWorkflowId: val === "unassigned" ? null : parseInt(val, 10),
                 })
               }
             >
-              <SelectTrigger id="dograhWorkflowId">
+              <SelectTrigger id="acuityWorkflowId">
                 <SelectValue placeholder="Select a voice agent workflow..." />
               </SelectTrigger>
               <SelectContent>
@@ -252,7 +252,7 @@ export function BusinessProfileEditor({
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground mt-1">
-              Links this business profile to an existing Dograh conversational workflow graph.
+              Links this business profile to an existing Acuity conversational workflow graph.
             </p>
           </div>
 

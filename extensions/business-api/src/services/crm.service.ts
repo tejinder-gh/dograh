@@ -19,7 +19,7 @@ import {
   verifyWorkflowOwnership,
   verifyWorkflowDefinitionOwnership,
   verifyRunOwnership,
-} from '../adapters/dograh-api.adapter';
+} from '../adapters/acuity-api.adapter';
 
 export class CrmService {
   async getContacts(
@@ -177,35 +177,48 @@ export class CrmService {
     ctx: TenantContext,
     dto: CreateInteractionDTO
   ): Promise<Interaction> {
-    // 1. Verify referenced Dograh resources belong to the mapped organization
-    if (dto.dograhWorkflowId) {
-      const ownsWf = await verifyWorkflowOwnership(ctx.dograhOrganizationId, dto.dograhWorkflowId);
+    // 1. Verify referenced Acuity/Acuity resources belong to the mapped organization
+    const orgId = ctx.acuityOrganizationId ?? ctx.acuityOrganizationId!;
+    const wfId = dto.acuityWorkflowId ?? dto.acuityWorkflowId;
+    const defId = dto.acuityDefinitionId ?? dto.acuityDefinitionId;
+    const runId = dto.acuityRunId ?? dto.acuityRunId;
+
+    if (wfId) {
+      const ownsWf = await verifyWorkflowOwnership(orgId, wfId);
       if (!ownsWf) {
-        throw new Error(`Forbidden: Workflow #${dto.dograhWorkflowId} does not belong to your organization`);
+        throw new Error(`Forbidden: Workflow #${wfId} does not belong to your organization`);
       }
     }
-    if (dto.dograhDefinitionId) {
+    if (defId) {
       const ownsDef = await verifyWorkflowDefinitionOwnership(
-        ctx.dograhOrganizationId,
-        dto.dograhDefinitionId,
-        dto.dograhWorkflowId
+        orgId,
+        defId,
+        wfId
       );
       if (!ownsDef) {
-        throw new Error(`Forbidden: Workflow definition #${dto.dograhDefinitionId} does not belong to your organization`);
+        throw new Error(`Forbidden: Workflow definition #${defId} does not belong to your organization`);
       }
     }
-    if (dto.dograhRunId) {
+    if (runId) {
       const ownsRun = await verifyRunOwnership(
-        ctx.dograhOrganizationId,
-        dto.dograhRunId,
-        dto.dograhWorkflowId
+        orgId,
+        runId,
+        wfId
       );
       if (!ownsRun) {
-        throw new Error(`Forbidden: Run "${dto.dograhRunId}" does not belong to your organization`);
+        throw new Error(`Forbidden: Run "${runId}" does not belong to your organization`);
       }
     }
 
-    const interaction = await interactionRepo.createInteraction(ctx.businessTenantId, dto);
+    const interaction = await interactionRepo.createInteraction(ctx.businessTenantId, {
+      ...dto,
+      acuityWorkflowId: wfId,
+      acuityDefinitionId: defId,
+      acuityRunId: runId,
+      dograhWorkflowId: wfId,
+      dograhDefinitionId: defId,
+      dograhRunId: runId,
+    });
 
     // If contact is linked, update lead score and lifecycle status
     if (interaction.contactId) {
@@ -247,7 +260,7 @@ export class CrmService {
 
   async getInteractions(
     ctx: TenantContext,
-    options?: { contactId?: string; dograhRunId?: string; limit?: number; offset?: number }
+    options?: { contactId?: string; acuityRunId?: string; dograhRunId?: string; limit?: number; offset?: number }
   ): Promise<Interaction[]> {
     return interactionRepo.getInteractions(ctx.businessTenantId, options);
   }

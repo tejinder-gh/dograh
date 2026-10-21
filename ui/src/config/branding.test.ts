@@ -3,10 +3,10 @@ import { describe, expect,it } from "vitest";
 import { branding } from "./branding";
 
 describe("Branding Configuration", () => {
-  it("defines centralized AI Calling Agent OS product details", () => {
-    expect(branding.productName).toBe("AI Calling Agent OS");
-    expect(branding.productShortName).toBe("AI Calling");
-    expect(branding.productDescription).toContain("AI-powered business calling");
+  it("defines centralized Acuity product details", () => {
+    expect(branding.productName).toBe("Acuity");
+    expect(branding.productShortName).toBe("Acuity");
+    expect(branding.productDescription).toContain("Acuity Voice AI Platform");
   });
 
   it("disables upstream SaaS badges and community upsells by default", () => {

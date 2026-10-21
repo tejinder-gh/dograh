@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { KNOWN_INSECURE_SECRETS } from './constants';
 
-// Load .env from business-api directory or dograh root
+// Load .env from business-api directory or acuity root
 dotenv.config();
 dotenv.config({ path: path.resolve(process.cwd(), '../../.env') });
 
@@ -20,8 +20,10 @@ const envSchema = z
     POSTGRES_USER: z.string().default('business_app_user'),
     POSTGRES_PASSWORD: z.string().optional(),
     POSTGRES_DB: z.string().default('postgres'),
-    DOGRAH_API_URL: z.string().default('http://127.0.0.1:8000'),
-    DOGRAH_DEPLOYMENT_ID: z.string().default('default'),
+    ACUITY_API_URL: z.string().default(process.env.Acuity_API_URL || 'http://127.0.0.1:8000'),
+    ACUITY_DEPLOYMENT_ID: z.string().default(process.env.Acuity_DEPLOYMENT_ID || 'default'),
+    Acuity_API_URL: z.string().default(process.env.ACUITY_API_URL || 'http://127.0.0.1:8000'),
+    Acuity_DEPLOYMENT_ID: z.string().default(process.env.ACUITY_DEPLOYMENT_ID || 'default'),
     BUSINESS_EXT_SECRET: z
       .string({
         required_error: 'BUSINESS_EXT_SECRET is required and must be explicitly configured',

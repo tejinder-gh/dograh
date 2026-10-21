@@ -3,18 +3,19 @@ import type { TenantContext } from '../domain/tenant-mapping.types';
 import { env } from '../config/env';
 
 export async function resolveTenantContext(
-  dograhOrganizationId: number,
-  deploymentId: string = env.DOGRAH_DEPLOYMENT_ID
+  acuityOrganizationId: number,
+  deploymentId: string = env.ACUITY_DEPLOYMENT_ID || env.Acuity_DEPLOYMENT_ID
 ): Promise<TenantContext> {
-  if (!dograhOrganizationId || dograhOrganizationId <= 0) {
-    throw new Error(`Invalid Dograh organization ID: ${dograhOrganizationId}`);
+  if (!acuityOrganizationId || acuityOrganizationId <= 0) {
+    throw new Error(`Invalid Acuity organization ID: ${acuityOrganizationId}`);
   }
 
-  const mapping = await tenantRepo.getOrCreateMapping(deploymentId, dograhOrganizationId);
+  const mapping = await tenantRepo.getOrCreateMapping(deploymentId, acuityOrganizationId);
 
   return {
     deploymentId: mapping.deploymentId,
-    dograhOrganizationId: mapping.dograhOrganizationId,
+    acuityOrganizationId: mapping.acuityOrganizationId,
+    dograhOrganizationId: mapping.acuityOrganizationId,
     businessTenantId: mapping.businessTenantId,
   };
 }
