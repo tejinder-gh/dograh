@@ -250,7 +250,7 @@ async def test_stale_response_cannot_recover(change):
 @pytest.mark.parametrize(
     "provider, model",
     [
-        ("Acuity", "default"),
+        ("acuity", "default"),
         ("openai", "gpt-4o"),
         ("atlascloud", "offline"),
         ("hopper", "offline"),

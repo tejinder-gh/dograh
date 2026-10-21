@@ -1375,6 +1375,9 @@ def create_llm_service_from_provider(
             (e.g. "voicemail_detection"). Sent as request metadata by the Acuity
             provider; ignored by other providers.
     """
+    if isinstance(provider, str) and provider.lower() in ("acuity", "dograh"):
+        provider = ServiceProviders.Acuity.value
+
     # Vertex builds its endpoint from the location, so it is part of what this
     # service is, not a separate event. Resolved here to keep it on one line.
     vertex_location = (
