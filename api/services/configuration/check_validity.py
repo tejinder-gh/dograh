@@ -96,7 +96,7 @@ class UserConfigurationValidator:
     ) -> APIKeyStatusResponse:
         # A managed configuration commonly repeats one service key across LLM,
         # STT, TTS, and embeddings. Validate that credential once per request.
-        self._Acuity_service_key_validation_cache.clear()
+        self._acuity_service_key_validation_cache.clear()
         self._auth_context: AuthContext = {
             "organization_id": organization_id,
             "created_by": created_by,
@@ -141,7 +141,7 @@ class UserConfigurationValidator:
         The existing provider checks are synchronous; callers must run this
         method in a worker thread rather than block an async request handler.
         """
-        self._Acuity_service_key_validation_cache.clear()
+        self._acuity_service_key_validation_cache.clear()
         self._auth_context = {
             "organization_id": organization_id,
             "created_by": created_by,
@@ -406,15 +406,15 @@ class UserConfigurationValidator:
                 "Please use a service key (mps...)."
             )
         auth = getattr(self, "_auth_context", {})
-        if api_key in self._Acuity_service_key_validation_cache:
-            return self._Acuity_service_key_validation_cache[api_key]
+        if api_key in self._acuity_service_key_validation_cache:
+            return self._acuity_service_key_validation_cache[api_key]
 
         is_valid = mps_service_key_client.validate_service_key(
             api_key,
             organization_id=auth.get("organization_id"),
             created_by=auth.get("created_by"),
         )
-        self._Acuity_service_key_validation_cache[api_key] = is_valid
+        self._acuity_service_key_validation_cache[api_key] = is_valid
         return is_valid
 
     def _check_sarvam_api_key(self, model: str, api_key: str) -> bool:
