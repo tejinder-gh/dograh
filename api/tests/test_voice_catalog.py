@@ -684,18 +684,18 @@ async def test_sarvam_v4_voices_allow_cross_lingual_selection(connection, upstre
 async def test_only_acuity_uses_mps_without_a_byok_connection(client, mps_not_used):
     mps_not_used.side_effect = None
     mps_not_used.return_value = {
-        "provider": "Acuity",
+        "provider": "acuity",
         "voices": [{"voice_id": "dg:voice", "name": "Acuity voice"}],
         "facets": {"languages": ["en"]},
     }
     response = await client.get(
-        "/user/configurations/voices/Acuity", params={"language": "en"}
+        "/user/configurations/voices/acuity", params={"language": "en"}
     )
     assert response.status_code == 200
     assert response.json()["voices"][0]["voice_id"] == "dg:voice"
     assert response.json()["facets"]["languages"] == ["en"]
     mps_not_used.assert_awaited_once_with(
-        provider="Acuity",
+        provider="acuity",
         model=None,
         language="en",
         q=None,
@@ -716,14 +716,14 @@ def test_dynamic_voice_fields_are_backed_by_catalog_adapters():
         if voice.get("voice_catalog"):
             dynamic_providers.add(provider.value)
     assert dynamic_providers == {
-        "Acuity",
+        "acuity",
         "elevenlabs",
         "cartesia",
         "deepgram",
         "rime",
         "sarvam",
     }
-    assert dynamic_providers - {"Acuity"} <= VOICE_CATALOGS.keys()
+    assert dynamic_providers - {"acuity"} <= VOICE_CATALOGS.keys()
 
 
 @pytest.mark.asyncio

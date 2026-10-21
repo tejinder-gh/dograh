@@ -391,7 +391,7 @@ async def get_voices(
     """
     if not user.selected_organization_id:
         raise HTTPException(status_code=400, detail="No organization selected")
-    if provider != "Acuity":
+    if provider != "acuity":
         if not provider_connection_uuid:
             raise HTTPException(
                 status_code=400,
@@ -432,7 +432,7 @@ async def get_voices(
             classify_exception(
                 e,
                 source=ErrorSource.PLATFORM,
-                provider="Acuity",
+                provider="acuity",
                 error_owner="operator",
             ),
             organization_id=user.selected_organization_id,
