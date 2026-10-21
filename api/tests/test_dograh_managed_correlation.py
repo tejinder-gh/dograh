@@ -3,9 +3,9 @@ import json
 import pytest
 from openai._types import NOT_GIVEN as OPENAI_NOT_GIVEN
 from pipecat.frames.frames import TTSStartedFrame
-from pipecat.services.acuity.llm import AcuityLLMService
-from pipecat.services.Acuity.stt import AcuitySTTService
-from pipecat.services.Acuity.tts import AcuityTTSService
+from pipecat.services.dograh.llm import DograhLLMService as AcuityLLMService
+from pipecat.services.dograh.stt import DograhSTTService as AcuitySTTService
+from pipecat.services.dograh.tts import DograhTTSService as AcuityTTSService
 from pipecat.services.openai.base_llm import OpenAILLMSettings
 from websockets.protocol import State
 

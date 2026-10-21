@@ -45,10 +45,6 @@ from api.services.pipecat.spoken_tool_calls import SpokenToolCallMixin
 from api.utils.url_security import validate_user_configured_service_url
 from pipecat.processors.aggregators.llm_context import LLMContext
 from pipecat.processors.frame_processor import FrameProcessorSetup
-from pipecat.services.acuity.flux.stt import AcuityFluxSTTService
-from pipecat.services.acuity.llm import AcuityLLMService as BaseAcuityLLMService
-from pipecat.services.acuity.stt import AcuitySTTService, AcuitySTTSettings
-from pipecat.services.acuity.tts import AcuityTTSService, AcuityTTSSettings
 from pipecat.services.assemblyai.stt import (
     AssemblyAISTTService,
     AssemblyAISTTSettings,
@@ -76,6 +72,22 @@ from pipecat.services.deepgram.flux.tts import (
 )
 from pipecat.services.deepgram.stt import DeepgramSTTService, DeepgramSTTSettings
 from pipecat.services.deepgram.tts import DeepgramTTSService, DeepgramTTSSettings
+from pipecat.services.dograh.flux.stt import (
+    DograhFluxSTTService as AcuityFluxSTTService,
+)
+from pipecat.services.dograh.llm import DograhLLMService as BaseAcuityLLMService
+from pipecat.services.dograh.stt import (
+    DograhSTTService as AcuitySTTService,
+)
+from pipecat.services.dograh.stt import (
+    DograhSTTSettings as AcuitySTTSettings,
+)
+from pipecat.services.dograh.tts import (
+    DograhTTSService as AcuityTTSService,
+)
+from pipecat.services.dograh.tts import (
+    DograhTTSSettings as AcuityTTSSettings,
+)
 from pipecat.services.elevenlabs.dialogue.tts import (
     ElevenLabsDialogueTTSService,
     ElevenLabsDialogueTTSSettings,
