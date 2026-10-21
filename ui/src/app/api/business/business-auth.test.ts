@@ -12,9 +12,18 @@ const NEXTJS_URL = process.env.TEST_NEXTJS_URL || 'http://127.0.0.1:3000';
 const OSS_JWT_SECRET =
   process.env.OSS_JWT_SECRET || '6492a2ab59b7edc5a21071720f29313b91f6ccc3289b60b998fcdb03be8108ff';
 
+const MIGRATION_DATABASE_URL =
+  process.env.MIGRATION_DATABASE_URL ||
+  process.env.TEST_ADMIN_DATABASE_URL ||
+  process.env.DATABASE_URL ||
+  '';
+
 function adminQuery(sql: string): string {
+  if (!MIGRATION_DATABASE_URL) {
+    throw new Error('MIGRATION_DATABASE_URL or TEST_ADMIN_DATABASE_URL must be configured in environment');
+  }
   const cleanSql = sql.replace(/\$/g, '\\$');
-  return execSync(`docker exec -i mentize-dograh-postgres-1 psql -U postgres -d postgres -c "${cleanSql.replace(/"/g, '\\"')}"`, {
+  return execSync(`psql "${MIGRATION_DATABASE_URL}" -c "${cleanSql.replace(/"/g, '\\"')}"`, {
     encoding: 'utf-8',
   });
 }
@@ -37,7 +46,7 @@ function generateDograhToken(userId: number, email: string, expOffsetSec: number
 
 function checkLiveEnvironment(): boolean {
   try {
-    execSync('docker inspect mentize-dograh-postgres-1', { stdio: 'ignore' });
+    execSync(`psql "${MIGRATION_DATABASE_URL}" -c "SELECT 1;"`, { stdio: 'ignore' });
     return true;
   } catch {
     return false;

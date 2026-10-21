@@ -16,13 +16,8 @@ export interface InternalAssertionPayload {
   nonce: string;
 }
 
-export const KNOWN_INSECURE_SECRETS = new Set([
-  'business-extension-local-secret-change-in-prod',
-  'change-me',
-  'secret',
-  'default',
-  'test',
-]);
+import { KNOWN_INSECURE_SECRETS } from './constants';
+export { KNOWN_INSECURE_SECRETS };
 
 const MIN_SECRET_LENGTH = 32;
 

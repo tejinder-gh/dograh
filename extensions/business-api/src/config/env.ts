@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import dotenv from 'dotenv';
 import path from 'path';
-import { KNOWN_INSECURE_SECRETS } from './signed-assertion';
+import { KNOWN_INSECURE_SECRETS } from './constants';
 
 // Load .env from business-api directory or dograh root
 dotenv.config();
