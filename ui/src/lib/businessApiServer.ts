@@ -13,8 +13,8 @@ export interface VerifiedAcuitySession {
   userId: string;
   email: string;
   organizationId: number;
+  isSuperuser?: boolean;
 }
-export type VerifiedAcuitySession = VerifiedAcuitySession;
 
 // Startup / initialization environment validation
 function validateConfiguration(): { apiUrl: string; secret: string; deploymentId: string } {
@@ -145,6 +145,7 @@ export async function getVerifiedSession(
         userId: String(data.id),
         email: String(data.email || ''),
         organizationId: data.organization_id,
+        isSuperuser: Boolean(data.is_superuser),
       };
     }
 
@@ -199,6 +200,7 @@ export async function callBusinessApi(
       method,
       path: normalizedPath,
       body: bodyStr,
+      isPlatformAdmin: Boolean(session.isSuperuser),
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Internal assertion error';
