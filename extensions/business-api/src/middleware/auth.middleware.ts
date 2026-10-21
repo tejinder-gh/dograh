@@ -1,6 +1,7 @@
 import type { Context, Next } from 'hono';
 import { env } from '../config/env';
 import { resolveTenantContext } from '../services/tenant-mapping.service';
+import { verifyOrganizationActive } from '../adapters/dograh-api.adapter';
 import type { TenantContext } from '../domain/tenant-mapping.types';
 
 declare module 'hono' {
@@ -27,7 +28,13 @@ export async function authMiddleware(c: Context, next: Next): Promise<Response |
     return c.json({ error: 'Bad Request: Invalid X-Dograh-Organization-Id' }, 400);
   }
 
-  // 3. Optional deployment ID
+  // 3. Verify organization exists and is active in Dograh
+  const isActive = await verifyOrganizationActive(dograhOrgId);
+  if (!isActive) {
+    return c.json({ error: 'Forbidden: Organization does not exist or is inactive' }, 403);
+  }
+
+  // 4. Optional deployment ID
   const deploymentId = c.req.header('X-Dograh-Deployment-Id') || env.DOGRAH_DEPLOYMENT_ID;
 
   try {

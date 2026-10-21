@@ -15,6 +15,11 @@ import type {
   Interaction,
   CreateInteractionDTO,
 } from '../domain/interaction.types';
+import {
+  verifyWorkflowOwnership,
+  verifyWorkflowDefinitionOwnership,
+  verifyRunOwnership,
+} from '../adapters/dograh-api.adapter';
 
 export class CrmService {
   async getContacts(
@@ -172,6 +177,34 @@ export class CrmService {
     ctx: TenantContext,
     dto: CreateInteractionDTO
   ): Promise<Interaction> {
+    // 1. Verify referenced Dograh resources belong to the mapped organization
+    if (dto.dograhWorkflowId) {
+      const ownsWf = await verifyWorkflowOwnership(ctx.dograhOrganizationId, dto.dograhWorkflowId);
+      if (!ownsWf) {
+        throw new Error(`Forbidden: Workflow #${dto.dograhWorkflowId} does not belong to your organization`);
+      }
+    }
+    if (dto.dograhDefinitionId) {
+      const ownsDef = await verifyWorkflowDefinitionOwnership(
+        ctx.dograhOrganizationId,
+        dto.dograhDefinitionId,
+        dto.dograhWorkflowId
+      );
+      if (!ownsDef) {
+        throw new Error(`Forbidden: Workflow definition #${dto.dograhDefinitionId} does not belong to your organization`);
+      }
+    }
+    if (dto.dograhRunId) {
+      const ownsRun = await verifyRunOwnership(
+        ctx.dograhOrganizationId,
+        dto.dograhRunId,
+        dto.dograhWorkflowId
+      );
+      if (!ownsRun) {
+        throw new Error(`Forbidden: Run "${dto.dograhRunId}" does not belong to your organization`);
+      }
+    }
+
     const interaction = await interactionRepo.createInteraction(ctx.businessTenantId, dto);
 
     // If contact is linked, update lead score and lifecycle status

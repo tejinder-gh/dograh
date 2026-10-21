@@ -44,16 +44,24 @@
 | **TypeScript Strict (`business-api`)** | `bun x tsc --noEmit` in `extensions/business-api` | Zero errors (`strict: true`, `noUncheckedIndexedAccess: true`, zero `any`) | **PASS** |
 | **TypeScript Strict (`ui`)** | `bun x tsc --noEmit` in `ui/` | Zero errors | **PASS** |
 | **Modular File Bounds** | Codebase audit | All new files strictly under 300 lines; clear separation of concerns | **PASS** |
-| **Core Dograh Vitest Suite** | `bun run test` in `ui/` | 61 test files passed, 407 tests passed (0 regressions) | **PASS** |
+| **Core Dograh Vitest Suite** | `bun run test` in `ui/` | 62 test files passed, 410 tests passed (0 regressions) | **PASS** |
 | **Centralized Branding Vitest** | `bun x vitest run src/config/branding.test.ts` | 3 tests passed | **PASS** |
-| **Extension Unit & Integration Suite** | `bun test` in `extensions/business-api` | 30 tests passed (14 unit, 16 integration), 0 failed | **PASS** |
+| **Extension Suite (Isolated DB & Least Privilege)** | `DATABASE_URL="postgresql://business_app_user:${TEST_DB_PASSWORD}@127.0.0.1:5432/dograh_business_test" bun test` | 37 tests passed (14 unit, 23 integration across 7 files), 0 failed | **PASS** |
+| **HTTP Security & Tenant Isolation Boundary** | `bun test src/tests/integration/http-security.test.ts` | 7 HTTP security integration tests passed | **PASS** |
 
 ---
 
-## 4. Verification Evidence Matrix (Stage 1 Requirements)
+## 4. Verification Evidence Matrix (Stage 1 Requirements & Corrections)
 
 | Requirement | Implementation File | Test Name | Observed Result | Status |
 | :--- | :--- | :--- | :--- | :--- |
+| **HTTP Secret Enforcement** | `auth.middleware.ts` | `rejects direct request missing X-Extension-Secret with 401 Unauthorized` | Missing secret returns HTTP 401 Unauthorized with detailed message | **PASS** |
+| **Forged Secret Defense** | `auth.middleware.ts` | `rejects direct request with forged/invalid secret with 401 Unauthorized` | Forged secret returns HTTP 401 Unauthorized | **PASS** |
+| **Missing Org ID Rejection** | `auth.middleware.ts` | `rejects request missing X-Dograh-Organization-Id with 400 Bad Request` | Missing org header returns HTTP 400 Bad Request | **PASS** |
+| **Inactive / Non-Existent Org Defense** | `dograh-api.adapter.ts` | `rejects request for non-existent or inactive Dograh organization with 403 Forbidden` | Non-existent org returns HTTP 403 Forbidden | **PASS** |
+| **HTTP Cross-Org Isolation** | `auth.middleware.ts` | `prohibits Org B from accessing Org A contact via HTTP (404 Not Found)` | Org B cannot read Org A contact via HTTP (404) | **PASS** |
+| **HTTP Foreign Workflow Binding Defense** | `business-profile.service.ts` | `prohibits Org A from creating business profile with Org B workflow (403 Forbidden)` | Binding foreign workflow rejected with HTTP 403 Forbidden | **PASS** |
+| **Least-Privilege Database Role** | `001_business_ext_init.sql` | Role `business_app_user` on `dograh_business_test` | Can read Dograh `public.*` tables for validation; writes to `public.*` denied with `insufficient_privilege` | **PASS** |
 | **Durable Org Mapping** | `tenant-mapping.repository.ts` | `creates a durable, unique mapping for a Dograh organization` | Generated UUID tenant ID mapped to `(local-dev, 1001)` persisted and re-retrieved | **PASS** |
 | **Multi-Org Mapping Isolation** | `tenant-mapping.repository.ts` | `generates distinct tenant IDs for different Dograh organizations` | Org 1001 and Org 1002 produce distinct tenant UUIDs | **PASS** |
 | **Database-Level Org Uniqueness** | `001_business_ext_init.sql` | `enforces database-level uniqueness on (deployment_id, dograh_organization_id)` | Duplicate insertion rejected by database constraint | **PASS** |

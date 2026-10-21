@@ -37,7 +37,7 @@ export class BusinessProfileService {
       );
       if (!isValidWorkflow) {
         throw new Error(
-          `Workflow ID ${dto.dograhWorkflowId} does not exist or does not belong to your organization`
+          `Forbidden: Workflow ID ${dto.dograhWorkflowId} does not exist or does not belong to your organization`
         );
       }
     }
@@ -81,7 +81,7 @@ export class BusinessProfileService {
       );
       if (!isValid) {
         throw new Error(
-          `Workflow ID ${dto.dograhWorkflowId} does not belong to your organization`
+          `Forbidden: Workflow ID ${dto.dograhWorkflowId} does not belong to your organization`
         );
       }
     }

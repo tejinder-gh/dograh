@@ -8,9 +8,20 @@ import type { TenantContext } from '../../domain/tenant-mapping.types';
 describe('Integration: Interaction & Dograh Run Correlation', () => {
   let orgA: TenantContext;
   let orgB: TenantContext;
+  let workflowAId: number;
+  let definitionAId: number;
+  let runAUuid: string;
 
   beforeAll(async () => {
     await runMigrations();
+
+    // Seed test organizations
+    await query(`
+      INSERT INTO public.organizations (id, provider_id)
+      VALUES (771, 'org_test_771'), (772, 'org_test_772')
+      ON CONFLICT (id) DO NOTHING;
+    `);
+
     orgA = await resolveTenantContext(771, 'inter-test');
     orgB = await resolveTenantContext(772, 'inter-test');
 
@@ -22,6 +33,27 @@ describe('Integration: Interaction & Dograh Run Correlation', () => {
       orgA.businessTenantId,
       orgB.businessTenantId,
     ]);
+
+    // Seed workflow, definition, and run for Org A
+    const wfRes = await query<{ id: number }>(`
+      INSERT INTO public.workflows (organization_id, name, workflow_uuid)
+      VALUES (771, 'Support Workflow', gen_random_uuid()::text)
+      RETURNING id;
+    `);
+    workflowAId = wfRes.rows[0]!.id;
+
+    const defRes = await query<{ id: number }>(`
+      INSERT INTO public.workflow_definitions (workflow_id, version_number, status)
+      VALUES ($1, 1, 'published')
+      RETURNING id;
+    `, [workflowAId]);
+    definitionAId = defRes.rows[0]!.id;
+
+    runAUuid = 'run-synthetic-771-001';
+    await query(`
+      INSERT INTO public.workflow_runs (name, workflow_id, definition_id)
+      VALUES ($1, $2, $3);
+    `, [runAUuid, workflowAId, definitionAId]);
   });
 
   afterAll(async () => {
@@ -53,9 +85,9 @@ describe('Integration: Interaction & Dograh Run Correlation', () => {
     // 2. Record synthetic Dograh voice run outcome
     const interaction = await crmService.recordInteraction(orgA, {
       contactId: contact.id,
-      dograhWorkflowId: 10,
-      dograhDefinitionId: 105,
-      dograhRunId: 'dograh-run-uuid-987654',
+      dograhWorkflowId: workflowAId,
+      dograhDefinitionId: definitionAId,
+      dograhRunId: runAUuid,
       channel: 'call_inbound',
       durationSeconds: 195, // >= 180s adds points
       sentimentScore: 82,
@@ -69,13 +101,12 @@ describe('Integration: Interaction & Dograh Run Correlation', () => {
     });
 
     expect(interaction.id).toBeDefined();
-    expect(interaction.dograhWorkflowId).toBe(10);
-    expect(interaction.dograhDefinitionId).toBe(105);
-    expect(interaction.dograhRunId).toBe('dograh-run-uuid-987654');
+    expect(interaction.contactId).toBe(contact.id);
+    expect(interaction.dograhWorkflowId).toBe(workflowAId);
+    expect(interaction.dograhRunId).toBe(runAUuid);
 
-    // 3. Verify contact timeline received automatic audit record
+    // Verify contact stats were updated
     const updatedContact = await crmService.getContactById(orgA, contact.id);
-    expect(updatedContact).not.toBeNull();
     expect(updatedContact?.callAttempts).toBe(1);
     expect(updatedContact?.lastCallResult).toBe('connected');
     expect(updatedContact?.lifecycleStatus).toBe('connected');
@@ -85,25 +116,25 @@ describe('Integration: Interaction & Dograh Run Correlation', () => {
 
     // Check timeline events
     const timeline = await crmService.getContactTimeline(orgA, contact.id);
-    expect(timeline.length).toBeGreaterThanOrEqual(2); // Lead Created + Interaction Completed
+    expect(timeline.length).toBeGreaterThanOrEqual(2);
     const callEvent = timeline.find((t) => t.event.includes('Interaction Completed'));
     expect(callEvent).toBeDefined();
   });
 
-  it('prohibits Organization B from associating an interaction with Organization A contact', async () => {
+  it('prohibits Organization B from associating an interaction with foreign resources', async () => {
     const orgAContacts = await crmService.getContacts(orgA);
     const contactA = orgAContacts.contacts[0]!;
 
-    // Org B records an interaction targeting Contact A's ID
-    const orgBInteraction = await crmService.recordInteraction(orgB, {
-      contactId: contactA.id, // Foreign contact
-      dograhRunId: 'foreign-run-123',
-      channel: 'call_outbound',
-      durationSeconds: 60,
-    });
-
-    // The repository unlinks foreign contactId to prevent cross-tenant correlation
-    expect(orgBInteraction.contactId).toBeNull();
+    // Org B attempts to record an interaction referencing Org A's run ID
+    await expect(
+      crmService.recordInteraction(orgB, {
+        contactId: contactA.id,
+        dograhWorkflowId: workflowAId, // Belongs to Org A
+        dograhRunId: runAUuid,
+        channel: 'call_outbound',
+        durationSeconds: 60,
+      })
+    ).rejects.toThrow(/Forbidden/);
 
     // Confirm Contact A's timeline was NOT contaminated by Org B
     const aTimeline = await crmService.getContactTimeline(orgA, contactA.id);
