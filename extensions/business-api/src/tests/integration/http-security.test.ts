@@ -24,16 +24,24 @@ describe('HTTP Security & Tenant Isolation Boundary', () => {
 
     // Seed workflows for each org
     const wfARes = await query<{ id: number }>(`
-      INSERT INTO public.workflows (organization_id, name, workflow_uuid)
-      VALUES (601, 'Org A HTTP Workflow', gen_random_uuid()::text)
-      RETURNING id;
+      INSERT INTO public.workflows (
+        organization_id, name, workflow_definition, template_context_variables,
+        call_disposition_codes, workflow_configurations, workflow_uuid
+      ) VALUES (
+        601, 'Org A HTTP Workflow', '{}', '{}',
+        '[]', '{}', gen_random_uuid()::text
+      ) RETURNING id;
     `);
     wfAId = wfARes.rows[0]!.id;
 
     const wfBRes = await query<{ id: number }>(`
-      INSERT INTO public.workflows (organization_id, name, workflow_uuid)
-      VALUES (602, 'Org B HTTP Workflow', gen_random_uuid()::text)
-      RETURNING id;
+      INSERT INTO public.workflows (
+        organization_id, name, workflow_definition, template_context_variables,
+        call_disposition_codes, workflow_configurations, workflow_uuid
+      ) VALUES (
+        602, 'Org B HTTP Workflow', '{}', '{}',
+        '[]', '{}', gen_random_uuid()::text
+      ) RETURNING id;
     `);
     wfBId = wfBRes.rows[0]!.id;
   });

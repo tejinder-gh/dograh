@@ -36,23 +36,32 @@ describe('Integration: Interaction & Dograh Run Correlation', () => {
 
     // Seed workflow, definition, and run for Org A
     const wfRes = await query<{ id: number }>(`
-      INSERT INTO public.workflows (organization_id, name, workflow_uuid)
-      VALUES (771, 'Support Workflow', gen_random_uuid()::text)
-      RETURNING id;
+      INSERT INTO public.workflows (
+        organization_id, name, workflow_definition, template_context_variables,
+        call_disposition_codes, workflow_configurations, workflow_uuid
+      ) VALUES (
+        771, 'Support Workflow', '{}', '{}',
+        '[]', '{}', gen_random_uuid()::text
+      ) RETURNING id;
     `);
     workflowAId = wfRes.rows[0]!.id;
 
     const defRes = await query<{ id: number }>(`
-      INSERT INTO public.workflow_definitions (workflow_id, version_number, status)
-      VALUES ($1, 1, 'published')
+      INSERT INTO public.workflow_definitions (workflow_id, version_number, status, workflow_json)
+      VALUES ($1, 1, 'published', '{}')
       RETURNING id;
     `, [workflowAId]);
     definitionAId = defRes.rows[0]!.id;
 
     runAUuid = 'run-synthetic-771-001';
     await query(`
-      INSERT INTO public.workflow_runs (name, workflow_id, definition_id)
-      VALUES ($1, $2, $3);
+      INSERT INTO public.workflow_runs (
+        name, workflow_id, definition_id, mode,
+        usage_info, cost_info, initial_context, gathered_context, annotations
+      ) VALUES (
+        $1, $2, $3, 'outbound_call',
+        '{}', '{}', '{}', '{}', '{}'
+      );
     `, [runAUuid, workflowAId, definitionAId]);
   });
 

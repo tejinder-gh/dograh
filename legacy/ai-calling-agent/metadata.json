@@ -1,0 +1,6 @@
+{
+  "name": "AcuityVoice Omnichannel AI Agent & CRM",
+  "description": "Enterprise AI agent handling inbound and outbound calls, omnichannel text support, real-time sentiment analysis, automated escalations, and 1-on-1 session booking for lead nurturing.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
