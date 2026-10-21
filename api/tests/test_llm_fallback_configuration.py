@@ -167,7 +167,7 @@ def test_no_rules_returns_ordinary_service():
 def test_effective_configuration_rejects_Acuity_primary_fallbacks():
     config = configuration(error_target={"provider": "openai", "api_key": "backup"})
     payload = config.model_dump(exclude_computed_fields=True)
-    payload["llm"] = {"provider": "Acuity", "api_key": "primary"}
+    payload["llm"] = {"provider": "acuity", "api_key": "primary"}
     with pytest.raises(ValidationError, match="non-Acuity primary LLM"):
         EffectiveAIModelConfiguration.model_validate(payload)
 
@@ -175,7 +175,7 @@ def test_effective_configuration_rejects_Acuity_primary_fallbacks():
 @pytest.mark.parametrize("trigger", ["slow_target", "error_target"])
 def test_effective_configuration_rejects_Acuity_fallback_targets(trigger):
     with pytest.raises(ValidationError, match="cannot be a fallback target"):
-        configuration(**{trigger: {"provider": "Acuity", "api_key": "managed"}})
+        configuration(**{trigger: {"provider": "acuity", "api_key": "managed"}})
 
 
 def test_realtime_retains_fallbacks_for_its_separate_text_llm():
