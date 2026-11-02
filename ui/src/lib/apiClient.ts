@@ -23,8 +23,14 @@ export function getServerBackendUrl() {
  * resolveWebhookBaseUrl.
  */
 export function resolveBrowserBackendUrl(backendApiEndpoint?: string | null): string {
+    if (process.env.NEXT_PUBLIC_BACKEND_URL) {
+        return process.env.NEXT_PUBLIC_BACKEND_URL;
+    }
+    // If running in browser on localhost/127.0.0.1, always prefer local backend over external webhook tunnels
+    if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+        return 'http://localhost:8000';
+    }
     return (
-        process.env.NEXT_PUBLIC_BACKEND_URL ||
         backendApiEndpoint ||
         (typeof window !== 'undefined' ? window.location.origin : '')
     );
@@ -61,6 +67,7 @@ export function setupAuthInterceptor(apiClient: Client, getAccessToken: () => Pr
     interceptorRegistered = true;
 
     apiClient.interceptors.request.use(async (request) => {
+        request.headers.set('ngrok-skip-browser-warning', 'true');
         if (request.headers.get('Authorization')) {
             return request;
         }
