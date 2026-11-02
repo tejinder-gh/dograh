@@ -41,7 +41,7 @@ services:
   minio:
     # Built from the community MinIO fork by github.com/Acuity-hq/minio; upstream
     # MinIO no longer publishes images.
-    image: Acuityai/minio:2026.09.22
+    image: acuityai/minio:2026.09.22
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: minioadmin

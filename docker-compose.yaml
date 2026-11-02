@@ -59,7 +59,7 @@ services:
   minio:
     # Built from the community MinIO fork by github.com/Acuity-hq/minio; upstream
     # MinIO no longer publishes images.
-    image: ${REGISTRY:-Acuityai}/minio:2026.09.22
+    image: ${REGISTRY:-acuityai}/minio:2026.09.22
     container_name: minio
     command: server /data --console-address ":9001"
     environment:
@@ -143,7 +143,7 @@ services:
       - app-network
 
   api:
-    image: ${REGISTRY:-Acuityai}/Acuity-api:latest
+    image: ${REGISTRY:-acuityai}/acuity-api:latest
     environment:
       # Core application config
       ENVIRONMENT: "${ENVIRONMENT:-local}"
@@ -292,7 +292,7 @@ services:
       - app-network
 
   ui:
-    image: ${REGISTRY:-Acuityai}/Acuity-ui:latest
+    image: ${REGISTRY:-acuityai}/acuity-ui:latest
     environment:
       # Bind the Next.js standalone server to all interfaces
       HOSTNAME: "0.0.0.0"
