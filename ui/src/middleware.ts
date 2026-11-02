@@ -60,6 +60,14 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // If user is already authenticated with a token and tries to access /auth/login or /auth/signup,
+  // redirect them to /dashboard (unless they arrived via session expiration)
+  const isAuthPage = pathname === '/auth/login' || pathname.startsWith('/auth/login/') ||
+                     pathname === '/auth/signup' || pathname.startsWith('/auth/signup/');
+  if (token && isAuthPage && !request.nextUrl.searchParams.has('session_expired')) {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
+  }
+
   // Allow public paths without auth. Match on a path-segment boundary (exact
   // match or a `/`-delimited subpath) rather than a bare prefix, so a public
   // entry like `/embed` exempts `/embed` and `/embed/...` but NOT sibling

@@ -57,12 +57,45 @@ export const createClientConfig: CreateClientConfig = (config) => {
 };
 
 let interceptorRegistered = false;
+let responseInterceptorRegistered = false;
+
+/**
+ * Register a response interceptor that catches 401 Unauthorized responses
+ * on protected API endpoints, clears session cookies, and redirects to login.
+ */
+export function setupResponseAuthInterceptor(apiClient: Client) {
+    if (responseInterceptorRegistered) return;
+    responseInterceptorRegistered = true;
+
+    apiClient.interceptors.response.use(async (response, request) => {
+        if (response.status === 401 && typeof window !== 'undefined') {
+            const url = request?.url || '';
+            const isAuthEndpoint =
+                url.includes('/api/v1/auth/login') ||
+                url.includes('/api/v1/auth/signup') ||
+                url.includes('/api/v1/health');
+            const isOnAuthPage = window.location.pathname.startsWith('/auth/');
+
+            if (!isAuthEndpoint && !isOnAuthPage) {
+                try {
+                    await fetch('/api/auth/logout', { method: 'POST' });
+                } catch {
+                    // Ignore transient network errors during logout
+                }
+                window.location.href = '/auth/login?session_expired=1';
+            }
+        }
+        return response;
+    });
+}
 
 /**
  * Register a request interceptor that attaches a fresh access token
  * to every outgoing SDK request. Idempotent — safe for React strict mode.
  */
 export function setupAuthInterceptor(apiClient: Client, getAccessToken: () => Promise<string>) {
+    setupResponseAuthInterceptor(apiClient);
+
     if (interceptorRegistered) return;
     interceptorRegistered = true;
 
