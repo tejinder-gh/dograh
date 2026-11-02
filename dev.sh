@@ -86,6 +86,28 @@ function start_services() {
   status
 }
 
+function reset_password() {
+  local email="${1:-a@a.a}"
+  local new_pass="${2:-Password123!}"
+  echo "Resetting password for $email..."
+  docker exec mentize-acuity-api-1 python3 -c "
+import asyncio
+from api.utils.auth import hash_password
+from api.db import db_client
+
+async def reset():
+    user = await db_client.get_user_by_email('$email')
+    if not user:
+        print('User not found: $email')
+        return
+    hashed = hash_password('$new_pass')
+    await db_client.update_user_password(user.id, hashed)
+    print('Password successfully reset for $email')
+
+asyncio.run(reset())
+"
+}
+
 case "$ACTION" in
   start|up)
     start_services
@@ -99,8 +121,11 @@ case "$ACTION" in
   test)
     run_tests
     ;;
+  reset-password)
+    reset_password "${2:-a@a.a}" "${3:-Password123!}"
+    ;;
   *)
-    echo "Usage: $0 [start|stop|status|test]"
+    echo "Usage: $0 [start|stop|status|test|reset-password [email] [password]]"
     exit 1
     ;;
 esac

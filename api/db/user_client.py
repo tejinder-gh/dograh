@@ -135,6 +135,19 @@ class UserClient(BaseDBClient):
             await session.execute(stmt)
             await session.commit()
 
+    async def update_user_password(self, user_id: int, password_hash: str) -> None:
+        """Update the user's password hash."""
+        async with self.async_session() as session:
+            from sqlalchemy import update
+
+            stmt = (
+                update(UserModel)
+                .where(UserModel.id == user_id)
+                .values(password_hash=password_hash)
+            )
+            await session.execute(stmt)
+            await session.commit()
+
     async def get_user_by_email(self, email: str) -> UserModel | None:
         """Fetch a user by their email address (case-insensitive).
 
