@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   Loader2,
   Lock,
+  Users,
 } from 'lucide-react';
 import Link from 'next/link';
 import React, { useCallback,useEffect, useState } from 'react';
@@ -17,6 +18,7 @@ import { Tabs, TabsContent,TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 import { FilterBar } from '../FilterBar';
 import type { PlatformOverviewDashboardData, TimeRangePreset } from '../types';
+import { AccountsTab } from './AccountsTab';
 import { EconomicsTab } from './EconomicsTab';
 import { PlatformOverviewTab } from './PlatformOverviewTab';
 import { PortfolioTab } from './PortfolioTab';
@@ -159,6 +161,10 @@ export function AdminDashboardView() {
               <LayoutDashboard className="h-3.5 w-3.5" />
               Platform Overview
             </TabsTrigger>
+            <TabsTrigger value="accounts" className="gap-1.5 text-xs py-2 px-3">
+              <Users className="h-3.5 w-3.5" />
+              Client Accounts & Plans
+            </TabsTrigger>
             <TabsTrigger value="portfolio" className="gap-1.5 text-xs py-2 px-3">
               <Building2 className="h-3.5 w-3.5" />
               Client Portfolio
@@ -175,6 +181,9 @@ export function AdminDashboardView() {
 
           <TabsContent value="overview">
             <PlatformOverviewTab data={data} />
+          </TabsContent>
+          <TabsContent value="accounts">
+            <AccountsTab />
           </TabsContent>
           <TabsContent value="portfolio">
             <PortfolioTab portfolio={data.clientPortfolio} />

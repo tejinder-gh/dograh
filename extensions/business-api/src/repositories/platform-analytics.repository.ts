@@ -47,9 +47,16 @@ export async function fetchPlatformExecutiveSummary(
   const runsRes = await query(runsSql, [from, to]);
   const runRow = runsRes.rows[0] || {};
 
-  // Invoiced recognized revenue: Reconciled billing ledger and provider attribution
-  // are uninstrumented; return null so UI and service report 'Unavailable' honestly.
-  const recognizedRevenueUsd: number | null = null;
+  // Invoiced recognized subscription revenue: dynamically aggregated from active client subscriptions
+  const revSql = `
+    SELECT 
+      COALESCE(SUM(p.price_cents) / 100.0, 0)::float AS total_revenue
+    FROM business_ext.organization_subscriptions s
+    INNER JOIN business_ext.subscription_plans p ON p.id = s.plan_id
+    WHERE s.status IN ('active', 'trialing')
+  `;
+  const revRes = await query(revSql);
+  const recognizedRevenueUsd: number = Number(revRes.rows[0]?.total_revenue || 0);
 
   return {
     totalClients: Number(orgRow.total_clients || 0),
@@ -100,10 +107,14 @@ export async function fetchPlatformClientPortfolio(
       COALESCE(rs.active_agents_count, 0)::int AS active_agents_count,
       COALESCE(rs.total_calls, 0)::int AS total_calls,
       COALESCE(rs.total_minutes, 0)::float AS total_minutes,
-      COALESCE(rs.total_cost_usd, 0)::float AS total_cost_usd
+      COALESCE(rs.total_cost_usd, 0)::float AS total_cost_usd,
+      COALESCE(p.price_cents / 100.0, 0)::float AS recognized_revenue_usd,
+      COALESCE(s.status, CASE WHEN COALESCE(rs.total_calls, 0) > 0 THEN 'active' ELSE 'trial' END) AS subscription_status
     FROM public.organizations o
     LEFT JOIN tenant_mappings tm ON tm.acuity_organization_id = o.id AND tm.rn = 1
     LEFT JOIN run_stats rs ON rs.organization_id = o.id
+    LEFT JOIN business_ext.organization_subscriptions s ON s.tenant_id = tm.business_tenant_id
+    LEFT JOIN business_ext.subscription_plans p ON p.id = s.plan_id
     ORDER BY total_calls DESC, o.id ASC
   `;
   const res = await query(sql, [from, to]);
@@ -116,8 +127,8 @@ export async function fetchPlatformClientPortfolio(
     totalCalls: Number(r.total_calls || 0),
     totalMinutes: Math.round(Number(r.total_minutes || 0) * 10) / 10,
     totalCostUsd: Math.round(Number(r.total_cost_usd || 0) * 100) / 100,
-    recognizedRevenueUsd: null as number | null,
-    status: (Number(r.total_calls) > 0 ? 'active' : 'trial') as 'active' | 'trial' | 'churned' | 'suspended',
+    recognizedRevenueUsd: r.recognized_revenue_usd !== null ? Number(r.recognized_revenue_usd) : null,
+    status: (r.subscription_status === 'active' ? 'active' : r.subscription_status === 'trialing' ? 'trial' : r.subscription_status === 'paused' ? 'suspended' : 'active') as 'active' | 'trial' | 'churned' | 'suspended',
   }));
 }
 

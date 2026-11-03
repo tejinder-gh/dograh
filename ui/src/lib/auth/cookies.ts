@@ -36,11 +36,13 @@ export function isSecureRequest(request: NextRequest): boolean {
  * included, so logout derives the flag the same way.
  */
 export function sessionCookieOptions(request: NextRequest, maxAge: number) {
+  const cookieDomain = process.env.COOKIE_DOMAIN?.trim();
   return {
     httpOnly: true,
     secure: isSecureRequest(request),
     sameSite: 'lax' as const,
     maxAge,
     path: '/',
+    ...(cookieDomain ? { domain: cookieDomain } : {}),
   };
 }

@@ -71,6 +71,7 @@ type SidebarNavItem = {
   url: string;
   icon: LucideIcon;
   showsTelephonyWarning?: boolean;
+  requiresSuperuser?: boolean;
 };
 
 type SidebarNavSection = {
@@ -188,6 +189,7 @@ const NAV_SECTIONS: SidebarNavSection[] = [
         title: "Platform Command",
         url: "/admin/dashboard",
         icon: ShieldCheck,
+        requiresSuperuser: true,
       },
     ],
   },
@@ -217,6 +219,15 @@ export function AppSidebar() {
     versionInfo?.ui,
     { enabled: config?.deploymentMode === "oss" },
   );
+
+  const isSuperuser = Boolean((user as LocalUser | undefined)?.is_superuser);
+
+  const filteredNavSections = React.useMemo(() => {
+    return NAV_SECTIONS.map((section) => ({
+      ...section,
+      items: section.items.filter((item) => !item.requiresSuperuser || isSuperuser),
+    })).filter((section) => section.items.length > 0);
+  }, [isSuperuser]);
 
   const isActive = (path: string) => pathname.startsWith(path);
 
@@ -425,7 +436,7 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent className={cn("notranslate", isCollapsed && "px-0")} translate="no">
-        {NAV_SECTIONS.map((section, index) => (
+        {filteredNavSections.map((section, index) => (
           <SidebarGroup
             key={section.label ?? "overview"}
             className={index === 0 ? "mt-2" : "mt-6"}

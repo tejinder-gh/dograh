@@ -4,6 +4,8 @@ import { businessProfileRoutes } from './business-profile.routes';
 import { crmRoutes } from './crm.routes';
 import { analyticsRouter } from './analytics.routes';
 import { adminAnalyticsRouter } from './admin-analytics.routes';
+import { subscriptionRouter } from './subscription.routes';
+import { adminAccountsRouter } from './admin-accounts.routes';
 import { authMiddleware } from '../middleware/auth.middleware';
 
 export const apiRouter = new Hono();
@@ -18,6 +20,8 @@ protectedRouter.use('*', authMiddleware);
 protectedRouter.route('/business-profiles', businessProfileRoutes);
 protectedRouter.route('/analytics', analyticsRouter);
 protectedRouter.route('/admin/analytics', adminAnalyticsRouter);
+protectedRouter.route('/admin/accounts', adminAccountsRouter);
+protectedRouter.route('/subscription', subscriptionRouter);
 protectedRouter.route('/', crmRoutes);
 
 apiRouter.route('/api', protectedRouter);
