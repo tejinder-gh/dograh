@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeAll } from 'bun:test';
 import { createApp } from '../../app';
-import { runMigrations } from '../../config/migrator';
 import { query } from '../../config/database';
 import { adminQuery } from '../test-admin';
 import { env } from '../../config/env';
@@ -20,8 +19,6 @@ describe('Tenant Isolation & Account Suspension Enforcement (TEN-01)', () => {
   let pausedTenantId: string;
 
   beforeAll(async () => {
-    await runMigrations();
-
     // 0. Seed Acuity authoritative tables via adminQuery
     await adminQuery(`
       INSERT INTO public.organizations (id, provider_id)

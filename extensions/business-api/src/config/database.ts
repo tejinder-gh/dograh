@@ -1,5 +1,9 @@
 import { Pool, type PoolClient, type QueryResult, type QueryResultRow } from 'pg';
 import { env } from './env';
+import { assertSafeDatabaseTarget } from './database-guard';
+
+// Enforce database target safety boundary on initialization
+assertSafeDatabaseTarget(env.DATABASE_URL, env.NODE_ENV === 'test' ? 'test' : 'runtime');
 
 const pool = new Pool(
   env.DATABASE_URL

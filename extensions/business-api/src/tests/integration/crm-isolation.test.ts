@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
-import { runMigrations } from '../../config/migrator';
 import { query } from '../../config/database';
 import { resolveTenantContext } from '../../services/tenant-mapping.service';
 import { crmService } from '../../services/crm.service';
@@ -10,7 +9,6 @@ describe('Integration: Two-Organization CRM Isolation', () => {
   let orgB: TenantContext;
 
   beforeAll(async () => {
-    await runMigrations();
     // Use test org IDs 991 and 992
     orgA = await resolveTenantContext(991, 'iso-test');
     orgB = await resolveTenantContext(992, 'iso-test');

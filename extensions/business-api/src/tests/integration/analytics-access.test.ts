@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeAll } from 'bun:test';
 import { createApp } from '../../app';
-import { runMigrations } from '../../config/migrator';
 import { query } from '../../config/database';
 import { adminQuery } from '../test-admin';
 import { env } from '../../config/env';
@@ -19,8 +18,6 @@ describe('Analytics & Platform Command Authorization Boundary', () => {
   const testUserId = '701';
 
   beforeAll(async () => {
-    await runMigrations();
-
     // Clean up stale test data
     await query('DELETE FROM business_ext.organization_mappings WHERE acuity_organization_id = $1', [testOrgId]);
     await adminQuery('DELETE FROM public.workflow_runs WHERE workflow_id IN (SELECT id FROM public.workflows WHERE organization_id = $1)', [testOrgId]);

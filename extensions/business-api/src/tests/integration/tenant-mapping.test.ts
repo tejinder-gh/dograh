@@ -1,14 +1,9 @@
-import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
-import { runMigrations } from '../../config/migrator';
+import { describe, it, expect, afterAll } from 'bun:test';
 import { closePool, query } from '../../config/database';
 import { resolveTenantContext } from '../../services/tenant-mapping.service';
 import * as tenantRepo from '../../repositories/tenant-mapping.repository';
 
 describe('Integration: Multi-Tenant Organization Mapping', () => {
-  beforeAll(async () => {
-    await runMigrations();
-  });
-
   afterAll(async () => {
     // Clean up test mappings
     await query("DELETE FROM business_ext.organization_mappings WHERE deployment_id = 'test-deploy'");

@@ -2,11 +2,15 @@ import fs from 'fs/promises';
 import path from 'path';
 import { Pool, type PoolClient } from 'pg';
 import { env } from './env';
+import { assertSafeDatabaseTarget } from './database-guard';
 
 const migrationDatabaseUrl =
   env.MIGRATION_DATABASE_URL ||
   process.env.MIGRATION_DATABASE_URL ||
   env.DATABASE_URL;
+
+// Validate migration database target
+assertSafeDatabaseTarget(migrationDatabaseUrl, 'migration');
 
 const migrationPool = new Pool(
   migrationDatabaseUrl
@@ -23,7 +27,26 @@ const migrationPool = new Pool(
 // Lock key for advisory locking to prevent concurrent migrations racing
 const MIGRATION_ADVISORY_LOCK_KEY = 718291;
 
-export async function runMigrations(clientOverride?: PoolClient): Promise<void> {
+export interface MigrationOptions {
+  approved?: boolean;
+}
+
+export async function runMigrations(
+  clientOverride?: PoolClient,
+  options?: MigrationOptions
+): Promise<void> {
+  // Re-verify safe database target before executing DDL
+  assertSafeDatabaseTarget(migrationDatabaseUrl, 'migration');
+
+  // Enforce explicit operational approval: an environment variable alone is insufficient
+  const isCliConfirmed = process.argv.includes('--confirm-migration');
+  const isExplicitlyApproved = options?.approved === true || isCliConfirmed;
+  if (!isExplicitlyApproved) {
+    throw new Error(
+      '[migrator] Migration execution rejected: Migrations require explicit authorization via CLI flag --confirm-migration or programmatic approved=true.'
+    );
+  }
+
   const client = clientOverride || (await migrationPool.connect());
   const shouldRelease = !clientOverride;
 

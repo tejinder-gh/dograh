@@ -19,35 +19,16 @@ from typing import Optional, Tuple
 from loguru import logger
 
 from api.db import db_client
+from api.services.compliance.timezone_resolver import (
+    resolve_recipient_location,
+    validate_iana_timezone,
+    RecipientLocationContext,
+)
 
 
 # Standard US TCPA calling window: 8:00 AM to 9:00 PM recipient local time
 DEFAULT_CALLING_START_HOUR = 8
 DEFAULT_CALLING_END_HOUR = 21
-
-# Comprehensive Canadian Area Codes (NANP NPAs)
-CANADIAN_AREA_CODES = {
-    # Alberta
-    "403", "587", "780", "825",
-    # British Columbia
-    "236", "250", "604", "672", "778",
-    # Manitoba
-    "204", "431",
-    # New Brunswick
-    "506",
-    # Newfoundland and Labrador
-    "709",
-    # Northwest Territories, Nunavut, Yukon
-    "867",
-    # Nova Scotia and Prince Edward Island
-    "902", "782",
-    # Ontario
-    "226", "249", "289", "343", "365", "416", "437", "519", "548", "613", "647", "705", "807", "905",
-    # Quebec
-    "418", "438", "450", "514", "579", "581", "819", "873",
-    # Saskatchewan
-    "306", "639",
-}
 
 
 def detect_nanp_jurisdiction(phone_number: str) -> str:
@@ -55,35 +36,21 @@ def detect_nanp_jurisdiction(phone_number: str) -> str:
     
     Returns 'CA' for Canadian area codes, 'US' for other NANP numbers, or 'INTL' for non-NANP.
     """
-    if not phone_number:
-        return "US"
-
-    digits = re.sub(r"\D", "", phone_number)
-    # Strip leading country code 1 if present in 11-digit NANP number
-    if len(digits) == 11 and digits.startswith("1"):
-        digits = digits[1:]
-
-    if len(digits) >= 10:
-        area_code = digits[:3]
-        if area_code in CANADIAN_AREA_CODES:
-            return "CA"
-        return "US"
-
-    return "US"
+    loc = resolve_recipient_location(phone_number)
+    return loc.country_code if loc.country_code in ("CA", "US") else "US"
 
 
 def is_within_jurisdictional_hours(
-    recipient_timezone_str: str = "America/New_York",
+    recipient_timezone_str: str,
     start_hour: int = DEFAULT_CALLING_START_HOUR,
     end_hour: int = DEFAULT_CALLING_END_HOUR,
     reference_dt: Optional[datetime.datetime] = None,
 ) -> bool:
     """Validate US TCPA legal calling hours (8:00 AM - 9:00 PM local recipient time)."""
-    try:
-        tz = ZoneInfo(recipient_timezone_str)
-    except Exception:
-        tz = ZoneInfo("America/New_York")
+    if not validate_iana_timezone(recipient_timezone_str):
+        return False
 
+    tz = ZoneInfo(recipient_timezone_str)
     now = reference_dt or datetime.datetime.now(datetime.timezone.utc)
     local_time = now.astimezone(tz)
 
@@ -91,7 +58,7 @@ def is_within_jurisdictional_hours(
 
 
 def is_within_crtc_hours(
-    recipient_timezone_str: str = "America/Toronto",
+    recipient_timezone_str: str,
     reference_dt: Optional[datetime.datetime] = None,
 ) -> bool:
     """Validate CRTC legal calling hours (Part III, section 2 of UTR).
@@ -99,11 +66,10 @@ def is_within_crtc_hours(
     - Weekdays (Mon-Fri): 9:00 AM to 9:30 PM (recipient's local time)
     - Weekends (Sat-Sun): 10:00 AM to 6:00 PM (recipient's local time)
     """
-    try:
-        tz = ZoneInfo(recipient_timezone_str)
-    except Exception:
-        tz = ZoneInfo("America/Toronto")
+    if not validate_iana_timezone(recipient_timezone_str):
+        return False
 
+    tz = ZoneInfo(recipient_timezone_str)
     now = reference_dt or datetime.datetime.now(datetime.timezone.utc)
     local_time = now.astimezone(tz)
     weekday = local_time.weekday()  # Monday is 0, Sunday is 6
@@ -117,6 +83,8 @@ def is_within_crtc_hours(
         # Weekends (Sat-Sun): 10:00 AM to 6:00 PM
         start_t = datetime.time(10, 0)
         end_t = datetime.time(18, 0)
+
+    return start_t <= t <= end_t
 
     return start_t <= t <= end_t
 
@@ -166,14 +134,20 @@ async def validate_outbound_call_compliance(
     organization_id: int,
     phone_number: str,
     call_type: str = "transactional",
-    recipient_timezone: str = "America/New_York",
+    recipient_timezone: Optional[str] = None,
+    verified_contact_timezone: Optional[str] = None,
+    is_ported_or_voip: bool = False,
     reference_dt: Optional[datetime.datetime] = None,
 ) -> Tuple[bool, str, str]:
     """Authoritative compliance verification for outbound voice calls.
     
     Evaluates:
     1. Phone validity & internal suppression / DNC list (fail-closed)
-    2. Geographic jurisdiction (Canada vs US)
+    2. Recipient Location & Timezone Resolution:
+       - Verified contact profile / explicit timezone modeled distinct from area code.
+       - Area codes treated as hints with conservative Safe Harbor intersection rules.
+       - Rejects unverified recipient timezones (denies calls when time cannot be established).
+       - Flags ported / VoIP numbers as unresolvable without verified profile timezone.
     3. Canadian CRTC restrictions:
        - Outbound telemarketing disabled pending National DNCL subscription
        - Specific CRTC calling hours (Weekdays 9:00 AM - 9:30 PM, Weekends 10:00 AM - 6:00 PM)
@@ -186,40 +160,58 @@ async def validate_outbound_call_compliance(
 
     clean_phone = phone_number.strip()
 
-    # 1. Suppression check
+    # 1. Suppression check (fail closed on DB errors)
     suppressed = await is_phone_suppressed(organization_id, clean_phone)
     if suppressed:
         return False, "phone_suppressed_or_dnc", f"Phone {clean_phone} is suppressed or on DNC list."
 
-    # 2. Jurisdiction check
-    jurisdiction = detect_nanp_jurisdiction(clean_phone)
+    # 2. Timezone & Location Resolution
+    loc = resolve_recipient_location(
+        clean_phone,
+        explicit_timezone=recipient_timezone,
+        verified_contact_timezone=verified_contact_timezone,
+        is_ported_or_voip=is_ported_or_voip,
+    )
+    if loc.resolution_status == "INVALID_TIMEZONE":
+        return False, "invalid_timezone", loc.rejection_reason or "Invalid IANA timezone."
+    if loc.resolution_status == "UNRESOLVABLE":
+        return (
+            False,
+            "unverified_recipient_timezone",
+            loc.rejection_reason or "Recipient local timezone cannot be established reliably.",
+        )
 
-    # 3. CRTC Compliance
-    if jurisdiction == "CA":
-        # Outbound marketing calls are disabled pending National DNCL subscription
-        if call_type == "marketing":
-            return (
-                False,
-                "canadian_outbound_marketing_disabled",
-                "Outbound telemarketing to Canadian numbers is disabled pending CRTC National DNCL subscription and list scrubbing integration.",
-            )
+    # 3. CRTC Marketing Prohibition
+    if loc.country_code == "CA" and call_type == "marketing":
+        return (
+            False,
+            "canadian_outbound_marketing_disabled",
+            "Outbound telemarketing to Canadian numbers is disabled pending CRTC National DNCL subscription and list scrubbing integration.",
+        )
 
-        # Check CRTC calling window
-        in_hours = is_within_crtc_hours(recipient_timezone_str=recipient_timezone, reference_dt=reference_dt)
-        if not in_hours:
-            return (
-                False,
-                "outside_jurisdictional_hours",
-                f"Call time is outside CRTC legal calling hours (Mon-Fri 9:00 AM - 9:30 PM, Sat-Sun 10:00 AM - 6:00 PM {recipient_timezone}).",
-            )
-    else:
-        # Check US TCPA calling window
-        in_hours = is_within_jurisdictional_hours(recipient_timezone_str=recipient_timezone, reference_dt=reference_dt)
-        if not in_hours:
-            return (
-                False,
-                "outside_jurisdictional_hours",
-                f"Call time is outside US TCPA legal calling hours (8:00 AM - 9:00 PM {recipient_timezone}).",
-            )
+    # 4. Legal Calling Window Evaluation (Safe Harbor Intersection across all candidate timezones)
+    timezones_to_check = (
+        (loc.verified_timezone,)
+        if loc.is_verified and loc.verified_timezone
+        else loc.inferred_timezones
+    )
+
+    for tz in timezones_to_check:
+        if loc.country_code == "CA":
+            in_hours = is_within_crtc_hours(recipient_timezone_str=tz, reference_dt=reference_dt)
+            if not in_hours:
+                return (
+                    False,
+                    "outside_jurisdictional_hours",
+                    f"Call time is outside CRTC legal calling hours (Mon-Fri 9:00 AM - 9:30 PM, Sat-Sun 10:00 AM - 6:00 PM {tz}).",
+                )
+        else:
+            in_hours = is_within_jurisdictional_hours(recipient_timezone_str=tz, reference_dt=reference_dt)
+            if not in_hours:
+                return (
+                    False,
+                    "outside_jurisdictional_hours",
+                    f"Call time is outside US TCPA legal calling hours (8:00 AM - 9:00 PM {tz}).",
+                )
 
     return True, "", ""

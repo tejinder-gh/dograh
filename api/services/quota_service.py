@@ -629,13 +629,14 @@ async def check_business_organization_quota(
     *,
     organization_id: int,
     is_byok: bool = False,
+    workflow_run_id: int | None = None,
 ) -> QuotaCheckResult:
     """Authoritative organization subscription, quota, and BYOK policy check.
 
     Verifies against business_ext.organization_subscriptions:
     1. Active status (blocks 'paused', 'canceled')
     2. BYOK Commercial Policy (rejects BYOK if plan does not support it)
-    3. Concurrency limits (checks current 'running' workflow runs)
+    3. Concurrency limits (checks authoritative active reservations)
     4. Monthly voice minute quota allocation
     """
     try:
@@ -689,25 +690,39 @@ async def check_business_organization_quota(
                 ),
             )
 
-        # 3. Concurrency limit enforcement
+        # 3. Concurrency limit enforcement via authoritative reservation manager & database
         concurrency_limit = sub.get("concurrency_limit") or 2
-        active_runs_rows = await db_client.execute_raw_query(
-            """
-            SELECT COUNT(wr.id) AS active_count
-            FROM public.workflows w
-            INNER JOIN public.workflow_runs wr ON wr.workflow_id = w.id
-            WHERE w.organization_id = :org_id
-              AND (wr.state = 'running' OR (NOT wr.is_completed AND wr.state = 'initialized'));
-            """,
-            {"org_id": organization_id},
-        )
-        active_count = active_runs_rows[0].get("active_count", 0) if active_runs_rows else 0
-        if active_count >= concurrency_limit:
-            return QuotaCheckResult(
-                has_quota=False,
-                error_code="concurrency_limit_exceeded",
-                error_message=f"Organization concurrent call limit of {concurrency_limit} reached.",
-            )
+        from api.services.call_concurrency.rate_limiter import rate_limiter
+
+        is_already_reserved = False
+        if workflow_run_id is not None:
+            mapping = await rate_limiter.get_workflow_slot_mapping(workflow_run_id)
+            if mapping and mapping[0] == organization_id:
+                is_already_reserved = True
+
+        if not is_already_reserved:
+            active_count = await rate_limiter.get_concurrent_count(organization_id)
+            # If no active slot in rate limiter, check active workflow runs in DB for defense-in-depth
+            if active_count == 0:
+                active_runs_rows = await db_client.execute_raw_query(
+                    """
+                    SELECT COUNT(wr.id) AS active_count
+                    FROM public.workflows w
+                    INNER JOIN public.workflow_runs wr ON wr.workflow_id = w.id
+                    WHERE w.organization_id = :org_id
+                      AND (wr.state = 'running' OR (NOT wr.is_completed AND wr.state = 'initialized'));
+                    """,
+                    {"org_id": organization_id},
+                )
+                if active_runs_rows and isinstance(active_runs_rows[0], dict):
+                    active_count = active_runs_rows[0].get("active_count", 0)
+
+            if active_count >= concurrency_limit:
+                return QuotaCheckResult(
+                    has_quota=False,
+                    error_code="concurrency_limit_exceeded",
+                    error_message=f"Organization concurrent call limit of {concurrency_limit} reached.",
+                )
 
         # 4. Period minute quota enforcement
         total_allocated = (sub.get("included_minutes") or 0) + (sub.get("bonus_minutes") or 0)
@@ -768,7 +783,11 @@ async def check_business_organization_quota(
                     "period_end": period_end,
                 },
             )
-            used_minutes = usage_rows[0]["total_minutes"] if usage_rows else 0.0
+            used_minutes = (
+                usage_rows[0].get("total_minutes", 0.0)
+                if usage_rows and isinstance(usage_rows[0], dict)
+                else 0.0
+            )
             if used_minutes >= total_allocated:
                 return QuotaCheckResult(
                     has_quota=False,
@@ -975,6 +994,7 @@ async def authorize_workflow_run_start(
         business_quota_result = await check_business_organization_quota(
             organization_id=organization_id,
             is_byok=is_byok,
+            workflow_run_id=workflow_run_id,
         )
         if not business_quota_result.has_quota:
             logger.warning(

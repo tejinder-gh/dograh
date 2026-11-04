@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
-import { runMigrations } from '../../config/migrator';
 import { query } from '../../config/database';
 import { adminQuery } from '../test-admin';
 import { resolveTenantContext } from '../../services/tenant-mapping.service';
@@ -14,8 +13,6 @@ describe('Integration: Interaction & Acuity Run Correlation', () => {
   let runAUuid: string;
 
   beforeAll(async () => {
-    await runMigrations();
-
     // Clean any prior runs/workflows/orgs
     await adminQuery("DELETE FROM public.workflow_runs WHERE name = 'run-synthetic-771-001' OR workflow_id IN (SELECT id FROM public.workflows WHERE organization_id IN (771, 772))");
     await adminQuery("DELETE FROM public.workflow_definitions WHERE workflow_id IN (SELECT id FROM public.workflows WHERE organization_id IN (771, 772))");

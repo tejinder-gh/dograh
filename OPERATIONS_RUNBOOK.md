@@ -230,3 +230,52 @@ In the event of a SEV-0 or SEV-1 incident, complete an incident post-mortem with
 - Total customer impact (calls affected, tenants affected).
 - Verification tests created to prevent regression.
 - Corrective actions completed before commercial sign-off.
+
+---
+
+## 8. DATABASE SAFETY BOUNDARY, TEST ISOLATION & NEON GOVERNANCE
+
+### 8.1 Database Target Safety Guard (Strict Test Enclosure)
+To prevent accidental mutation or DDL execution against the primary database during local or automated test runs, Acuity enforces an authoritative fail-safe boundary in both TypeScript (`extensions/business-api/src/config/database-guard.ts`) and Python (`api/db/database_guard.py`):
+
+1. **Production Target Rejection:** Any test execution targeting the primary Neon project or endpoint (`ep-wispy-truth-b5kkygdq`, `br-twilight-base-b51aowww`, or any production host containing `aws.neon.tech` without explicit test authorization) is aborted before connection initialization with a fatal `ProductionDatabaseTargetError`.
+2. **Local-Only Default:** Tests default to local safe targets (`localhost`, `127.0.0.1`, `postgres`). Remote cloud hosts are rejected unless `ALLOW_ISOLATED_TEST_DB=true` is set and the database URL explicitly targets an approved isolated test branch (e.g. `ep-staging-test`).
+3. **Zero Test-Hook Migrations:** Automatic migration calls (`runMigrations()`) are completely prohibited in test `beforeAll` hooks across all 10 integration test files. Any attempt to invoke migrations during test mode raises `MigrationInTestEnvironmentError`.
+
+### 8.2 Three-Tier Credential & Role Separation
+Do not share administrative or DDL credentials across application runtime and testing. Enforce three distinct credential tiers:
+
+| Tier | Environment Variable | Role / User | Privileges | Scope / Access Pattern |
+|---|---|---|---|---|
+| **1. Migration / DDL** | `MIGRATION_DATABASE_URL` | `acuity_migrator` | `CREATE`, `ALTER`, `DROP`, `REFERENCES` on `business_ext` and `public` | Standalone CLI only (`bun run migrate -- --confirm-migration`). Never provided to running app containers. |
+| **2. Application Runtime** | `DATABASE_URL` | `acuity_app_user` | `SELECT`, `INSERT`, `UPDATE`, `DELETE` on application tables; `USAGE` on sequences | Production and staging container runtimes via Neon pooled endpoint (`ep-*-pooler`). No DDL privileges. |
+| **3. Test Fixture Runner** | `TEST_DATABASE_URL` | `business_test_user` | `SELECT`, `INSERT`, `UPDATE`, `DELETE` restricted to local test database or isolated branch | Automated CI and developer integration suites. Zero access to production branch. |
+
+### 8.3 Schema Migration Approval Workflow
+Database schema migrations are high-risk Tier 2 operations. They must never run implicitly:
+1. **Explicit Operator Approval Required:** Migrations execute only through the dedicated CLI runner:
+   ```bash
+   cd extensions/business-api && bun run migrate -- --confirm-migration
+   ```
+2. **Environment Variable Guard:** `options.approved=true` or `--confirm-migration` must be present. Even with approval, the migrator immediately aborts if `NODE_ENV === "test"` or `process.env.TEST === "true"`.
+3. **Pre-Migration Safety Checklist:**
+   - [ ] Verify active Neon branch: confirm target is NOT production without change-window approval.
+   - [ ] Review migration SQL diff for non-blocking execution (e.g. `CREATE INDEX CONCURRENTLY`, reversible constraints).
+   - [ ] Verify point-in-time recovery (PITR) snapshot exists.
+
+### 8.4 Neon Branch-Protection & Credential Governance
+1. **Protect Default Branch:** In the Neon Console (or via Neon CLI), designate `main` (`br-twilight-base-b51aowww`) as **Protected**. This prevents branch deletion, direct unauthorized schema alterations, or accidental branch resets.
+2. **Ephemeral Staging/Test Branches:** For integration testing against real Neon infrastructure, provision an isolated child branch:
+   ```bash
+   neon branch create --name br-staging-test --parent br-twilight-base-b51aowww
+   ```
+   Provide the child branch connection string as `TEST_DATABASE_URL` with `ALLOW_ISOLATED_TEST_DB=true`. Destroy or reset the branch after CI completion.
+3. **Credential Rotation Protocol:**
+   - If migration credentials or developer database URLs are exposed in local command logs or `.env` files, rotate the password immediately via Neon Console -> Project Settings -> Roles.
+   - Separate passwords for `acuity_migrator` and `acuity_app_user`.
+   - Update deployment secrets in GitHub Actions and production container secrets manager before restarting application services.
+
+### 8.5 Test Fixture Isolation & Safe Cleanup
+1. **Namespace Isolation:** Integration tests must generate isolated fixture keys using tenant-specific UUID prefixes (`test-tenant-${crypto.randomUUID()}`).
+2. **Atomic Rollback & Scoped Teardown:** Tests must run within rolled-back transactions where feasible, or execute cleanup targeting ONLY their specific fixture UUIDs in `afterAll` hooks.
+3. **Zero Production Mutation:** Under no circumstances should test fixtures, synthetic contacts, or dummy bookings be inserted into unisolated production branches.

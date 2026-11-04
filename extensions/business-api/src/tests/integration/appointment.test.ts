@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeAll } from 'bun:test';
 import { createApp } from '../../app';
-import { runMigrations } from '../../config/migrator';
 import { query, withTransaction } from '../../config/database';
 import { adminQuery } from '../test-admin';
 import { env } from '../../config/env';
@@ -29,8 +28,6 @@ describe('Integration: Multi-Tenant Appointment Booking & Slot Collision Suite (
   let appointmentAId: string;
 
   beforeAll(async () => {
-    await runMigrations();
-
     // 0. Seed authoritative Acuity tables
     await adminQuery(`
       INSERT INTO public.organizations (id, provider_id)

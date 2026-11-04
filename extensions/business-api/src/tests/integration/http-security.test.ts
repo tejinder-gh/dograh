@@ -2,7 +2,6 @@ import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
 import crypto from 'node:crypto';
 import { z } from 'zod';
 import { createApp } from '../../app';
-import { runMigrations } from '../../config/migrator';
 import { query } from '../../config/database';
 import { adminQuery } from '../test-admin';
 import { env } from '../../config/env';
@@ -22,8 +21,6 @@ describe('HTTP Security & Tenant Isolation Boundary (A2 Attack Suite)', () => {
   let contactAId: string;
 
   beforeAll(async () => {
-    await runMigrations();
-
     // Clean up any stale mappings or test data
     await query("DELETE FROM business_ext.organization_mappings WHERE acuity_organization_id IN (601, 602)");
     await adminQuery("DELETE FROM public.workflows WHERE organization_id IN (601, 602)");

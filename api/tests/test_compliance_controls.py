@@ -133,7 +133,8 @@ async def test_initiate_call_blocks_outside_jurisdictional_hours(monkeypatch):
     )
 
     fake_user = AsyncMock(selected_organization_id=1, is_superuser=False)
-    req = InitiateCallRequest(workflow_id=1, phone_number="+15559876543")
+    # Use valid Manhattan NPA (212) so timezone resolver resolves Eastern time
+    req = InitiateCallRequest(workflow_id=1, phone_number="+12129876543")
 
     with pytest.raises(HTTPException) as exc_info:
         await initiate_call(req, user=fake_user)
@@ -226,6 +227,135 @@ async def test_canadian_outbound_marketing_strictly_disabled(monkeypatch):
         reference_dt=noon_dt,
     )
     assert allowed is True
+
+
+@pytest.mark.asyncio
+async def test_ported_or_voip_number_denied_without_verified_timezone(monkeypatch):
+    """Ported numbers and VoIP numbers cannot rely on area code; must be denied if timezone unverified."""
+    from api.services.compliance import calling_controls
+
+    monkeypatch.setattr(
+        calling_controls.db_client,
+        "execute_raw_query",
+        AsyncMock(return_value=[]),
+    )
+
+    allowed, code, reason = await validate_outbound_call_compliance(
+        organization_id=1,
+        phone_number="+16045551234",  # Vancouver NPA
+        call_type="transactional",
+        recipient_timezone=None,
+        is_ported_or_voip=True,
+    )
+    assert allowed is False
+    assert code == "unverified_recipient_timezone"
+    assert "ported or VoIP" in reason
+
+
+@pytest.mark.asyncio
+async def test_ported_number_allowed_with_verified_timezone(monkeypatch):
+    """When a ported number has a verified contact profile timezone, calling within legal hours is permitted."""
+    from api.services.compliance import calling_controls
+
+    monkeypatch.setattr(
+        calling_controls.db_client,
+        "execute_raw_query",
+        AsyncMock(return_value=[]),
+    )
+
+    noon_pacific = datetime.datetime(2026, 11, 10, 12, 0, tzinfo=ZoneInfo("America/Vancouver"))
+    allowed, code, reason = await validate_outbound_call_compliance(
+        organization_id=1,
+        phone_number="+14165551234",  # Toronto NPA, but recipient moved to Vancouver
+        call_type="transactional",
+        verified_contact_timezone="America/Vancouver",
+        is_ported_or_voip=True,
+        reference_dt=noon_pacific,
+    )
+    assert allowed is True
+
+
+@pytest.mark.asyncio
+async def test_multi_timezone_area_code_safe_harbor_intersection(monkeypatch):
+    """Area code 208 spans Mountain (Denver) and Pacific (Los Angeles).
+    Safe harbor intersection requires the time to be legal in BOTH candidate timezones.
+    """
+    from api.services.compliance import calling_controls
+
+    monkeypatch.setattr(
+        calling_controls.db_client,
+        "execute_raw_query",
+        AsyncMock(return_value=[]),
+    )
+
+    # 8:30 AM Denver = 7:30 AM Los Angeles.
+    # US TCPA starts at 8:00 AM. In Denver it's 8:30 AM (legal), but in Pacific it's 7:30 AM (ILLEGAL).
+    # Safe Harbor intersection must reject to protect Pacific recipients!
+    morning_denver = datetime.datetime(2026, 11, 10, 8, 30, tzinfo=ZoneInfo("America/Denver"))
+    allowed, code, reason = await validate_outbound_call_compliance(
+        organization_id=1,
+        phone_number="+12085551234",  # Idaho NPA
+        call_type="transactional",
+        recipient_timezone=None,  # Rely on area code hint
+        reference_dt=morning_denver,
+    )
+    assert allowed is False
+    assert code == "outside_jurisdictional_hours"
+    assert "America/Los_Angeles" in reason
+
+    # At 10:30 AM Denver = 9:30 AM Los Angeles. Legal in BOTH.
+    safe_dt = datetime.datetime(2026, 11, 10, 10, 30, tzinfo=ZoneInfo("America/Denver"))
+    allowed, code, reason = await validate_outbound_call_compliance(
+        organization_id=1,
+        phone_number="+12085551234",
+        call_type="transactional",
+        recipient_timezone=None,
+        reference_dt=safe_dt,
+    )
+    assert allowed is True
+
+
+@pytest.mark.asyncio
+async def test_invalid_iana_timezone_rejected(monkeypatch):
+    """Non-IANA timezone strings (e.g. 'EST', 'GMT+5', 'Invalid/TZ') must be rejected with invalid_timezone."""
+    from api.services.compliance import calling_controls
+
+    monkeypatch.setattr(
+        calling_controls.db_client,
+        "execute_raw_query",
+        AsyncMock(return_value=[]),
+    )
+
+    allowed, code, reason = await validate_outbound_call_compliance(
+        organization_id=1,
+        phone_number="+12125551234",
+        call_type="transactional",
+        recipient_timezone="EST",  # Invalid IANA name
+    )
+    assert allowed is False
+    assert code == "invalid_timezone"
+
+
+@pytest.mark.asyncio
+async def test_unrecognized_area_code_denied(monkeypatch):
+    """Unrecognized or non-NANP area codes cannot establish a safe harbor and are denied."""
+    from api.services.compliance import calling_controls
+
+    monkeypatch.setattr(
+        calling_controls.db_client,
+        "execute_raw_query",
+        AsyncMock(return_value=[]),
+    )
+
+    allowed, code, reason = await validate_outbound_call_compliance(
+        organization_id=1,
+        phone_number="+10001234567",
+        call_type="transactional",
+        recipient_timezone=None,
+    )
+    assert allowed is False
+    assert code == "unverified_recipient_timezone"
+
 
 
 

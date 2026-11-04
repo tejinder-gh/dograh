@@ -220,12 +220,13 @@ class CampaignCallDispatcher:
             # Compliance: DNC Suppression, Jurisdictional Calling Hours, and CRTC Marketing Prohibition
             from api.services.compliance.calling_controls import validate_outbound_call_compliance
 
-            recipient_tz = queued_run.context_variables.get("timezone", "America/New_York")
+            recipient_tz = queued_run.context_variables.get("timezone") or None
             allowed, error_code, error_msg = await validate_outbound_call_compliance(
                 organization_id=campaign.organization_id,
                 phone_number=phone_number,
                 call_type="marketing",
                 recipient_timezone=recipient_tz,
+                is_ported_or_voip=queued_run.context_variables.get("is_ported_or_voip", False),
             )
             if not allowed:
                 logger.warning(

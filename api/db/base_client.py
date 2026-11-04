@@ -4,12 +4,14 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from api.constants import DATABASE_URL
+from api.db.database_guard import assert_safe_database_target
 
 T = TypeVar("T")
 
 
 class BaseDBClient:
     def __init__(self):
+        assert_safe_database_target(DATABASE_URL)
         self.engine = create_async_engine(DATABASE_URL, pool_pre_ping=True)
         self.async_session = async_sessionmaker(bind=self.engine)
 

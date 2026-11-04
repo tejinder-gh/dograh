@@ -154,23 +154,22 @@ async def initiate_call(
     # Compliance: DNC Suppression, Jurisdictional Calling Hours, and CRTC Marketing Prohibition
     from api.services.compliance.calling_controls import validate_outbound_call_compliance
 
-    recipient_tz = (
-        request.recipient_timezone
-        or getattr(preferences, "timezone", "America/New_York")
-        or "America/New_York"
-    )
+    # Do not default to Eastern Time; allow timezone resolver to determine via verified profile or NPA safe harbor
+    recipient_tz = request.recipient_timezone or None
     allowed, error_code, error_msg = await validate_outbound_call_compliance(
         organization_id=user.selected_organization_id,
         phone_number=phone_number,
         call_type=getattr(request, "call_type", "transactional"),
         recipient_timezone=recipient_tz,
+        is_ported_or_voip=getattr(request, "is_ported_or_voip", False),
     )
     if not allowed:
         logger.warning(
             f"[Compliance] Blocked outbound call to {phone_number}: {error_code} - {error_msg}"
         )
+        status_code = 400 if error_code in ("unverified_recipient_timezone", "invalid_timezone") else 403
         raise HTTPException(
-            status_code=403,
+            status_code=status_code,
             detail=error_code,
         )
 

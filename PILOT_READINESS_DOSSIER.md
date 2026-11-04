@@ -37,7 +37,10 @@ All 16 primary audit findings and the 5 post-audit P0 concerns identified by ind
 | **CRM-03** | CSV RFC 4180 Parser | P1 | `RESOLVED` | Built strict RFC 4180 CSV parser `parseRfc4180Csv` handling quoted commas, multiline values, and escaped quotes. Integrated into `LeadUploadModal.tsx`. Proved by 6/6 Vitest tests. |
 | **OPS-01** | Production Runbooks | P0 | `RESOLVED` | Authored `OPERATIONS_RUNBOOK.md` detailing architecture topology, SEV escalation matrix, container restart runbooks, secret rotation procedures, and Prometheus metrics configuration. |
 | **COM-01** | US TCPA Calling Controls | P0 | `RESOLVED` | Enforces TCPA calling windows (8:00 AM - 9:00 PM local recipient time), organization DNC suppression verification, and dual-party consent disclaimer in `instruction.txt` and `calling_controls.py`. Proved by Pytest. |
-| **COM-02** | Canadian CRTC Compliance & Calling Rules | P0 | `RESOLVED` | Implemented separate Canadian CRTC Unsolicited Telecommunications Rules (UTR): Weekdays 9:00 AM - 9:30 PM, Weekends 10:00 AM - 6:00 PM local time. Automatic NANP area-code jurisdiction detection (`CA` vs `US`). Outbound telemarketing to Canada is disabled pending National DNCL subscription. Proved by 10/10 Pytest tests. |
+| **COM-02** | Canadian CRTC Compliance & Calling Rules | P0 | `RESOLVED` | Implemented separate Canadian CRTC Unsolicited Telecommunications Rules (UTR): Weekdays 9:00 AM - 9:30 PM, Weekends 10:00 AM - 6:00 PM local time. Automatic NANP area-code jurisdiction detection (`CA` vs `US`). Outbound telemarketing to Canada is disabled pending National DNCL subscription. Proved by 15/15 Pytest tests. |
+| **COM-03** | Recipient Timezone & Safe Harbor Gating | P0 | `RESOLVED` | Eliminated Eastern Time default fallback. Modeled recipient IANA timezone distinctly from area code hints; enforced Safe Harbor intersection across multi-timezone NPAs (calls must be legal in all candidate timezones); denied unverified timezones for ported/VoIP numbers. Proved by `timezone_resolver.py` & Pytest. |
+| **SEC-06** | Database Target Safety Guard & Test Boundary | P0 | `RESOLVED` | Authoritative database guard in TS (`database-guard.ts`) and Python (`database_guard.py`). Prohibits test suites from targeting Neon production branch (`ep-wispy-truth-b5kkygdq`, `br-twilight-base-b51aowww`). Removed automatic DDL/migrations (`runMigrations()`) from all 10 integration test `beforeAll` hooks. Required explicit `--confirm-migration` flag for schema migrations. Proved by 14 unit tests. |
+| **QUO-04** | Authoritative Atomic Quota Reservation | P0 | `RESOLVED` | Replaced non-atomic concurrent call TOCTOU count query with authoritative atomic reservation (`reserve_workflow_run_slot`), keyed to `workflow_run_id` for idempotency across retries, pulling limits from subscription, and releasing on complete/error/cancel with orphaned slot recovery. Proved by 6/6 concurrent race tests (10 simultaneous calls with capacity 1 = 1 acquired, 9 rejected). |
 
 ---
 
@@ -73,26 +76,29 @@ To maintain Staff Engineer integrity, the system state is explicitly segmented i
 
 ## 3. COMPREHENSIVE TEST EVIDENCE & METRICS
 
-### A. Test Execution Summary
+### A. Non-DB Mocked & Pure Unit Test Execution (Executed & Verified)
 
-| Subsystem | Suite Framework | Test Files | Total Tests | Pass Rate | Test Nature |
+| Subsystem / Component | Framework | Test Focus | Executed | Result | Safety Enclosure |
 |---|---|---|---|---|---|
-| **FastAPI Voice Core & Telephony** | Pytest 9.1 / Python 3.13 | 7 | 151 | **100% PASS** | Real DB Integration + Unit |
-| **Business API & CRM Extension** | Bun Test 1.3 / Hono | 13 | 95 | **100% PASS** | Real DB Integration + Unit |
-| **Next.js 15 UI & Edge Proxies** | Vitest 4.1 / React 19 | 69 | 453 | **100% PASS** | Mocked Edge + Integration |
-| **Total Automated Evidence** | — | **89** | **699** | **100% PASS** | **0 Failing, 0 Skipped** |
+| **Compliance & Timezone Controls** | Pytest 9.1 / Python 3.13 | TCPA/CRTC boundaries, Safe Harbor candidate intersection, Ported/VoIP unverified denial, DNC fail-closed | 15 tests | **100% PASS** (15/15) | Pure mock, no remote DB |
+| **Atomic Quota Reservation Race** | Pytest 9.1 / Python 3.13 | 10 simultaneous calls with capacity=1, idempotency per workflow run, slot release & orphan cleanup | 6 tests | **100% PASS** (6/6) | In-memory atomic fallback |
+| **Python Database Safety Guard** | Pytest 9.1 / Python 3.13 | Rejection of production Neon endpoint, safe local host validation, test mode guard assertions | 7 tests | **100% PASS** (7/7) | Pure unit isolation |
+| **Quota Service Unit Suite** | Pytest 9.1 / Python 3.13 | Plan entitlements, BYOK restrictions, zero-minute exhaustion, period boundaries, error handling | 46 tests | **100% PASS** (46/46) | AsyncMock DB fixtures |
+| **Call Concurrency Service** | Pytest 9.1 / Python 3.13 | Concurrency limiting, PostHog saturation metrics, scoped limits, worker counts | 14 tests | **100% PASS** (14/14) | Authenticated local Redis |
+| **Calendar Booking Tool** | Pytest 9.1 / Python 3.13 | Slot lookup, advisory lock retry logic, collision handling | 4 tests | **100% PASS** (4/4) | Mocked tool execution |
+| **TS Database Target Safety Guard** | Bun Test 1.3 | Production Neon rejection, local host validation, migration block in test mode | 7 tests | **100% PASS** (7/7) | Pure unit isolation |
+| **Lead Scoring & Safe Math** | Bun Test 1.3 | Lead score bounds [0, 100], zero-division safe percentages/ratios/deltas | 14 tests | **100% PASS** (14/14) | Pure unit calculation |
+| **Business Validation Schemas** | Bun Test 1.3 | Zod schemas: profiles, contacts, batch RFC CSV imports, sentiment bounds | 8 tests | **100% PASS** (8/8) | Schema validation |
+| **Next.js Auth & Admin Proxies** | Vitest 4.1 / React 19 | Superuser auth, tenant isolation, subscription proxy, cookie forgery rejection | 30 tests | **100% PASS** (30/30) | Mocked Next.js Edge |
+| **RFC 4180 CSV Parser** | Vitest 4.1 / React 19 | Quoted commas, multiline entries, CRLF endings, escaped quotes | 6 tests | **100% PASS** (6/6) | Client utility unit test |
+| **Total Non-DB Executed** | — | — | **157 tests** | **100% PASS** (157/157) | **0 Failures** |
 
-### B. Live Database Integration Tests (Neon PostgreSQL `ai_calling_os`)
-- `api/tests/test_quota_live_db.py`:
-  - `test_live_db_missing_subscription_denied` (**PASS**)
-  - `test_live_db_active_subscription_authorized` (**PASS**)
-  - `test_live_db_byok_policy_enforcement` (**PASS**)
-  - `test_live_db_zero_allocation_and_expired_period` (**PASS**)
-- `extensions/business-api/src/tests/integration/appointment.test.ts`:
-  - Cross-service concurrent booking race condition test (**PASS**, exactly one 201 Created and one 409 Conflict)
-- `extensions/business-api/src/tests/integration/subscription.test.ts`:
-  - Customer self-service upgrade and top-up rejection (**PASS**, HTTP 403 `self_serve_billing_disabled`)
-  - Platform administrator grant and audit logging (**PASS**)
+### B. Remote Integration Tests (Neon Main Branch `ai_calling_os`)
+
+| Subsystem / Suite | Target Endpoint | Status | Operational Reason |
+|---|---|---|---|
+| **Business API Integration Tests** (10 test files) | `ep-wispy-truth-b5kkygdq` (Main) | **BLOCKED** | Blocked by `assertSafeDatabaseTarget`. Running integration tests against Neon main branch violates Stage A safety boundary. `runMigrations()` removed from test hooks. Requires isolated staging branch `br-staging-test`. |
+| **Quota Live DB Integration** (`test_quota_live_db.py`) | `ep-wispy-truth-b5kkygdq` (Main) | **BLOCKED** | Live DB execution suspended on main branch pending provisioning of dedicated ephemeral test branch. Unit coverage maintained via `test_quota_concurrency_race.py` and `test_quota_service.py`. |
 
 ---
 
@@ -100,20 +106,22 @@ To maintain Staff Engineer integrity, the system state is explicitly segmented i
 
 | Release Gate / Requirement | Target Area | Status | Evidence / Verification Method | Operational Limitations |
 |---|---|---|---|---|
-| **Admin Session Security** | Auth / Platform | **PASS** | 5 Vitest tests (`admin/session/route.test.ts`) | Restricted to verified superusers |
-| **Internal Signed Assertions** | Inter-service | **PASS** | 10 integration tests; SHA256 nonces | Shared HMAC secret >= 32 chars |
-| **Telephony WebSocket Auth** | Carrier / Media | **PASS** | 32 Pytest tests (`test_ws_auth.py`) | Token bound to call run; CAS atomic |
-| **Tenant CRM Isolation** | Data Security | **PASS** | 6 Bun tests (`crm-isolation.test.ts`) | Strict tenant UUID partitioning |
-| **Calendar Concurrency** | Scheduling | **PASS** | Cross-service race test; DB constraint | Advisory lock `apt_lock_${tenantId}` |
-| **External Calendar Sync** | Integration | **NOT VERIFIED** | Internal PostgreSQL calendar verified; OAuth sync unintegrated | Stage C post-pilot deliverable |
-| **Payment Verification** | Financial | **PASS** | Self-serve disabled (403); Admin grants audited | Direct Stripe webhook pending |
-| **Direct Gateway Charges** | Billing | **NOT VERIFIED** | End-to-end live card charge not conducted | Requires merchant credentials |
-| **US TCPA Calling Hours** | Compliance | **PASS** | Unit + Telephony route tests | 8:00 AM - 9:00 PM local time |
-| **Canadian CRTC Rules** | Compliance | **PASS** | 10 Pytest tests (`test_compliance_controls.py`) | Weekday 9am-9:30pm, Weekend 10am-6pm |
-| **Canadian Outbound Marketing** | Compliance | **PASS** | Outbound marketing locked with 403 | National DNCL registration pending |
-| **DNC Suppression (Fail-Closed)** | Legal / TCPA | **PASS** | Negative tests with DB error injection | Suppresses calls if DB status unknown |
-| **Quota Enforcement** | Commercial | **PASS** | Live Neon DB tests (`test_quota_live_db.py`) | Fails closed on missing or 0 min |
-| **Containerized Deployment** | Infrastructure | **PASS** | `Dockerfile` + `docker compose config` | Docker Compose validated |
+| **Database Safety Boundary** | Data Integrity | **VERIFIED** | Unit tests (`database-guard.test.ts`, `test_database_guard.py`); `runMigrations()` stripped from test `beforeAll` hooks | Rejects production Neon endpoint in test mode |
+| **Explicit Migration Approval** | Operations | **VERIFIED** | Migrator requires `--confirm-migration` or `options.approved=true`; unconditionally rejects `NODE_ENV=test` | Explicit operator action only |
+| **Atomic Quota Reservation** | Quota / Billing | **VERIFIED** | 6/6 race tests (`test_quota_concurrency_race.py`); 10 simultaneous calls with capacity=1 yields 1 acquired, 9 rejected | Idempotent on `workflow_run_id` |
+| **Orphaned Slot Recovery** | Reliability | **VERIFIED** | `recover_orphaned_reservations` in `service.py`; recovers timed-out reservations | Background recovery sweep |
+| **Recipient Timezone Resolution** | Compliance | **VERIFIED** | `timezone_resolver.py` + 15 tests in `test_compliance_controls.py` | Distinguishes verified IANA tz from area codes |
+| **Safe Harbor Multi-TZ NPA Intersection** | Compliance | **VERIFIED** | Tested with multi-timezone NPA 208 (Mountain/Pacific); requires legal window across all candidate timezones | Blocks dialing if outside hours in ANY candidate tz |
+| **Ported / VoIP Number Gating** | Compliance | **VERIFIED** | Unit tests reject unverified ported/VoIP numbers without verified recipient timezone | Requires verified contact IANA tz |
+| **Canadian Outbound Marketing Gating** | Compliance | **VERIFIED** | Unit tests reject Canadian marketing calls with HTTP 403 `canadian_outbound_marketing_disabled` | Disabled pending National DNCL subscription |
+| **Admin Session Security** | Auth / Platform | **VERIFIED** | 5 Vitest tests (`admin/session/route.test.ts`) | Restricted to verified superusers |
+| **Internal Signed Assertions** | Inter-service | **VERIFIED** | Vitest suite (`business-auth.test.ts`); SHA-256 nonces | Shared HMAC secret >= 32 chars |
+| **Telephony WebSocket Auth** | Carrier / Media | **VERIFIED** | 32 Pytest tests (`test_ws_auth.py`); atomic CAS run state | Token bound to call run; CAS atomic |
+| **Tenant CRM Isolation** | Data Security | **VERIFIED** | Vitest boundary suite (`business-auth.test.ts`); tenant UUID partitioning | Enforced at Next.js edge and Business API |
+| **Calendar Concurrency** | Scheduling | **VERIFIED** | Unit advisory lock verification; DB exclusion constraint migration 007 | Advisory lock `apt_lock_${tenantId}` |
+| **Live Main DB Integration Tests** | Test Harness | **BLOCKED** | Intentionally blocked by Database Target Guard | Requires `br-staging-test` branch |
+| **External Calendar Sync** | Integration | **NOT TESTED** | Internal PostgreSQL calendar verified; OAuth sync unintegrated | Stage C post-pilot deliverable |
+| **Live Payment Card Charges** | Billing | **NOT TESTED** | Self-serve disabled (403); Admin grants audited; live card charge unconducted | Direct Stripe webhook pending |
 
 ---
 

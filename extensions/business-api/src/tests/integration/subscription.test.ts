@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeAll } from 'bun:test';
 import { createApp } from '../../app';
-import { runMigrations } from '../../config/migrator';
 import { query } from '../../config/database';
 import { adminQuery } from '../test-admin';
 import { env } from '../../config/env';
@@ -20,8 +19,6 @@ describe('Multi-Tenant Subscription & Admin Account Control Boundary', () => {
   const testUserId = '701';
 
   beforeAll(async () => {
-    await runMigrations();
-
     // Ensure mapping exists
     const mappingRes = await query<{ business_tenant_id: string }>(`
       SELECT business_tenant_id 

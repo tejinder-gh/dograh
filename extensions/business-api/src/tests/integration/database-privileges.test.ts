@@ -4,10 +4,6 @@ import { adminQuery } from '../test-admin';
 import { runMigrations } from '../../config/migrator';
 
 describe('Database Least-Privilege & Migration Safety Verification (P1-4)', () => {
-  beforeAll(async () => {
-    await runMigrations();
-  });
-
   describe('1. Role Privilege & Isolation Verification', () => {
     it('verifies business_app_user is not a superuser and cannot create roles or databases', async () => {
       const res = await adminQuery<{
@@ -194,8 +190,8 @@ describe('Database Least-Privilege & Migration Safety Verification (P1-4)', () =
     it('two concurrent migration executions do not race or conflict', async () => {
       // Run two migration runs concurrently
       const [res1, res2] = await Promise.allSettled([
-        runMigrations(),
-        runMigrations(),
+        runMigrations(undefined, { approved: true }),
+        runMigrations(undefined, { approved: true }),
       ]);
 
       expect(res1.status).toBe('fulfilled');

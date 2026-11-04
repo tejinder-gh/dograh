@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
-import { runMigrations } from '../../config/migrator';
 import { query } from '../../config/database';
 import { adminQuery } from '../test-admin';
 import { resolveTenantContext } from '../../services/tenant-mapping.service';
@@ -13,7 +12,6 @@ describe('Integration: Business Profile CRUD & Multi-Tenant Boundaries', () => {
   let workflowBId: number;
 
   beforeAll(async () => {
-    await runMigrations();
     orgA = await resolveTenantContext(881, 'prof-test');
     orgB = await resolveTenantContext(882, 'prof-test');
 
