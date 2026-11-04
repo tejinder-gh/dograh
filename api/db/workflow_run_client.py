@@ -1,7 +1,7 @@
 import uuid
 from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import Float, cast, func
+from sqlalchemy import Float, and_, cast, func, update
 from sqlalchemy.future import select
 from sqlalchemy.orm import joinedload, selectinload
 
@@ -490,6 +490,33 @@ class WorkflowRunClient(BaseDBClient):
                 raise e
             await session.refresh(run)
         return run
+
+    async def compare_and_swap_run_state(
+        self,
+        run_id: int,
+        expected_state: str,
+        new_state: str,
+    ) -> bool:
+        """Atomically transition workflow run state from expected_state to new_state.
+
+        Returns True if the transition succeeded, or False if the run was not in
+        expected_state or does not exist. This eliminates TOCTOU race conditions when
+        multiple media WebSockets attempt to connect to the same run concurrently.
+        """
+        async with self.async_session() as session:
+            stmt = (
+                update(WorkflowRunModel)
+                .where(
+                    and_(
+                        WorkflowRunModel.id == run_id,
+                        WorkflowRunModel.state == expected_state,
+                    )
+                )
+                .values(state=new_state)
+            )
+            result = await session.execute(stmt)
+            await session.commit()
+            return (result.rowcount or 0) > 0
 
     async def get_workflow_run_with_context(
         self, workflow_run_id: int
