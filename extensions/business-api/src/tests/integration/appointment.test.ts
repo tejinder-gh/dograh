@@ -53,6 +53,11 @@ describe('Integration: Multi-Tenant Appointment Booking & Slot Collision Suite (
     );
     tenantA = mapARes.rows[0]!.business_tenant_id;
 
+    // Clean up any state from previous test runs
+    await query(`DELETE FROM business_ext.appointments WHERE tenant_id = $1`, [tenantA]);
+    await query(`DELETE FROM business_ext.contact_timeline_events WHERE tenant_id = $1`, [tenantA]);
+    await query(`DELETE FROM business_ext.contacts WHERE tenant_id = $1`, [tenantA]);
+
     await query(
       `INSERT INTO business_ext.organization_subscriptions
        (tenant_id, plan_id, status, included_minutes, concurrency_limit)
