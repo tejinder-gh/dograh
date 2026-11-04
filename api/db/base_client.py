@@ -1,15 +1,25 @@
-from typing import Any, Dict, List
+from typing import Any, Callable, Coroutine, Dict, List, TypeVar
 
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from api.constants import DATABASE_URL
+
+T = TypeVar("T")
 
 
 class BaseDBClient:
     def __init__(self):
         self.engine = create_async_engine(DATABASE_URL, pool_pre_ping=True)
         self.async_session = async_sessionmaker(bind=self.engine)
+
+    async def run_in_transaction(
+        self, callback: Callable[[AsyncSession], Coroutine[Any, Any, T]]
+    ) -> T:
+        """Execute a callback inside an ACID transaction on the database."""
+        async with self.async_session() as session:
+            async with session.begin():
+                return await callback(session)
 
     async def execute_raw_query(
         self, query: str, params: Dict[str, Any] = None
@@ -26,9 +36,11 @@ class BaseDBClient:
         """
         async with self.async_session() as session:
             result = await session.execute(text(query), params or {})
-            rows = result.fetchall()
-            if rows:
-                # Convert rows to dictionaries
-                columns = result.keys()
-                return [dict(zip(columns, row)) for row in rows]
+            await session.commit()
+            if result.returns_rows:
+                rows = result.fetchall()
+                if rows:
+                    # Convert rows to dictionaries
+                    columns = result.keys()
+                    return [dict(zip(columns, row)) for row in rows]
             return []

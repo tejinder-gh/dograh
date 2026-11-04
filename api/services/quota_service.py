@@ -4,6 +4,7 @@ This module provides reusable quota checking functionality that can be used
 across different endpoints (WebRTC signaling, telephony, public API triggers).
 """
 
+import datetime
 from dataclasses import dataclass
 from typing import Any
 
@@ -696,11 +697,11 @@ async def check_business_organization_quota(
             FROM public.workflows w
             INNER JOIN public.workflow_runs wr ON wr.workflow_id = w.id
             WHERE w.organization_id = :org_id
-              AND wr.status = 'running';
+              AND (wr.state = 'running' OR (NOT wr.is_completed AND wr.state = 'initialized'));
             """,
             {"org_id": organization_id},
         )
-        active_count = active_runs_rows[0]["active_count"] if active_runs_rows else 0
+        active_count = active_runs_rows[0].get("active_count", 0) if active_runs_rows else 0
         if active_count >= concurrency_limit:
             return QuotaCheckResult(
                 has_quota=False,
@@ -717,8 +718,40 @@ async def check_business_organization_quota(
                 error_message="Voice minute allocation is 0 minutes. Please purchase voice minutes or upgrade plan.",
             )
 
+        now = datetime.datetime.now(datetime.timezone.utc)
         period_start = sub.get("current_period_start")
         period_end = sub.get("current_period_end")
+
+        if period_start:
+            p_start = (
+                datetime.datetime.fromisoformat(str(period_start).replace("Z", "+00:00"))
+                if isinstance(period_start, str)
+                else period_start
+            )
+            if p_start.tzinfo is None:
+                p_start = p_start.replace(tzinfo=datetime.timezone.utc)
+            if now < p_start:
+                return QuotaCheckResult(
+                    has_quota=False,
+                    error_code="subscription_not_started",
+                    error_message=f"Subscription billing period does not start until {p_start.isoformat()}.",
+                )
+
+        if period_end:
+            p_end = (
+                datetime.datetime.fromisoformat(str(period_end).replace("Z", "+00:00"))
+                if isinstance(period_end, str)
+                else period_end
+            )
+            if p_end.tzinfo is None:
+                p_end = p_end.replace(tzinfo=datetime.timezone.utc)
+            if now > p_end:
+                return QuotaCheckResult(
+                    has_quota=False,
+                    error_code="subscription_period_expired",
+                    error_message=f"Subscription billing period expired at {p_end.isoformat()}. Renewal required.",
+                )
+
         if period_start and period_end:
             usage_rows = await db_client.execute_raw_query(
                 """
@@ -751,13 +784,12 @@ async def check_business_organization_quota(
             organization_id,
             e,
         )
-        if ENVIRONMENT not in (Environment.LOCAL.value, Environment.TEST.value, "dev"):
-            return QuotaCheckResult(
-                has_quota=False,
-                error_code="quota_check_failed",
-                error_message="Unable to verify organization subscription status. Access denied.",
-            )
-        return QuotaCheckResult(has_quota=True)
+        # Authoritative: Fail closed in all environments to prevent unmetered dialing
+        return QuotaCheckResult(
+            has_quota=False,
+            error_code="quota_check_failed",
+            error_message="Unable to verify organization subscription status. Access denied.",
+        )
 
 
 async def authorize_workflow_run_start(

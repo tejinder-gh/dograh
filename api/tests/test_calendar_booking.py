@@ -46,21 +46,37 @@ async def test_check_calendar_availability_generates_slots(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_book_calendar_appointment_success(monkeypatch):
-    """Verify successful slot reservation and contact lifecycle update."""
+    """Verify successful slot reservation and contact lifecycle update in atomic transaction."""
     from api.services.workflow.tools import calendar_booking
 
     monkeypatch.setattr(
         calendar_booking.db_client,
         "execute_raw_query",
-        AsyncMock(side_effect=[
-            [{"business_tenant_id": "11111111-1111-1111-1111-111111111111"}],  # Tenant mapping
-            [],  # No collision
-            [{"id": "c1111111-1111-1111-1111-111111111111"}],  # Contact match
-            [{"id": "a1111111-1111-1111-1111-111111111111"}],  # Insert appointment
-            [],  # Contact update
-            [],  # Timeline insert
-        ]),
+        AsyncMock(return_value=[{"business_tenant_id": "11111111-1111-1111-1111-111111111111"}]),
     )
+
+    class MockQueryResult:
+        def __init__(self, item=None):
+            self._item = item
+        def first(self):
+            return self._item
+        def mappings(self):
+            return self
+
+    mock_session = AsyncMock()
+    mock_session.execute = AsyncMock(side_effect=[
+        AsyncMock(),  # 1. Advisory lock
+        MockQueryResult(None),  # 2. Collision check (clear)
+        MockQueryResult({"id": "c1111111-1111-1111-1111-111111111111"}),  # 3. Contact match
+        MockQueryResult({"id": "a1111111-1111-1111-1111-111111111111"}),  # 4. Appointment insert
+        AsyncMock(),  # 5. Contact status update
+        AsyncMock(),  # 6. Contact timeline event insert
+    ])
+
+    async def fake_run_in_tx(callback):
+        return await callback(mock_session)
+
+    monkeypatch.setattr(calendar_booking.db_client, "run_in_transaction", fake_run_in_tx)
 
     result = await book_calendar_appointment_impl(
         organization_id=10,
@@ -79,17 +95,29 @@ async def test_book_calendar_appointment_success(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_book_calendar_appointment_collision(monkeypatch):
-    """Verify that slot collision prevents double booking."""
+    """Verify that slot collision prevents double booking under atomic advisory lock."""
     from api.services.workflow.tools import calendar_booking
 
     monkeypatch.setattr(
         calendar_booking.db_client,
         "execute_raw_query",
-        AsyncMock(side_effect=[
-            [{"business_tenant_id": "11111111-1111-1111-1111-111111111111"}],
-            [{"id": "existing-appt-id"}],  # Existing appointment collision!
-        ]),
+        AsyncMock(return_value=[{"business_tenant_id": "11111111-1111-1111-1111-111111111111"}]),
     )
+
+    class MockCollisionResult:
+        def first(self):
+            return {"id": "existing-appt-id"}
+
+    mock_session = AsyncMock()
+    mock_session.execute = AsyncMock(side_effect=[
+        AsyncMock(),  # 1. Advisory lock
+        MockCollisionResult(),  # 2. Collision check (collision detected!)
+    ])
+
+    async def fake_run_in_tx(callback):
+        return await callback(mock_session)
+
+    monkeypatch.setattr(calendar_booking.db_client, "run_in_transaction", fake_run_in_tx)
 
     result = await book_calendar_appointment_impl(
         organization_id=10,

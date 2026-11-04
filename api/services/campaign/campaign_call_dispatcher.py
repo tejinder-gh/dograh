@@ -217,24 +217,21 @@ class CampaignCallDispatcher:
             if not phone_number:
                 raise ValueError(f"No phone number in queued run {queued_run.id}")
 
-            # Compliance: DNC Suppression and TCPA Jurisdictional Hours
-            from api.services.compliance.calling_controls import (
-                is_phone_suppressed,
-                is_within_jurisdictional_hours,
-            )
-
-            if await is_phone_suppressed(campaign.organization_id, phone_number):
-                logger.warning(
-                    f"[Campaign {campaign.id}] Skipping suppressed / DNC phone {phone_number}"
-                )
-                raise ValueError(f"Phone {phone_number} is on suppression / DNC list")
+            # Compliance: DNC Suppression, Jurisdictional Calling Hours, and CRTC Marketing Prohibition
+            from api.services.compliance.calling_controls import validate_outbound_call_compliance
 
             recipient_tz = queued_run.context_variables.get("timezone", "America/New_York")
-            if not is_within_jurisdictional_hours(recipient_tz):
+            allowed, error_code, error_msg = await validate_outbound_call_compliance(
+                organization_id=campaign.organization_id,
+                phone_number=phone_number,
+                call_type="marketing",
+                recipient_timezone=recipient_tz,
+            )
+            if not allowed:
                 logger.warning(
-                    f"[Campaign {campaign.id}] Skipping {phone_number}: outside legal jurisdictional hours for tz {recipient_tz}"
+                    f"[Campaign {campaign.id}] Compliance check blocked {phone_number}: {error_code} - {error_msg}"
                 )
-                raise ValueError(f"Outbound calling outside legal hours for {recipient_tz}")
+                raise ValueError(f"Compliance violation ({error_code}): {error_msg}")
 
             split = campaign_split(campaign)
             variant = pick_variant(split, phone_number)

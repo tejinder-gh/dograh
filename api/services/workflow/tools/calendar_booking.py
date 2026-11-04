@@ -9,6 +9,7 @@ from __future__ import annotations
 import datetime
 from typing import Any, Dict, List, Optional
 from loguru import logger
+from sqlalchemy import text
 
 from api.db import db_client
 
@@ -192,119 +193,133 @@ async def book_calendar_appointment_impl(
         start_time = datetime.datetime.fromisoformat(start_time_str.replace("Z", "+00:00"))
         end_time = datetime.datetime.fromisoformat(end_time_str.replace("Z", "+00:00"))
 
-        # 2. Check slot collision
-        collisions = await db_client.execute_raw_query(
-            """
-            SELECT id FROM business_ext.appointments
-            WHERE tenant_id = :tenant_id
-              AND status NOT IN ('cancelled', 'no_show')
-              AND start_time < :end_time
-              AND end_time > :start_time
-            LIMIT 1;
-            """,
-            {"tenant_id": tenant_id, "start_time": start_time, "end_time": end_time},
-        )
-        if collisions:
-            return {
-                "status": "conflict",
-                "error": "The requested appointment time slot is already booked. Please choose an alternative slot.",
-            }
-
-        # 3. Match or create contact
-        contact_id = None
-        if contact_phone or contact_email:
-            contact_rows = await db_client.execute_raw_query(
-                """
-                SELECT id FROM business_ext.contacts
-                WHERE tenant_id = :tenant_id
-                  AND (
-                    (:phone::text IS NOT NULL AND phone = :phone)
-                    OR (:email::text IS NOT NULL AND email = :email)
-                  )
-                LIMIT 1;
-                """,
-                {"tenant_id": tenant_id, "phone": contact_phone, "email": contact_email},
+        # Atomic reservation executing in single ACID transaction with tenant advisory lock
+        async def _atomic_booking_tx(session):
+            # Enforce the EXACT same advisory xact lock as the TypeScript Business API:
+            # Key: 'apt_lock_' || tenant_id
+            await session.execute(
+                text("SELECT pg_advisory_xact_lock(hashtext(:lock_key));"),
+                {"lock_key": f"apt_lock_{tenant_id}"},
             )
-            if contact_rows:
-                contact_id = contact_rows[0]["id"]
-            elif contact_name:
-                new_contact = await db_client.execute_raw_query(
-                    """
-                    INSERT INTO business_ext.contacts (tenant_id, name, email, phone, status, lifecycle_status)
-                    VALUES (:tenant_id, :name, :email, :phone, 'booked', 'booked')
-                    RETURNING id;
-                    """,
-                    {
-                        "tenant_id": tenant_id,
-                        "name": contact_name,
-                        "email": contact_email,
-                        "phone": contact_phone,
-                    },
+
+            # Check slot collision under the transaction-scoped advisory lock
+            collision_rows = await session.execute(
+                text("""
+                    SELECT id FROM business_ext.appointments
+                    WHERE tenant_id = :tenant_id
+                      AND status NOT IN ('cancelled', 'no_show')
+                      AND start_time < :end_time
+                      AND end_time > :start_time
+                    LIMIT 1;
+                """),
+                {"tenant_id": tenant_id, "start_time": start_time, "end_time": end_time},
+            )
+            if collision_rows.first():
+                return {
+                    "status": "conflict",
+                    "error": "The requested appointment time slot is already booked. Please choose an alternative slot.",
+                }
+
+            # Match or create contact
+            contact_id = None
+            if contact_phone or contact_email:
+                contact_rows = await session.execute(
+                    text("""
+                        SELECT id FROM business_ext.contacts
+                        WHERE tenant_id = :tenant_id
+                          AND (
+                            (:phone::text IS NOT NULL AND phone = :phone)
+                            OR (:email::text IS NOT NULL AND email = :email)
+                          )
+                        LIMIT 1;
+                    """),
+                    {"tenant_id": tenant_id, "phone": contact_phone, "email": contact_email},
                 )
-                if new_contact:
-                    contact_id = new_contact[0]["id"]
+                c_mappings = contact_rows.mappings().first()
+                if c_mappings:
+                    contact_id = c_mappings["id"]
+                elif contact_name:
+                    new_contact = await session.execute(
+                        text("""
+                            INSERT INTO business_ext.contacts (tenant_id, name, email, phone, status, lifecycle_status)
+                            VALUES (:tenant_id, :name, :email, :phone, 'booked', 'booked')
+                            RETURNING id;
+                        """),
+                        {
+                            "tenant_id": tenant_id,
+                            "name": contact_name,
+                            "email": contact_email,
+                            "phone": contact_phone,
+                        },
+                    )
+                    nc_mappings = new_contact.mappings().first()
+                    if nc_mappings:
+                        contact_id = nc_mappings["id"]
 
-        # 4. Insert appointment
-        inserted = await db_client.execute_raw_query(
-            """
-            INSERT INTO business_ext.appointments (
-                tenant_id, contact_id, acuity_workflow_id, acuity_run_id,
-                title, status, start_time, end_time, source, notes
-            ) VALUES (
-                :tenant_id, :contact_id, :workflow_id, :run_id,
-                :title, 'confirmed', :start_time, :end_time, 'agent', :notes
-            )
-            RETURNING id;
-            """,
-            {
-                "tenant_id": tenant_id,
-                "contact_id": contact_id,
-                "workflow_id": workflow_id,
-                "run_id": str(run_id) if run_id else None,
-                "title": title,
-                "start_time": start_time,
-                "end_time": end_time,
-                "notes": notes,
-            },
-        )
-        appointment_id = inserted[0]["id"] if inserted else None
-
-        # 5. Advance contact lifecycle & log timeline event
-        if contact_id:
-            await db_client.execute_raw_query(
-                """
-                UPDATE business_ext.contacts
-                SET status = 'booked', lifecycle_status = 'booked', updated_at = NOW()
-                WHERE tenant_id = :tenant_id AND id = :contact_id;
-                """,
-                {"tenant_id": tenant_id, "contact_id": contact_id},
-            )
-
-            await db_client.execute_raw_query(
-                """
-                INSERT INTO business_ext.contact_timeline_events (
-                    tenant_id, contact_id, event, details, status
-                ) VALUES (
-                    :tenant_id, :contact_id, 'appointment_booked',
-                    :details, 'booked'
-                );
-                """,
+            # Insert appointment atomically
+            inserted = await session.execute(
+                text("""
+                    INSERT INTO business_ext.appointments (
+                        tenant_id, contact_id, acuity_workflow_id, acuity_run_id,
+                        title, status, start_time, end_time, source, notes
+                    ) VALUES (
+                        :tenant_id, :contact_id, :workflow_id, :run_id,
+                        :title, 'confirmed', :start_time, :end_time, 'agent', :notes
+                    )
+                    RETURNING id;
+                """),
                 {
                     "tenant_id": tenant_id,
                     "contact_id": contact_id,
-                    "details": f"Consultation scheduled for {start_time_str}",
+                    "workflow_id": workflow_id,
+                    "run_id": str(run_id) if run_id else None,
+                    "title": title,
+                    "start_time": start_time,
+                    "end_time": end_time,
+                    "notes": notes,
                 },
             )
+            ins_mappings = inserted.mappings().first()
+            appointment_id = ins_mappings["id"] if ins_mappings else None
 
-        logger.info(f"Successfully booked calendar appointment {appointment_id} for org {organization_id}")
-        return {
-            "status": "confirmed",
-            "appointment_id": str(appointment_id),
-            "title": title,
-            "start_time": start_time_str,
-            "end_time": end_time_str,
-            "message": "Appointment has been successfully scheduled on the calendar.",
-        }
+            # Advance contact lifecycle & log timeline event
+            if contact_id:
+                await session.execute(
+                    text("""
+                        UPDATE business_ext.contacts
+                        SET status = 'booked', lifecycle_status = 'booked', updated_at = NOW()
+                        WHERE tenant_id = :tenant_id AND id = :contact_id;
+                    """),
+                    {"tenant_id": tenant_id, "contact_id": contact_id},
+                )
+
+                await session.execute(
+                    text("""
+                        INSERT INTO business_ext.contact_timeline_events (
+                            tenant_id, contact_id, event, details, status
+                        ) VALUES (
+                            :tenant_id, :contact_id, 'appointment_booked',
+                            :details, 'booked'
+                        );
+                    """),
+                    {
+                        "tenant_id": tenant_id,
+                        "contact_id": contact_id,
+                        "details": f"Consultation scheduled for {start_time_str}",
+                    },
+                )
+
+            logger.info(f"Successfully booked calendar appointment {appointment_id} for org {organization_id}")
+            return {
+                "status": "confirmed",
+                "appointment_id": str(appointment_id),
+                "title": title,
+                "start_time": start_time_str,
+                "end_time": end_time_str,
+                "message": "Appointment has been successfully scheduled on the calendar.",
+            }
+
+        return await db_client.run_in_transaction(_atomic_booking_tx)
 
     except Exception as e:
         logger.error(f"Error booking calendar appointment: {e}")

@@ -1,11 +1,16 @@
 import { describe, it, expect, beforeAll } from 'bun:test';
 import { createApp } from '../../app';
 import { runMigrations } from '../../config/migrator';
-import { query } from '../../config/database';
+import { query, withTransaction } from '../../config/database';
 import { adminQuery } from '../test-admin';
 import { env } from '../../config/env';
 import { createInternalAssertion } from '../../config/signed-assertion';
-import type { Appointment, AvailableSlot } from '../../domain/appointment.types';
+import {
+  type Appointment,
+  type AvailableSlot,
+  SlotCollisionError,
+} from '../../domain/appointment.types';
+import { createAppointment } from '../../repositories/appointment.repository';
 
 describe('Integration: Multi-Tenant Appointment Booking & Slot Collision Suite (CAL-01)', () => {
   const app = createApp();
@@ -360,5 +365,69 @@ describe('Integration: Multi-Tenant Appointment Booking & Slot Collision Suite (
 
     const statuses = [res1.status, res2.status].sort();
     expect(statuses).toEqual([201, 409]);
+  });
+
+  it('8. Enforces cross-service concurrency safety: concurrent bookings via Business API and simulated voice tool serialize on apt_lock_${tenantId}', async () => {
+    const startTime = '2026-11-10T17:00:00.000Z';
+    const endTime = '2026-11-10T17:30:00.000Z';
+
+    // Worker 1: Calls Business API repository (createAppointment)
+    const worker1 = async () => {
+      try {
+        const appt = await createAppointment(tenantA, {
+          title: 'Cross-Service TS Booking',
+          startTime,
+          endTime,
+          source: 'web',
+        });
+        return { success: true, apptId: appt.id };
+      } catch (e) {
+        if (e instanceof SlotCollisionError) {
+          return { success: false, error: 'conflict' };
+        }
+        throw e;
+      }
+    };
+
+    // Worker 2: Simulates Python Pipecat booking tool running in dedicated transaction with exact advisory lock
+    const worker2 = async () => {
+      return withTransaction(async (client) => {
+        // Enforce the identical transaction-scoped advisory lock key
+        await client.query('SELECT pg_advisory_xact_lock(hashtext($1));', [`apt_lock_${tenantA}`]);
+
+        // Collision check
+        const coll = await client.query(
+          `SELECT id FROM business_ext.appointments
+           WHERE tenant_id = $1
+             AND status NOT IN ('cancelled', 'no_show')
+             AND start_time < $3
+             AND end_time > $2
+           LIMIT 1;`,
+          [tenantA, startTime, endTime]
+        );
+
+        if ((coll.rowCount ?? 0) > 0) {
+          return { success: false, error: 'conflict' };
+        }
+
+        const ins = await client.query(
+          `INSERT INTO business_ext.appointments (
+             tenant_id, title, status, start_time, end_time, source
+           ) VALUES ($1, $2, 'confirmed', $3, $4, 'agent')
+           RETURNING id;`,
+          [tenantA, 'Cross-Service Python Voice Booking', startTime, endTime]
+        );
+        return { success: true, apptId: ins.rows[0]?.id };
+      });
+    };
+
+    const [res1, res2] = await Promise.all([worker1(), worker2()]);
+
+    const successes = [res1, res2].filter((r) => r.success);
+    const conflicts = [res1, res2].filter((r) => !r.success && r.error === 'conflict');
+
+    // Exactly one reservation succeeded, and exactly one was rejected due to lock serialization
+    expect(successes.length).toBe(1);
+    expect(conflicts.length).toBe(1);
   });
 });

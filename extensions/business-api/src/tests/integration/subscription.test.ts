@@ -216,9 +216,9 @@ describe('Multi-Tenant Subscription & Admin Account Control Boundary', () => {
     expect(firstLog?.reason).toContain('Upgraded client account');
   });
 
-  it('strictly rejects customer self-service upgrade without payment verification (402)', async () => {
+  it('strictly rejects customer self-service upgrade and disables self-serve billing (403)', async () => {
     const path = '/api/subscription/upgrade';
-    const payload = JSON.stringify({ planId: 'enterprise' }); // No payment transaction ID!
+    const payload = JSON.stringify({ planId: 'enterprise' });
     const assertion = createInternalAssertion({
       userId: testUserId,
       orgId: testOrgId,
@@ -238,12 +238,14 @@ describe('Multi-Tenant Subscription & Admin Account Control Boundary', () => {
       body: payload,
     });
 
-    expect(res.status).toBe(402);
+    expect(res.status).toBe(403);
+    const data = (await res.json()) as { code?: string };
+    expect(data.code).toBe('self_serve_billing_disabled');
   });
 
-  it('strictly rejects customer self-service top-up without payment verification (402)', async () => {
+  it('strictly rejects customer self-service top-up and disables self-serve billing (403)', async () => {
     const path = '/api/subscription/topup';
-    const payload = JSON.stringify({ minutes: 500 }); // No payment transaction ID!
+    const payload = JSON.stringify({ minutes: 500 });
     const assertion = createInternalAssertion({
       userId: testUserId,
       orgId: testOrgId,
@@ -263,10 +265,12 @@ describe('Multi-Tenant Subscription & Admin Account Control Boundary', () => {
       body: payload,
     });
 
-    expect(res.status).toBe(402);
+    expect(res.status).toBe(403);
+    const data = (await res.json()) as { code?: string };
+    expect(data.code).toBe('self_serve_billing_disabled');
   });
 
-  it('allows verified client to self-service upgrade their plan (BIL-02)', async () => {
+  it('strictly disables customer-facing self-service upgrades pending payment gateway integration (403)', async () => {
     const path = '/api/subscription/upgrade';
     const payload = JSON.stringify({
       planId: 'enterprise',
@@ -291,14 +295,12 @@ describe('Multi-Tenant Subscription & Admin Account Control Boundary', () => {
       body: payload,
     });
 
-    expect(res.status).toBe(200);
-    const updated = (await res.json()) as ClientSubscriptionOverview;
-    expect(updated.plan.id).toBe('enterprise');
-    expect(updated.includedMinutes).toBe(3500);
-    expect(updated.concurrencyLimit).toBe(20);
+    expect(res.status).toBe(403);
+    const data = (await res.json()) as { error?: string; code?: string };
+    expect(data.code).toBe('self_serve_billing_disabled');
   });
 
-  it('allows verified client to self-service top up voice minutes (BIL-01)', async () => {
+  it('strictly disables customer-facing self-service top-ups pending payment gateway integration (403)', async () => {
     const path = '/api/subscription/topup';
     const payload = JSON.stringify({
       minutes: 250,
@@ -324,8 +326,8 @@ describe('Multi-Tenant Subscription & Admin Account Control Boundary', () => {
       body: payload,
     });
 
-    expect(res.status).toBe(200);
-    const updated = (await res.json()) as ClientSubscriptionOverview;
-    expect(updated.bonusMinutes).toBeGreaterThanOrEqual(250);
+    expect(res.status).toBe(403);
+    const data = (await res.json()) as { error?: string; code?: string };
+    expect(data.code).toBe('self_serve_billing_disabled');
   });
 });

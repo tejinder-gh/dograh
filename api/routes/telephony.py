@@ -151,33 +151,27 @@ async def initiate_call(
             detail="Phone number must be provided in request or set in organization preferences",
         )
 
-    # Compliance: DNC Suppression and Jurisdictional Calling Hours
-    from api.services.compliance.calling_controls import (
-        is_phone_suppressed,
-        is_within_jurisdictional_hours,
-    )
-
-    if await is_phone_suppressed(user.selected_organization_id, phone_number):
-        logger.warning(
-            f"[Compliance] Blocked outbound call to suppressed/DNC number {phone_number} for org {user.selected_organization_id}"
-        )
-        raise HTTPException(
-            status_code=403,
-            detail="phone_suppressed_or_dnc",
-        )
+    # Compliance: DNC Suppression, Jurisdictional Calling Hours, and CRTC Marketing Prohibition
+    from api.services.compliance.calling_controls import validate_outbound_call_compliance
 
     recipient_tz = (
         request.recipient_timezone
         or getattr(preferences, "timezone", "America/New_York")
         or "America/New_York"
     )
-    if not is_within_jurisdictional_hours(recipient_tz):
+    allowed, error_code, error_msg = await validate_outbound_call_compliance(
+        organization_id=user.selected_organization_id,
+        phone_number=phone_number,
+        call_type=getattr(request, "call_type", "transactional"),
+        recipient_timezone=recipient_tz,
+    )
+    if not allowed:
         logger.warning(
-            f"[Compliance] Blocked outbound call to {phone_number} outside legal jurisdictional hours for tz {recipient_tz}"
+            f"[Compliance] Blocked outbound call to {phone_number}: {error_code} - {error_msg}"
         )
         raise HTTPException(
             status_code=403,
-            detail="outside_jurisdictional_hours",
+            detail=error_code,
         )
 
     workflow = await db_client.get_workflow(

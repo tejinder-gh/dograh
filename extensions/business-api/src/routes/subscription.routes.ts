@@ -51,40 +51,18 @@ subscriptionRouter.post('/upgrade', async (c) => {
     return c.json({ error: 'Tenant context required' }, 400);
   }
 
-  let body: unknown;
-  try {
-    body = await c.req.json();
-  } catch {
-    return c.json({ error: 'Invalid JSON body' }, 400);
-  }
-
-  const parsed = UpgradeSchema.safeParse(body);
-  if (!parsed.success) {
-    return c.json({ error: 'Validation failed', details: parsed.error.errors }, 400);
-  }
-
-  // Payment Verification Guard: Never grant self-service plan upgrades without verified payment
-  if (!parsed.data.paymentTransactionId || !parsed.data.paymentTransactionId.trim()) {
-    return c.json(
-      {
-        error: 'Payment verification required: cannot grant plan upgrade without verified payment transaction ID',
-        code: 'payment_verification_required',
-      },
-      402
-    );
-  }
-
-  try {
-    const overview = await clientUpgradeSubscription(
-      tenantContext,
-      parsed.data.planId,
-      parsed.data.paymentTransactionId
-    );
-    return c.json(overview);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to upgrade subscription';
-    return c.json({ error: message }, 400);
-  }
+  // Final P0 Security Correction: A client-supplied paymentTransactionId is not proof of payment.
+  // Until direct server-to-payment-gateway (Stripe/Razorpay) webhook verification is active,
+  // customer-facing self-service upgrades are disabled to prevent unearned entitlements.
+  // Commercial pilot entitlements are granted via audited platform admin controls.
+  return c.json(
+    {
+      error:
+        'Self-service plan upgrades are disabled pending direct payment gateway integration. Pilot entitlements must be provisioned via platform administration.',
+      code: 'self_serve_billing_disabled',
+    },
+    403
+  );
 });
 
 subscriptionRouter.post('/topup', async (c) => {
@@ -93,40 +71,16 @@ subscriptionRouter.post('/topup', async (c) => {
     return c.json({ error: 'Tenant context required' }, 400);
   }
 
-  let body: unknown;
-  try {
-    body = await c.req.json();
-  } catch {
-    return c.json({ error: 'Invalid JSON body' }, 400);
-  }
-
-  const parsed = TopUpSchema.safeParse(body);
-  if (!parsed.success) {
-    return c.json({ error: 'Validation failed', details: parsed.error.errors }, 400);
-  }
-
-  // Payment Verification Guard: Never grant self-service minutes without verified payment
-  if (!parsed.data.paymentTransactionId || !parsed.data.paymentTransactionId.trim()) {
-    return c.json(
-      {
-        error: 'Payment verification required: cannot grant voice minutes without verified payment transaction ID',
-        code: 'payment_verification_required',
-      },
-      402
-    );
-  }
-
-  try {
-    const overview = await clientTopUpMinutes(
-      tenantContext,
-      parsed.data.minutes,
-      parsed.data.paymentTransactionId,
-      parsed.data.notes
-    );
-    return c.json(overview);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to top up subscription minutes';
-    return c.json({ error: message }, 400);
-  }
+  // Final P0 Security Correction: A client-supplied paymentTransactionId is not proof of payment.
+  // Customer-facing self-service balance top-ups are disabled until direct payment gateway
+  // authorization is wired. Pilot minute grants must be provisioned via platform administration.
+  return c.json(
+    {
+      error:
+        'Self-service minute top-ups are disabled pending direct payment gateway integration. Pilot minute grants must be provisioned via platform administration.',
+      code: 'self_serve_billing_disabled',
+    },
+    403
+  );
 });
 

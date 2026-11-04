@@ -120,6 +120,11 @@ def _patch_workflow_context(monkeypatch, *, workflow=_UNSET, owner=None):
         "get_user_by_id",
         AsyncMock(return_value=owner or _workflow_owner()),
     )
+    monkeypatch.setattr(
+        quota_service,
+        "check_business_organization_quota",
+        AsyncMock(return_value=QuotaCheckResult(has_quota=True)),
+    )
 
 
 @pytest.mark.asyncio
@@ -1552,4 +1557,78 @@ async def test_quota_service_blocks_zero_minute_allocation(monkeypatch):
     )
     assert result.has_quota is False, "Must block calls when total allocated minutes is 0"
     assert result.error_code == "quota_exhausted"
+
+
+@pytest.mark.asyncio
+async def test_quota_service_blocks_expired_subscription_period(monkeypatch):
+    """Negative test: Organization whose billing period has expired must be blocked."""
+    mock_sub = [{
+        "status": "active",
+        "included_minutes": 500,
+        "bonus_minutes": 0,
+        "concurrency_limit": 2,
+        "current_period_start": "2026-09-01T00:00:00Z",
+        "current_period_end": "2026-10-01T00:00:00Z",  # Expired period!
+        "plan_id": "starter",
+        "supports_byok": False,
+        "additional_minute_rate_cents": 25,
+    }]
+    monkeypatch.setattr(
+        quota_service.db_client,
+        "execute_raw_query",
+        AsyncMock(return_value=mock_sub),
+    )
+
+    result = await quota_service.check_business_organization_quota(
+        organization_id=42,
+        is_byok=False,
+    )
+    assert result.has_quota is False, "Must block calling when billing period has expired"
+    assert result.error_code == "subscription_period_expired"
+
+
+@pytest.mark.asyncio
+async def test_quota_service_blocks_future_subscription_period(monkeypatch):
+    """Negative test: Organization whose subscription period has not started yet must be blocked."""
+    mock_sub = [{
+        "status": "active",
+        "included_minutes": 500,
+        "bonus_minutes": 0,
+        "concurrency_limit": 2,
+        "current_period_start": "2026-12-01T00:00:00Z",  # Future period!
+        "current_period_end": "2027-01-01T00:00:00Z",
+        "plan_id": "starter",
+        "supports_byok": False,
+        "additional_minute_rate_cents": 25,
+    }]
+    monkeypatch.setattr(
+        quota_service.db_client,
+        "execute_raw_query",
+        AsyncMock(return_value=mock_sub),
+    )
+
+    result = await quota_service.check_business_organization_quota(
+        organization_id=42,
+        is_byok=False,
+    )
+    assert result.has_quota is False, "Must block calling when subscription period is in the future"
+    assert result.error_code == "subscription_not_started"
+
+
+@pytest.mark.asyncio
+async def test_quota_service_fails_closed_on_db_exception(monkeypatch):
+    """Negative test: Quota service must fail closed on database exception in all environments."""
+    monkeypatch.setattr(
+        quota_service.db_client,
+        "execute_raw_query",
+        AsyncMock(side_effect=RuntimeError("Database failure")),
+    )
+
+    result = await quota_service.check_business_organization_quota(
+        organization_id=42,
+        is_byok=False,
+    )
+    assert result.has_quota is False, "Must fail closed on database exception"
+    assert result.error_code == "quota_check_failed"
+
 
