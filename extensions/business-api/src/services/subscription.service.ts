@@ -142,3 +142,79 @@ export async function getAdminAccountsList(): Promise<AdminClientAccountRow[]> {
 export async function getAvailablePlans(): Promise<SubscriptionPlan[]> {
   return listActivePlans();
 }
+
+export async function clientUpgradeSubscription(
+  tenantContext: TenantContext,
+  targetPlanId: string
+): Promise<ClientSubscriptionOverview> {
+  const current = await getSubscriptionWithPlan(tenantContext.businessTenantId);
+  if (!current) {
+    throw new Error(`Subscription not found for tenant ${tenantContext.businessTenantId}`);
+  }
+
+  const targetPlan = await getPlanById(targetPlanId);
+  if (!targetPlan) {
+    throw new Error(`Plan '${targetPlanId}' does not exist`);
+  }
+
+  const updatedSubscription = await updateSubscription(tenantContext.businessTenantId, {
+    planId: targetPlan.id,
+    includedMinutes: targetPlan.includedVoiceMinutes,
+    concurrencyLimit: targetPlan.maxConcurrentCalls,
+  });
+
+  await insertAccountControlLog(
+    tenantContext.businessTenantId,
+    `client_org_${tenantContext.acuityOrganizationId}`,
+    'client_self_serve_upgrade',
+    {
+      planId: current.subscription.planId,
+      includedMinutes: current.subscription.includedMinutes,
+      concurrencyLimit: current.subscription.concurrencyLimit,
+    },
+    {
+      planId: updatedSubscription.planId,
+      includedMinutes: updatedSubscription.includedMinutes,
+      concurrencyLimit: updatedSubscription.concurrencyLimit,
+    },
+    `Self-service plan upgrade to ${targetPlan.name}`
+  );
+
+  return getClientSubscriptionOverview(tenantContext);
+}
+
+export async function clientTopUpMinutes(
+  tenantContext: TenantContext,
+  minutes: number,
+  notes = 'Self-service minute top-up'
+): Promise<ClientSubscriptionOverview> {
+  if (!minutes || minutes <= 0) {
+    throw new Error('Top-up minutes must be greater than zero');
+  }
+
+  const current = await getSubscriptionWithPlan(tenantContext.businessTenantId);
+  if (!current) {
+    throw new Error(`Subscription not found for tenant ${tenantContext.businessTenantId}`);
+  }
+
+  const updatedSubscription = await updateSubscription(tenantContext.businessTenantId, {
+    bonusMinutesDelta: minutes,
+  });
+
+  await insertAccountControlLog(
+    tenantContext.businessTenantId,
+    `client_org_${tenantContext.acuityOrganizationId}`,
+    'client_credit_topup',
+    {
+      bonusMinutes: current.subscription.bonusMinutes,
+    },
+    {
+      bonusMinutes: updatedSubscription.bonusMinutes,
+      addedMinutes: minutes,
+    },
+    notes
+  );
+
+  return getClientSubscriptionOverview(tenantContext);
+}
+

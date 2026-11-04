@@ -39,13 +39,18 @@ describe('Multi-Tenant Subscription & Admin Account Control Boundary', () => {
       tenantId = inserted.rows[0]?.business_tenant_id;
     }
 
-    // Seed default subscription if absent
+    // Reset / Seed default subscription
     if (tenantId) {
       await query(`
         INSERT INTO business_ext.organization_subscriptions
-        (tenant_id, plan_id, status, included_minutes, concurrency_limit)
-        VALUES ($1, 'starter', 'active', 250, 2)
-        ON CONFLICT (tenant_id) DO NOTHING
+        (tenant_id, plan_id, status, included_minutes, bonus_minutes, concurrency_limit)
+        VALUES ($1, 'starter', 'active', 250, 0, 2)
+        ON CONFLICT (tenant_id) DO UPDATE SET
+          plan_id = 'starter',
+          status = 'active',
+          included_minutes = 250,
+          bonus_minutes = 0,
+          concurrency_limit = 2
       `, [tenantId]);
     }
   });
@@ -209,5 +214,61 @@ describe('Multi-Tenant Subscription & Admin Account Control Boundary', () => {
     expect(firstLog).toBeDefined();
     expect(firstLog?.action).toBe('admin_update_subscription');
     expect(firstLog?.reason).toContain('Upgraded client account');
+  });
+
+  it('allows verified client to self-service upgrade their plan (BIL-02)', async () => {
+    const path = '/api/subscription/upgrade';
+    const payload = JSON.stringify({ planId: 'enterprise' });
+    const assertion = createInternalAssertion({
+      userId: testUserId,
+      orgId: testOrgId,
+      deploymentId,
+      secret: validSecret,
+      method: 'POST',
+      path,
+      body: payload,
+    });
+
+    const res = await app.request(path, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Internal-Assertion': assertion,
+      },
+      body: payload,
+    });
+
+    expect(res.status).toBe(200);
+    const updated = (await res.json()) as ClientSubscriptionOverview;
+    expect(updated.plan.id).toBe('enterprise');
+    expect(updated.includedMinutes).toBe(3500);
+    expect(updated.concurrencyLimit).toBe(20);
+  });
+
+  it('allows verified client to self-service top up voice minutes (BIL-01)', async () => {
+    const path = '/api/subscription/topup';
+    const payload = JSON.stringify({ minutes: 250, notes: 'Self-serve top up test' });
+    const assertion = createInternalAssertion({
+      userId: testUserId,
+      orgId: testOrgId,
+      deploymentId,
+      secret: validSecret,
+      method: 'POST',
+      path,
+      body: payload,
+    });
+
+    const res = await app.request(path, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Internal-Assertion': assertion,
+      },
+      body: payload,
+    });
+
+    expect(res.status).toBe(200);
+    const updated = (await res.json()) as ClientSubscriptionOverview;
+    expect(updated.bonusMinutes).toBeGreaterThanOrEqual(250);
   });
 });

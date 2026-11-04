@@ -1360,3 +1360,150 @@ async def test_authorize_workflow_run_fails_closed_when_storing_oss_correlation(
 
     assert result.has_quota is False
     assert result.error_code == "quota_check_failed"
+
+
+# ============================================================================
+# B2: BUSINESS SUBSCRIPTION, QUOTA & BYOK POLICY ENFORCEMENT TESTS (QUO-01)
+# ============================================================================
+
+@pytest.mark.asyncio
+async def test_quota_service_blocks_suspended_organization(monkeypatch):
+    """Verify that suspended ('paused' / 'canceled') organization subscriptions are blocked."""
+    mock_sub = [{
+        "status": "paused",
+        "included_minutes": 250,
+        "bonus_minutes": 0,
+        "concurrency_limit": 2,
+        "current_period_start": "2026-11-01T00:00:00Z",
+        "current_period_end": "2026-12-01T00:00:00Z",
+        "plan_id": "starter",
+        "supports_byok": False,
+        "additional_minute_rate_cents": 22,
+    }]
+    monkeypatch.setattr(
+        quota_service.db_client,
+        "execute_raw_query",
+        AsyncMock(return_value=mock_sub),
+    )
+
+    result = await quota_service.check_business_organization_quota(
+        organization_id=42,
+        is_byok=False,
+    )
+    assert result.has_quota is False
+    assert result.error_code == "subscription_suspended"
+    assert "suspended" in result.error_message
+
+
+@pytest.mark.asyncio
+async def test_quota_service_blocks_byok_on_starter_plan(monkeypatch):
+    """Verify QUO-01: Starter plan does not support BYOK; attempts to bypass limits are blocked."""
+    mock_sub = [{
+        "status": "active",
+        "included_minutes": 250,
+        "bonus_minutes": 0,
+        "concurrency_limit": 2,
+        "current_period_start": "2026-11-01T00:00:00Z",
+        "current_period_end": "2026-12-01T00:00:00Z",
+        "plan_id": "starter",
+        "supports_byok": False,
+        "additional_minute_rate_cents": 22,
+    }]
+    monkeypatch.setattr(
+        quota_service.db_client,
+        "execute_raw_query",
+        AsyncMock(return_value=mock_sub),
+    )
+
+    result = await quota_service.check_business_organization_quota(
+        organization_id=42,
+        is_byok=True,
+    )
+    assert result.has_quota is False
+    assert result.error_code == "byok_not_supported"
+    assert "not permitted on the Starter Plan" in result.error_message
+
+
+@pytest.mark.asyncio
+async def test_quota_service_blocks_exceeded_concurrency(monkeypatch):
+    """Verify that runs exceeding concurrency limit are blocked."""
+    mock_sub = [{
+        "status": "active",
+        "included_minutes": 250,
+        "bonus_minutes": 0,
+        "concurrency_limit": 2,
+        "current_period_start": "2026-11-01T00:00:00Z",
+        "current_period_end": "2026-12-01T00:00:00Z",
+        "plan_id": "starter",
+        "supports_byok": True,
+        "additional_minute_rate_cents": 22,
+    }]
+    monkeypatch.setattr(
+        quota_service.db_client,
+        "execute_raw_query",
+        AsyncMock(side_effect=[mock_sub, [{"active_count": 2}]]),
+    )
+
+    result = await quota_service.check_business_organization_quota(
+        organization_id=42,
+        is_byok=False,
+    )
+    assert result.has_quota is False
+    assert result.error_code == "concurrency_limit_exceeded"
+    assert "limit of 2 reached" in result.error_message
+
+
+@pytest.mark.asyncio
+async def test_quota_service_blocks_exhausted_monthly_minutes(monkeypatch):
+    """Verify that runs when voice minutes are exhausted are blocked."""
+    mock_sub = [{
+        "status": "active",
+        "included_minutes": 250,
+        "bonus_minutes": 50,
+        "concurrency_limit": 5,
+        "current_period_start": "2026-11-01T00:00:00Z",
+        "current_period_end": "2026-12-01T00:00:00Z",
+        "plan_id": "professional",
+        "supports_byok": True,
+        "additional_minute_rate_cents": 18,
+    }]
+    monkeypatch.setattr(
+        quota_service.db_client,
+        "execute_raw_query",
+        AsyncMock(side_effect=[mock_sub, [{"active_count": 0}], [{"total_minutes": 305.0}]]),
+    )
+
+    result = await quota_service.check_business_organization_quota(
+        organization_id=42,
+        is_byok=True,
+    )
+    assert result.has_quota is False
+    assert result.error_code == "quota_exhausted"
+    assert "exhausted for the current billing cycle" in result.error_message
+
+
+@pytest.mark.asyncio
+async def test_quota_service_authorizes_valid_professional_run(monkeypatch):
+    """Verify that active subscription with sufficient minutes and concurrency passes."""
+    mock_sub = [{
+        "status": "active",
+        "included_minutes": 1000,
+        "bonus_minutes": 0,
+        "concurrency_limit": 5,
+        "current_period_start": "2026-11-01T00:00:00Z",
+        "current_period_end": "2026-12-01T00:00:00Z",
+        "plan_id": "professional",
+        "supports_byok": True,
+        "additional_minute_rate_cents": 18,
+    }]
+    monkeypatch.setattr(
+        quota_service.db_client,
+        "execute_raw_query",
+        AsyncMock(side_effect=[mock_sub, [{"active_count": 1}], [{"total_minutes": 120.0}]]),
+    )
+
+    result = await quota_service.check_business_organization_quota(
+        organization_id=42,
+        is_byok=True,
+    )
+    assert result.has_quota is True

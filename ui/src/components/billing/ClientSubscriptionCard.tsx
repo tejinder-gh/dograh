@@ -31,6 +31,55 @@ export function ClientSubscriptionCard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
+  const [upgrading, setUpgrading] = useState(false);
+  const [topUpOpen, setTopUpOpen] = useState(false);
+  const [topUpLoading, setTopUpLoading] = useState(false);
+
+  const handleUpgrade = async (targetPlanId: string, targetPlanName: string) => {
+    setUpgrading(true);
+    try {
+      const res = await fetch('/api/business/subscription/upgrade', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ planId: targetPlanId }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to upgrade plan');
+      }
+      const updated: ClientSubscriptionOverview = await res.json();
+      setData(updated);
+      toast.success(`Successfully upgraded to ${targetPlanName}!`);
+      setUpgradeDialogOpen(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error upgrading plan');
+    } finally {
+      setUpgrading(false);
+    }
+  };
+
+  const handleTopUp = async (minutes: number) => {
+    setTopUpLoading(true);
+    try {
+      const res = await fetch('/api/business/subscription/topup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ minutes }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to top up minutes');
+      }
+      const updated: ClientSubscriptionOverview = await res.json();
+      setData(updated);
+      toast.success(`Added ${minutes} bonus minutes to your organization!`);
+      setTopUpOpen(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error topping up minutes');
+    } finally {
+      setTopUpLoading(false);
+    }
+  };
 
   useEffect(() => {
     fetch('/api/business/subscription')
@@ -113,99 +162,146 @@ export function ClientSubscriptionCard() {
             </CardDescription>
           </div>
 
-          <Dialog open={upgradeDialogOpen} onOpenChange={setUpgradeDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" variant="outline" className="gap-1.5 self-start sm:self-auto">
-                <Sparkles className="h-3.5 w-3.5 text-cta" />
-                Manage Plan
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-3xl">
-              <DialogHeader>
-                <DialogTitle>Available Voice Agent Subscription Plans</DialogTitle>
-                <DialogDescription>
-                  Scale your calling capacity, concurrent telephone lines, and voice agent workflows.
-                </DialogDescription>
-              </DialogHeader>
-
-              <div className="grid gap-4 md:grid-cols-3 pt-4">
-                {availablePlans.map((p) => {
-                  const isCurrent = p.id === plan.id;
-                  return (
-                    <div
-                      key={p.id}
-                      className={`flex flex-col justify-between rounded-xl border p-4 transition-all ${
-                        isCurrent
-                          ? 'border-primary bg-primary/5 shadow-xs'
-                          : 'border-border/70 hover:border-border'
-                      }`}
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <Dialog open={topUpOpen} onOpenChange={setTopUpOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" variant="outline" className="gap-1.5 text-xs">
+                  <Coins className="h-3.5 w-3.5 text-primary" />
+                  Top Up Minutes
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Top Up Voice Minutes</DialogTitle>
+                  <DialogDescription>
+                    Add instant bonus voice minutes to your organization to ensure uninterrupted calling.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid grid-cols-2 gap-3 pt-3">
+                  {[
+                    { minutes: 100, price: "$18" },
+                    { minutes: 250, price: "$45" },
+                    { minutes: 500, price: "$90" },
+                    { minutes: 1000, price: "$180" },
+                  ].map((preset) => (
+                    <Button
+                      key={preset.minutes}
+                      variant="outline"
+                      className="flex flex-col items-center justify-center h-20 border-border/70 hover:border-primary hover:bg-primary/5 transition-all"
+                      disabled={topUpLoading}
+                      onClick={() => handleTopUp(preset.minutes)}
                     >
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <h4 className="font-semibold text-base">{p.name}</h4>
-                          {isCurrent && (
-                            <Badge variant="secondary" className="text-xs">
-                              Current
-                            </Badge>
+                      <span className="font-bold text-base">+{preset.minutes} min</span>
+                      <span className="text-xs text-muted-foreground">{preset.price} USD</span>
+                    </Button>
+                  ))}
+                </div>
+                {topUpLoading && (
+                  <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground pt-2">
+                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                    Crediting minutes...
+                  </div>
+                )}
+              </DialogContent>
+            </Dialog>
+
+            <Dialog open={upgradeDialogOpen} onOpenChange={setUpgradeDialogOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" variant="default" className="gap-1.5">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Manage Plan
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-3xl">
+                <DialogHeader>
+                  <DialogTitle>Available Voice Agent Subscription Plans</DialogTitle>
+                  <DialogDescription>
+                    Scale your calling capacity, concurrent telephone lines, and voice agent workflows.
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="grid gap-4 md:grid-cols-3 pt-4">
+                  {availablePlans.map((p) => {
+                    const isCurrent = p.id === plan.id;
+                    return (
+                      <div
+                        key={p.id}
+                        className={`flex flex-col justify-between rounded-xl border p-4 transition-all ${
+                          isCurrent
+                            ? 'border-primary bg-primary/5 shadow-xs'
+                            : 'border-border/70 hover:border-border'
+                        }`}
+                      >
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-semibold text-base">{p.name}</h4>
+                            {isCurrent && (
+                              <Badge variant="secondary" className="text-xs">
+                                Current
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="text-2xl font-bold">
+                            ${(p.priceCents / 100).toFixed(0)}
+                            <span className="text-xs font-normal text-muted-foreground"> /mo</span>
+                          </div>
+                          <p className="text-xs text-muted-foreground leading-relaxed">{p.description}</p>
+
+                          <div className="border-t border-border/50 pt-3 space-y-2 text-xs">
+                            <div className="flex items-center gap-1.5 font-medium">
+                              <Clock className="h-3.5 w-3.5 text-primary" />
+                              {p.includedVoiceMinutes.toLocaleString()} Voice Minutes
+                            </div>
+                            <div className="flex items-center gap-1.5 font-medium">
+                              <PhoneCall className="h-3.5 w-3.5 text-primary" />
+                              {p.maxConcurrentCalls} Concurrent Lines
+                            </div>
+                            <div className="flex items-center gap-1.5 font-medium">
+                              <Layers className="h-3.5 w-3.5 text-primary" />
+                              {p.maxVoiceAgents} Active Voice Agents
+                            </div>
+                          </div>
+
+                          <div className="pt-2 space-y-1.5">
+                            {p.features.slice(0, 3).map((feat, idx) => (
+                              <div key={idx} className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
+                                <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0 mt-0.5" />
+                                <span>{feat}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="pt-5">
+                          {isCurrent ? (
+                            <Button disabled variant="outline" className="w-full text-xs" size="sm">
+                              Current Plan
+                            </Button>
+                          ) : (
+                            <Button
+                              className="w-full text-xs gap-1.5"
+                              size="sm"
+                              disabled={upgrading}
+                              onClick={() => handleUpgrade(p.id, p.name)}
+                            >
+                              {upgrading ? (
+                                <>
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  Upgrading...
+                                </>
+                              ) : (
+                                'Select Plan'
+                              )}
+                            </Button>
                           )}
                         </div>
-                        <div className="text-2xl font-bold">
-                          ${(p.priceCents / 100).toFixed(0)}
-                          <span className="text-xs font-normal text-muted-foreground"> /mo</span>
-                        </div>
-                        <p className="text-xs text-muted-foreground leading-relaxed">{p.description}</p>
-
-                        <div className="border-t border-border/50 pt-3 space-y-2 text-xs">
-                          <div className="flex items-center gap-1.5 font-medium">
-                            <Clock className="h-3.5 w-3.5 text-primary" />
-                            {p.includedVoiceMinutes.toLocaleString()} Voice Minutes
-                          </div>
-                          <div className="flex items-center gap-1.5 font-medium">
-                            <PhoneCall className="h-3.5 w-3.5 text-primary" />
-                            {p.maxConcurrentCalls} Concurrent Lines
-                          </div>
-                          <div className="flex items-center gap-1.5 font-medium">
-                            <Layers className="h-3.5 w-3.5 text-primary" />
-                            {p.maxVoiceAgents} Active Voice Agents
-                          </div>
-                        </div>
-
-                        <div className="pt-2 space-y-1.5">
-                          {p.features.slice(0, 3).map((feat, idx) => (
-                            <div key={idx} className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
-                              <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0 mt-0.5" />
-                              <span>{feat}</span>
-                            </div>
-                          ))}
-                        </div>
                       </div>
-
-                      <div className="pt-5">
-                        {isCurrent ? (
-                          <Button disabled variant="outline" className="w-full text-xs" size="sm">
-                            Current Plan
-                          </Button>
-                        ) : (
-                          <Button
-                            className="w-full text-xs"
-                            size="sm"
-                            onClick={() => {
-                              toast.info(
-                                `To upgrade to the ${p.name}, please contact your Skill Corner account representative or admin.`
-                              );
-                              setUpgradeDialogOpen(false);
-                            }}
-                          >
-                            Select Plan
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </DialogContent>
-          </Dialog>
+                    );
+                  })}
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
       </CardHeader>
 

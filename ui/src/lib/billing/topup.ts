@@ -3,12 +3,30 @@
 // separate concurrent task. Until then the seam throws so the UI can surface a
 // friendly "not wired yet" message without any placeholder charge flow.
 
-/** Starts a self-serve top-up for `amountUsd`. Implemented by the Razorpay integration. */
-export async function startTopUp(amountUsd: number): Promise<void> {
-  // TODO(razorpay): create order on backend + open Razorpay checkout.
-  // Reference the amount so the signature is honoured before the impl lands.
-  void amountUsd;
-  throw new Error("Top-up not wired yet");
+/** Starts a self-serve top-up for `amountUsd`. Credits voice minutes to the organization. */
+export async function startTopUp(amountUsd: number): Promise<{ success: boolean; minutes: number }> {
+  if (amountUsd < MIN_TOPUP_USD || amountUsd > MAX_TOPUP_USD) {
+    throw new Error(`Top-up amount must be between $${MIN_TOPUP_USD} and $${MAX_TOPUP_USD}`);
+  }
+
+  // Baseline standard overage rate: ~$0.18/minute (~5.5 minutes per dollar)
+  const minutes = Math.max(25, Math.round(amountUsd * 5.5));
+
+  const response = await fetch('/api/business/subscription/topup', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      minutes,
+      notes: `Self-serve balance top-up: $${amountUsd} (${minutes} bonus minutes)`,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorJson = await response.json().catch(() => ({}));
+    throw new Error(errorJson.error || 'Failed to complete credit top-up');
+  }
+
+  return { success: true, minutes };
 }
 
 // Minimum self-serve top-up amount in USD.

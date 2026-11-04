@@ -11,7 +11,8 @@ import httpx
 from fastapi import HTTPException
 from loguru import logger
 
-from api.constants import DEPLOYMENT_MODE
+from api.constants import DEPLOYMENT_MODE, ENVIRONMENT
+from api.enums import Environment
 from api.db import db_client
 from api.db.models import UserModel
 from api.errors.failure import (
@@ -623,6 +624,131 @@ async def _authorize_oss_managed_v2_run(
     return QuotaCheckResult(has_quota=True)
 
 
+async def check_business_organization_quota(
+    *,
+    organization_id: int,
+    is_byok: bool = False,
+) -> QuotaCheckResult:
+    """Authoritative organization subscription, quota, and BYOK policy check.
+
+    Verifies against business_ext.organization_subscriptions:
+    1. Active status (blocks 'paused', 'canceled')
+    2. BYOK Commercial Policy (rejects BYOK if plan does not support it)
+    3. Concurrency limits (checks current 'running' workflow runs)
+    4. Monthly voice minute quota allocation
+    """
+    try:
+        sub_rows = await db_client.execute_raw_query(
+            """
+            SELECT 
+                s.status,
+                s.included_minutes,
+                s.bonus_minutes,
+                s.concurrency_limit,
+                s.current_period_start,
+                s.current_period_end,
+                p.id AS plan_id,
+                p.supports_byok,
+                p.additional_minute_rate_cents
+            FROM business_ext.organization_mappings om
+            INNER JOIN business_ext.organization_subscriptions s ON s.tenant_id = om.business_tenant_id
+            INNER JOIN business_ext.subscription_plans p ON p.id = s.plan_id
+            WHERE om.acuity_organization_id = :org_id
+            LIMIT 1;
+            """,
+            {"org_id": organization_id},
+        )
+        if not sub_rows:
+            return QuotaCheckResult(has_quota=True)
+
+        sub = sub_rows[0]
+        status = sub.get("status")
+
+        # 1. Status enforcement
+        if status in ("paused", "canceled"):
+            return QuotaCheckResult(
+                has_quota=False,
+                error_code="subscription_suspended",
+                error_message=f"Organization subscription is {status}. Calling access is suspended.",
+            )
+
+        # 2. BYOK Commercial Policy enforcement
+        supports_byok = sub.get("supports_byok", False)
+        if is_byok and not supports_byok:
+            return QuotaCheckResult(
+                has_quota=False,
+                error_code="byok_not_supported",
+                error_message=(
+                    "Bring-Your-Own-Key (BYOK) provider configuration is not permitted on the "
+                    f"{str(sub.get('plan_id', 'current')).capitalize()} Plan. Please upgrade to Professional or Enterprise."
+                ),
+            )
+
+        # 3. Concurrency limit enforcement
+        concurrency_limit = sub.get("concurrency_limit") or 2
+        active_runs_rows = await db_client.execute_raw_query(
+            """
+            SELECT COUNT(wr.id) AS active_count
+            FROM public.workflows w
+            INNER JOIN public.workflow_runs wr ON wr.workflow_id = w.id
+            WHERE w.organization_id = :org_id
+              AND wr.status = 'running';
+            """,
+            {"org_id": organization_id},
+        )
+        active_count = active_runs_rows[0]["active_count"] if active_runs_rows else 0
+        if active_count >= concurrency_limit:
+            return QuotaCheckResult(
+                has_quota=False,
+                error_code="concurrency_limit_exceeded",
+                error_message=f"Organization concurrent call limit of {concurrency_limit} reached.",
+            )
+
+        # 4. Period minute quota enforcement
+        period_start = sub.get("current_period_start")
+        period_end = sub.get("current_period_end")
+        if period_start and period_end:
+            usage_rows = await db_client.execute_raw_query(
+                """
+                SELECT COALESCE(SUM((wr.usage_info->>'call_duration_seconds')::numeric) / 60.0, 0)::float AS total_minutes
+                FROM public.workflows w
+                INNER JOIN public.workflow_runs wr ON wr.workflow_id = w.id
+                WHERE w.organization_id = :org_id
+                  AND wr.created_at >= :period_start
+                  AND wr.created_at <= :period_end;
+                """,
+                {
+                    "org_id": organization_id,
+                    "period_start": period_start,
+                    "period_end": period_end,
+                },
+            )
+            used_minutes = usage_rows[0]["total_minutes"] if usage_rows else 0.0
+            total_allocated = (sub.get("included_minutes") or 0) + (sub.get("bonus_minutes") or 0)
+            if total_allocated > 0 and used_minutes >= total_allocated:
+                return QuotaCheckResult(
+                    has_quota=False,
+                    error_code="quota_exhausted",
+                    error_message=f"Monthly voice minute quota ({total_allocated} min) exhausted for the current billing cycle.",
+                )
+
+        return QuotaCheckResult(has_quota=True)
+
+    except Exception as e:
+        logger.error(
+            "Error evaluating business organization subscription quota for org {}: {}",
+            organization_id,
+            e,
+        )
+        if ENVIRONMENT not in (Environment.LOCAL.value, Environment.TEST.value, "dev"):
+            return QuotaCheckResult(
+                has_quota=False,
+                error_code="quota_check_failed",
+                error_message="Unable to verify organization subscription status. Access denied.",
+            )
+        return QuotaCheckResult(has_quota=True)
+
+
 async def authorize_workflow_run_start(
     *,
     workflow_id: int,
@@ -800,6 +926,22 @@ async def authorize_workflow_run_start(
             )
 
         Acuity_api_keys = _Acuity_api_keys(user_config)
+        is_byok = not bool(Acuity_api_keys)
+
+        # Check authoritative organization subscription quota & policy in business_ext
+        business_quota_result = await check_business_organization_quota(
+            organization_id=organization_id,
+            is_byok=is_byok,
+        )
+        if not business_quota_result.has_quota:
+            logger.warning(
+                "Workflow start authorization denied by subscription policy: org {} code {} msg {}",
+                organization_id,
+                business_quota_result.error_code,
+                business_quota_result.error_message,
+            )
+            return business_quota_result
+
         if workflow_run_id is None or not uses_managed_model_services_v2(user_config):
             if Acuity_api_keys:
                 return await _authorize_oss_Acuity_keys(
