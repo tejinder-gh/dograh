@@ -1,26 +1,46 @@
 import type { TenantContext } from '../domain/tenant-mapping.types';
-import type {
-  Appointment,
-  CreateAppointmentInput,
-  AvailabilityQueryInput,
-  AvailableSlot,
-  AppointmentStatus,
+import {
+  type Appointment,
+  type CreateAppointmentInput,
+  type AvailabilityQueryInput,
+  type AvailableSlot,
+  type AppointmentStatus,
+  SlotCollisionError,
 } from '../domain/appointment.types';
 import {
   createAppointment,
   getAppointmentById,
   listAppointmentsByTenant,
-  hasSlotCollision,
   updateAppointmentStatus,
   rescheduleAppointmentInDb,
 } from '../repositories/appointment.repository';
 import { query } from '../config/database';
 
-export class SlotCollisionError extends Error {
-  readonly statusCode = 409;
-  constructor(message = 'Time slot conflict: The requested appointment slot is already booked.') {
-    super(message);
-    this.name = 'SlotCollisionError';
+export { SlotCollisionError };
+
+function getTargetTimezoneOffsetMs(date: Date, timeZone: string): number {
+  try {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+      second: 'numeric',
+      hour12: false,
+    });
+    const parts = formatter.formatToParts(date);
+    const getPart = (t: string) => Number(parts.find((p) => p.type === t)?.value || 0);
+    const y = getPart('year');
+    const m = getPart('month') - 1;
+    const d = getPart('day');
+    let h = getPart('hour');
+    if (h === 24) h = 0;
+    const targetAsUtc = Date.UTC(y, m, d, h, getPart('minute'), getPart('second'));
+    return targetAsUtc - date.getTime();
+  } catch {
+    return 0; // Fallback to UTC if invalid timezone string
   }
 }
 
@@ -29,6 +49,7 @@ export async function getAvailabilitySlots(
   input: AvailabilityQueryInput
 ): Promise<AvailableSlot[]> {
   const durationMs = (input.durationMinutes || 30) * 60 * 1000;
+  const targetTimezone = input.timezone || 'America/New_York';
   
   // Parse start and end date
   let startDate = new Date(input.startDate);
@@ -53,32 +74,41 @@ export async function getAvailabilitySlots(
 
   // Iterate day by day between startDate and endDate
   while (currentDate < endDate) {
-    const dayOfWeek = currentDate.getUTCDay();
-    // Monday (1) through Friday (5) business hours: 9:00 AM - 5:00 PM UTC
-    if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-      const dayStart = new Date(currentDate);
-      dayStart.setUTCHours(9, 0, 0, 0);
+    const offsetMs = getTargetTimezoneOffsetMs(currentDate, targetTimezone);
+    const localizedDate = new Date(currentDate.getTime() + offsetMs);
+    const dayOfWeek = localizedDate.getUTCDay();
 
-      const dayEnd = new Date(currentDate);
-      dayEnd.setUTCHours(17, 0, 0, 0);
+    // Monday (1) through Friday (5) business hours: 9:00 AM - 5:00 PM in target timezone
+    if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+      const year = localizedDate.getUTCFullYear();
+      const month = localizedDate.getUTCMonth();
+      const day = localizedDate.getUTCDate();
+
+      // 9:00 AM local time in target timezone converted to UTC timestamp
+      const dayStart = new Date(Date.UTC(year, month, day, 9, 0, 0) - offsetMs);
+      // 5:00 PM (17:00) local time in target timezone converted to UTC timestamp
+      const dayEnd = new Date(Date.UTC(year, month, day, 17, 0, 0) - offsetMs);
 
       let slotStart = new Date(dayStart);
       while (slotStart.getTime() + durationMs <= dayEnd.getTime()) {
         const slotEnd = new Date(slotStart.getTime() + durationMs);
 
-        // Check if overlaps with any active appointment
-        const isOccupied = appointments.some((apt) => {
-          if (apt.status === 'cancelled' || apt.status === 'no_show') return false;
-          const aptStart = new Date(apt.startTime).getTime();
-          const aptEnd = new Date(apt.endTime).getTime();
-          return aptStart < slotEnd.getTime() && aptEnd > slotStart.getTime();
-        });
+        // Slot must fall within requested [startDate, endDate] window
+        if (slotStart >= startDate && slotEnd <= endDate) {
+          // Check if overlaps with any active appointment
+          const isOccupied = appointments.some((apt) => {
+            if (apt.status === 'cancelled' || apt.status === 'no_show') return false;
+            const aptStart = new Date(apt.startTime).getTime();
+            const aptEnd = new Date(apt.endTime).getTime();
+            return aptStart < slotEnd.getTime() && aptEnd > slotStart.getTime();
+          });
 
-        slots.push({
-          startTime: slotStart.toISOString(),
-          endTime: slotEnd.toISOString(),
-          available: !isOccupied,
-        });
+          slots.push({
+            startTime: slotStart.toISOString(),
+            endTime: slotEnd.toISOString(),
+            available: !isOccupied,
+          });
+        }
 
         // Advance by slot duration
         slotStart = new Date(slotStart.getTime() + durationMs);
@@ -95,16 +125,7 @@ export async function bookAppointment(
   tenantContext: TenantContext,
   input: CreateAppointmentInput
 ): Promise<Appointment> {
-  const start = new Date(input.startTime);
-  const end = new Date(input.endTime);
-
-  // Atomic conflict check
-  const collision = await hasSlotCollision(tenantContext.businessTenantId, start, end);
-  if (collision) {
-    throw new SlotCollisionError();
-  }
-
-  // Create appointment
+  // Create appointment atomically with advisory lock and collision check
   const appointment = await createAppointment(tenantContext.businessTenantId, input);
 
   // If bound to a contact, update contact lifecycle and append timeline audit event
@@ -179,16 +200,6 @@ export async function rescheduleAppointment(
   newEndTime: Date,
   notes?: string
 ): Promise<Appointment> {
-  const collision = await hasSlotCollision(
-    tenantContext.businessTenantId,
-    newStartTime,
-    newEndTime,
-    appointmentId
-  );
-  if (collision) {
-    throw new SlotCollisionError();
-  }
-
   const rescheduled = await rescheduleAppointmentInDb(
     tenantContext.businessTenantId,
     appointmentId,

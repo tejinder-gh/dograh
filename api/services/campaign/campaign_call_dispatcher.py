@@ -216,6 +216,26 @@ class CampaignCallDispatcher:
             phone_number = queued_run.context_variables.get("phone_number")
             if not phone_number:
                 raise ValueError(f"No phone number in queued run {queued_run.id}")
+
+            # Compliance: DNC Suppression and TCPA Jurisdictional Hours
+            from api.services.compliance.calling_controls import (
+                is_phone_suppressed,
+                is_within_jurisdictional_hours,
+            )
+
+            if await is_phone_suppressed(campaign.organization_id, phone_number):
+                logger.warning(
+                    f"[Campaign {campaign.id}] Skipping suppressed / DNC phone {phone_number}"
+                )
+                raise ValueError(f"Phone {phone_number} is on suppression / DNC list")
+
+            recipient_tz = queued_run.context_variables.get("timezone", "America/New_York")
+            if not is_within_jurisdictional_hours(recipient_tz):
+                logger.warning(
+                    f"[Campaign {campaign.id}] Skipping {phone_number}: outside legal jurisdictional hours for tz {recipient_tz}"
+                )
+                raise ValueError(f"Outbound calling outside legal hours for {recipient_tz}")
+
             split = campaign_split(campaign)
             variant = pick_variant(split, phone_number)
             workflow_id = variant["workflow_id"]

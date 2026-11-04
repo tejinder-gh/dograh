@@ -3,8 +3,11 @@
 // separate concurrent task. Until then the seam throws so the UI can surface a
 // friendly "not wired yet" message without any placeholder charge flow.
 
-/** Starts a self-serve top-up for `amountUsd`. Credits voice minutes to the organization. */
-export async function startTopUp(amountUsd: number): Promise<{ success: boolean; minutes: number }> {
+/** Starts a self-serve top-up for `amountUsd`. Requires verified payment transaction ID. */
+export async function startTopUp(
+  amountUsd: number,
+  paymentTransactionId?: string
+): Promise<{ success: boolean; minutes: number }> {
   if (amountUsd < MIN_TOPUP_USD || amountUsd > MAX_TOPUP_USD) {
     throw new Error(`Top-up amount must be between $${MIN_TOPUP_USD} and $${MAX_TOPUP_USD}`);
   }
@@ -17,6 +20,7 @@ export async function startTopUp(amountUsd: number): Promise<{ success: boolean;
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       minutes,
+      paymentTransactionId,
       notes: `Self-serve balance top-up: $${amountUsd} (${minutes} bonus minutes)`,
     }),
   });

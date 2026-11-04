@@ -78,5 +78,5 @@ async def is_phone_suppressed(
         return False
     except Exception as e:
         logger.error(f"[Compliance] Error checking suppression for {clean_phone}: {e}")
-        # Fail safe on database error: don't call if unsure
-        return False
+        # Fail closed on database error: suppress / do not call if unsure to avoid compliance violations
+        return True

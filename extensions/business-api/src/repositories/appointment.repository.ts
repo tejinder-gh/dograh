@@ -1,8 +1,9 @@
-import { query } from '../config/database';
-import type {
-  Appointment,
-  CreateAppointmentInput,
-  AppointmentStatus,
+import { query, withTransaction } from '../config/database';
+import {
+  type Appointment,
+  type CreateAppointmentInput,
+  type AppointmentStatus,
+  SlotCollisionError,
 } from '../domain/appointment.types';
 
 interface AppointmentDbRow {
@@ -74,39 +75,63 @@ export async function createAppointment(
   tenantId: string,
   input: CreateAppointmentInput
 ): Promise<Appointment> {
-  const sql = `
-    INSERT INTO business_ext.appointments (
-      tenant_id,
-      contact_id,
-      acuity_workflow_id,
-      acuity_run_id,
-      title,
-      status,
-      start_time,
-      end_time,
-      source,
-      resulting_deal_value,
-      notes
-    ) VALUES ($1, $2, $3, $4, $5, 'confirmed', $6, $7, $8, $9, $10)
-    RETURNING *;
-  `;
-  const values = [
-    tenantId,
-    input.contactId || null,
-    input.acuityWorkflowId || null,
-    input.acuityRunId || null,
-    input.title,
-    new Date(input.startTime),
-    new Date(input.endTime),
-    input.source || 'agent',
-    input.resultingDealValue || 0,
-    input.notes || '',
-  ];
+  const start = new Date(input.startTime);
+  const end = new Date(input.endTime);
 
-  const res = await query<AppointmentDbRow>(sql, values);
-  const row = res.rows[0];
-  if (!row) throw new Error('Failed to insert appointment record');
-  return mapRowToAppointment(row);
+  return withTransaction(async (client) => {
+    // Acquire transaction-scoped advisory lock for this tenant's scheduling
+    // Ensures atomic check-and-insert serialized per tenant, eliminating race conditions
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1));', [`apt_lock_${tenantId}`]);
+
+    // Check collision under the advisory lock
+    const collisionRes = await client.query(
+      `SELECT id FROM business_ext.appointments
+       WHERE tenant_id = $1
+         AND status NOT IN ('cancelled', 'no_show')
+         AND start_time < $3
+         AND end_time > $2
+       LIMIT 1;`,
+      [tenantId, start, end]
+    );
+
+    if ((collisionRes.rowCount ?? 0) > 0) {
+      throw new SlotCollisionError();
+    }
+
+    const sql = `
+      INSERT INTO business_ext.appointments (
+        tenant_id,
+        contact_id,
+        acuity_workflow_id,
+        acuity_run_id,
+        title,
+        status,
+        start_time,
+        end_time,
+        source,
+        resulting_deal_value,
+        notes
+      ) VALUES ($1, $2, $3, $4, $5, 'confirmed', $6, $7, $8, $9, $10)
+      RETURNING *;
+    `;
+    const values = [
+      tenantId,
+      input.contactId || null,
+      input.acuityWorkflowId || null,
+      input.acuityRunId || null,
+      input.title,
+      start,
+      end,
+      input.source || 'agent',
+      input.resultingDealValue || 0,
+      input.notes || '',
+    ];
+
+    const res = await client.query<AppointmentDbRow>(sql, values);
+    const row = res.rows[0];
+    if (!row) throw new Error('Failed to insert appointment record');
+    return mapRowToAppointment(row);
+  });
 }
 
 function isValidUuid(val: string): boolean {
@@ -227,23 +252,45 @@ export async function rescheduleAppointmentInDb(
   notes?: string
 ): Promise<Appointment | null> {
   if (!isValidUuid(appointmentId)) return null;
-  const sql = `
-    UPDATE business_ext.appointments
-    SET start_time = $1,
-        end_time = $2,
-        status = 'rescheduled',
-        notes = CASE WHEN $3::text IS NOT NULL THEN $3 ELSE notes END,
-        updated_at = NOW()
-    WHERE tenant_id = $4 AND id = $5
-    RETURNING *;
-  `;
-  const res = await query<AppointmentDbRow>(sql, [
-    newStartTime,
-    newEndTime,
-    notes ?? null,
-    tenantId,
-    appointmentId,
-  ]);
-  const row = res.rows[0];
-  return row ? mapRowToAppointment(row) : null;
+
+  return withTransaction(async (client) => {
+    // Advisory lock for tenant
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1));', [`apt_lock_${tenantId}`]);
+
+    // Check collision under lock
+    const collisionRes = await client.query(
+      `SELECT id FROM business_ext.appointments
+       WHERE tenant_id = $1
+         AND id != $4
+         AND status NOT IN ('cancelled', 'no_show')
+         AND start_time < $3
+         AND end_time > $2
+       LIMIT 1;`,
+      [tenantId, newStartTime, newEndTime, appointmentId]
+    );
+
+    if ((collisionRes.rowCount ?? 0) > 0) {
+      throw new SlotCollisionError();
+    }
+
+    const sql = `
+      UPDATE business_ext.appointments
+      SET start_time = $1,
+          end_time = $2,
+          status = 'rescheduled',
+          notes = CASE WHEN $3::text IS NOT NULL THEN $3 ELSE notes END,
+          updated_at = NOW()
+      WHERE tenant_id = $4 AND id = $5
+      RETURNING *;
+    `;
+    const res = await client.query<AppointmentDbRow>(sql, [
+      newStartTime,
+      newEndTime,
+      notes ?? null,
+      tenantId,
+      appointmentId,
+    ]);
+    const row = res.rows[0];
+    return row ? mapRowToAppointment(row) : null;
+  });
 }

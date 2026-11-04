@@ -1507,3 +1507,49 @@ async def test_quota_service_authorizes_valid_professional_run(monkeypatch):
         is_byok=True,
     )
     assert result.has_quota is True
+
+
+@pytest.mark.asyncio
+async def test_quota_service_blocks_missing_subscription_record(monkeypatch):
+    """Negative test: Organization with no subscription record must NOT bypass quota."""
+    monkeypatch.setattr(
+        quota_service.db_client,
+        "execute_raw_query",
+        AsyncMock(return_value=[]),  # No subscription in business_ext
+    )
+
+    result = await quota_service.check_business_organization_quota(
+        organization_id=999,
+        is_byok=False,
+    )
+    assert result.has_quota is False, "Must fail closed if organization subscription record is missing"
+    assert result.error_code == "subscription_not_found"
+
+
+@pytest.mark.asyncio
+async def test_quota_service_blocks_zero_minute_allocation(monkeypatch):
+    """Negative test: Organization with 0 total allocated minutes must be blocked from calling."""
+    mock_sub = [{
+        "status": "active",
+        "included_minutes": 0,
+        "bonus_minutes": 0,
+        "concurrency_limit": 2,
+        "current_period_start": "2026-11-01T00:00:00Z",
+        "current_period_end": "2026-12-01T00:00:00Z",
+        "plan_id": "starter",
+        "supports_byok": False,
+        "additional_minute_rate_cents": 25,
+    }]
+    monkeypatch.setattr(
+        quota_service.db_client,
+        "execute_raw_query",
+        AsyncMock(side_effect=[mock_sub, [{"active_count": 0}], [{"total_minutes": 0.0}]]),
+    )
+
+    result = await quota_service.check_business_organization_quota(
+        organization_id=42,
+        is_byok=False,
+    )
+    assert result.has_quota is False, "Must block calls when total allocated minutes is 0"
+    assert result.error_code == "quota_exhausted"
+

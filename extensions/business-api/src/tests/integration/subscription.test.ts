@@ -216,9 +216,62 @@ describe('Multi-Tenant Subscription & Admin Account Control Boundary', () => {
     expect(firstLog?.reason).toContain('Upgraded client account');
   });
 
+  it('strictly rejects customer self-service upgrade without payment verification (402)', async () => {
+    const path = '/api/subscription/upgrade';
+    const payload = JSON.stringify({ planId: 'enterprise' }); // No payment transaction ID!
+    const assertion = createInternalAssertion({
+      userId: testUserId,
+      orgId: testOrgId,
+      deploymentId,
+      secret: validSecret,
+      method: 'POST',
+      path,
+      body: payload,
+    });
+
+    const res = await app.request(path, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Internal-Assertion': assertion,
+      },
+      body: payload,
+    });
+
+    expect(res.status).toBe(402);
+  });
+
+  it('strictly rejects customer self-service top-up without payment verification (402)', async () => {
+    const path = '/api/subscription/topup';
+    const payload = JSON.stringify({ minutes: 500 }); // No payment transaction ID!
+    const assertion = createInternalAssertion({
+      userId: testUserId,
+      orgId: testOrgId,
+      deploymentId,
+      secret: validSecret,
+      method: 'POST',
+      path,
+      body: payload,
+    });
+
+    const res = await app.request(path, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Internal-Assertion': assertion,
+      },
+      body: payload,
+    });
+
+    expect(res.status).toBe(402);
+  });
+
   it('allows verified client to self-service upgrade their plan (BIL-02)', async () => {
     const path = '/api/subscription/upgrade';
-    const payload = JSON.stringify({ planId: 'enterprise' });
+    const payload = JSON.stringify({
+      planId: 'enterprise',
+      paymentTransactionId: 'pi_test_stripe_upgrade_12345',
+    });
     const assertion = createInternalAssertion({
       userId: testUserId,
       orgId: testOrgId,
@@ -247,7 +300,11 @@ describe('Multi-Tenant Subscription & Admin Account Control Boundary', () => {
 
   it('allows verified client to self-service top up voice minutes (BIL-01)', async () => {
     const path = '/api/subscription/topup';
-    const payload = JSON.stringify({ minutes: 250, notes: 'Self-serve top up test' });
+    const payload = JSON.stringify({
+      minutes: 250,
+      paymentTransactionId: 'pi_test_stripe_topup_67890',
+      notes: 'Self-serve top up test',
+    });
     const assertion = createInternalAssertion({
       userId: testUserId,
       orgId: testOrgId,

@@ -9,10 +9,12 @@ import {
 
 const UpgradeSchema = z.object({
   planId: z.string().min(1),
+  paymentTransactionId: z.string().optional(),
 });
 
 const TopUpSchema = z.object({
   minutes: z.number().int().positive(),
+  paymentTransactionId: z.string().optional(),
   notes: z.string().optional(),
 });
 
@@ -61,8 +63,23 @@ subscriptionRouter.post('/upgrade', async (c) => {
     return c.json({ error: 'Validation failed', details: parsed.error.errors }, 400);
   }
 
+  // Payment Verification Guard: Never grant self-service plan upgrades without verified payment
+  if (!parsed.data.paymentTransactionId || !parsed.data.paymentTransactionId.trim()) {
+    return c.json(
+      {
+        error: 'Payment verification required: cannot grant plan upgrade without verified payment transaction ID',
+        code: 'payment_verification_required',
+      },
+      402
+    );
+  }
+
   try {
-    const overview = await clientUpgradeSubscription(tenantContext, parsed.data.planId);
+    const overview = await clientUpgradeSubscription(
+      tenantContext,
+      parsed.data.planId,
+      parsed.data.paymentTransactionId
+    );
     return c.json(overview);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to upgrade subscription';
@@ -88,10 +105,22 @@ subscriptionRouter.post('/topup', async (c) => {
     return c.json({ error: 'Validation failed', details: parsed.error.errors }, 400);
   }
 
+  // Payment Verification Guard: Never grant self-service minutes without verified payment
+  if (!parsed.data.paymentTransactionId || !parsed.data.paymentTransactionId.trim()) {
+    return c.json(
+      {
+        error: 'Payment verification required: cannot grant voice minutes without verified payment transaction ID',
+        code: 'payment_verification_required',
+      },
+      402
+    );
+  }
+
   try {
     const overview = await clientTopUpMinutes(
       tenantContext,
       parsed.data.minutes,
+      parsed.data.paymentTransactionId,
       parsed.data.notes
     );
     return c.json(overview);

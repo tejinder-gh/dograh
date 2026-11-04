@@ -659,7 +659,11 @@ async def check_business_organization_quota(
             {"org_id": organization_id},
         )
         if not sub_rows:
-            return QuotaCheckResult(has_quota=True)
+            return QuotaCheckResult(
+                has_quota=False,
+                error_code="subscription_not_found",
+                error_message=f"No active subscription found for organization {organization_id}. Calling is disabled.",
+            )
 
         sub = sub_rows[0]
         status = sub.get("status")
@@ -705,6 +709,14 @@ async def check_business_organization_quota(
             )
 
         # 4. Period minute quota enforcement
+        total_allocated = (sub.get("included_minutes") or 0) + (sub.get("bonus_minutes") or 0)
+        if total_allocated <= 0:
+            return QuotaCheckResult(
+                has_quota=False,
+                error_code="quota_exhausted",
+                error_message="Voice minute allocation is 0 minutes. Please purchase voice minutes or upgrade plan.",
+            )
+
         period_start = sub.get("current_period_start")
         period_end = sub.get("current_period_end")
         if period_start and period_end:
@@ -724,8 +736,7 @@ async def check_business_organization_quota(
                 },
             )
             used_minutes = usage_rows[0]["total_minutes"] if usage_rows else 0.0
-            total_allocated = (sub.get("included_minutes") or 0) + (sub.get("bonus_minutes") or 0)
-            if total_allocated > 0 and used_minutes >= total_allocated:
+            if used_minutes >= total_allocated:
                 return QuotaCheckResult(
                     has_quota=False,
                     error_code="quota_exhausted",

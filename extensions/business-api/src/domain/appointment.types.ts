@@ -11,6 +11,14 @@ export const AppointmentStatusSchema = z.enum([
 
 export type AppointmentStatus = z.infer<typeof AppointmentStatusSchema>;
 
+export class SlotCollisionError extends Error {
+  readonly statusCode = 409;
+  constructor(message = 'Time slot conflict: The requested appointment slot is already booked.') {
+    super(message);
+    this.name = 'SlotCollisionError';
+  }
+}
+
 export const AppointmentSourceSchema = z.enum(['agent', 'manual', 'web']);
 export type AppointmentSource = z.infer<typeof AppointmentSourceSchema>;
 

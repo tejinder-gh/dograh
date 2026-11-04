@@ -145,7 +145,8 @@ export async function getAvailablePlans(): Promise<SubscriptionPlan[]> {
 
 export async function clientUpgradeSubscription(
   tenantContext: TenantContext,
-  targetPlanId: string
+  targetPlanId: string,
+  paymentTransactionId: string
 ): Promise<ClientSubscriptionOverview> {
   const current = await getSubscriptionWithPlan(tenantContext.businessTenantId);
   if (!current) {
@@ -176,8 +177,9 @@ export async function clientUpgradeSubscription(
       planId: updatedSubscription.planId,
       includedMinutes: updatedSubscription.includedMinutes,
       concurrencyLimit: updatedSubscription.concurrencyLimit,
+      paymentTransactionId,
     },
-    `Self-service plan upgrade to ${targetPlan.name}`
+    `Self-service plan upgrade to ${targetPlan.name} (Tx: ${paymentTransactionId})`
   );
 
   return getClientSubscriptionOverview(tenantContext);
@@ -186,6 +188,7 @@ export async function clientUpgradeSubscription(
 export async function clientTopUpMinutes(
   tenantContext: TenantContext,
   minutes: number,
+  paymentTransactionId: string,
   notes = 'Self-service minute top-up'
 ): Promise<ClientSubscriptionOverview> {
   if (!minutes || minutes <= 0) {
@@ -211,8 +214,9 @@ export async function clientTopUpMinutes(
     {
       bonusMinutes: updatedSubscription.bonusMinutes,
       addedMinutes: minutes,
+      paymentTransactionId,
     },
-    notes
+    `${notes} (Tx: ${paymentTransactionId})`
   );
 
   return getClientSubscriptionOverview(tenantContext);

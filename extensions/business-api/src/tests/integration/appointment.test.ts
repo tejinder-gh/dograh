@@ -96,8 +96,8 @@ describe('Integration: Multi-Tenant Appointment Booking & Slot Collision Suite (
     );
   });
 
-  it('1. Queries available appointment slots during business hours', async () => {
-    const path = '/api/appointments/availability?startDate=2026-11-10T00:00:00Z&durationMinutes=30';
+  it('1. Queries available appointment slots during business hours in requested timezone', async () => {
+    const path = '/api/appointments/availability?startDate=2026-11-10T00:00:00Z&durationMinutes=30&timezone=America/New_York';
     const assertion = createInternalAssertion({
       userId: userA,
       orgId: orgA,
@@ -117,6 +117,8 @@ describe('Integration: Multi-Tenant Appointment Booking & Slot Collision Suite (
     expect(body.data).toBeDefined();
     expect(body.data.length).toBeGreaterThan(0);
     expect(body.data[0]?.available).toBe(true);
+    // 9:00 AM EST corresponds to 14:00:00.000Z
+    expect(body.data[0]?.startTime).toBe('2026-11-10T14:00:00.000Z');
   });
 
   it('2. Successfully books an appointment and advances contact lifecycle to booked', async () => {
@@ -307,5 +309,56 @@ describe('Integration: Multi-Tenant Appointment Booking & Slot Collision Suite (
     expect(listRes.status).toBe(200);
     const listBody = (await listRes.json()) as { data: Appointment[] };
     expect(listBody.data.some((a) => a.id === appointmentAId)).toBe(false);
+  });
+
+  it('7. Prevents race conditions: concurrent bookings for the exact same slot result in exactly one 201 and one 409', async () => {
+    const path = '/api/appointments';
+    const payload = JSON.stringify({
+      title: 'Concurrent Race Test Consultation',
+      startTime: '2026-11-10T16:00:00.000Z',
+      endTime: '2026-11-10T16:30:00.000Z',
+      source: 'web',
+    });
+
+    const assertion1 = createInternalAssertion({
+      userId: userA,
+      orgId: orgA,
+      deploymentId,
+      secret: validSecret,
+      method: 'POST',
+      path,
+      body: payload,
+    });
+    const assertion2 = createInternalAssertion({
+      userId: userA,
+      orgId: orgA,
+      deploymentId,
+      secret: validSecret,
+      method: 'POST',
+      path,
+      body: payload,
+    });
+
+    const [res1, res2] = await Promise.all([
+      app.request(path, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Internal-Assertion': assertion1,
+        },
+        body: payload,
+      }),
+      app.request(path, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Internal-Assertion': assertion2,
+        },
+        body: payload,
+      }),
+    ]);
+
+    const statuses = [res1.status, res2.status].sort();
+    expect(statuses).toEqual([201, 409]);
   });
 });
