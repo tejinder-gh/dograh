@@ -2,6 +2,7 @@ import type { Context, Next } from 'hono';
 import { env } from '../config/env';
 import { resolveTenantContext } from '../services/tenant-mapping.service';
 import { verifyOrganizationActive, verifyUserOrganizationMembership } from '../adapters/acuity-api.adapter';
+import { getSubscriptionWithPlan } from '../repositories/subscription.repository';
 import {
   verifyInternalAssertion,
   consumeNonce,
@@ -71,8 +72,8 @@ export async function authMiddleware(c: Context, next: Next): Promise<Response |
     return c.json({ error: 'Forbidden: Organization does not exist or is inactive' }, 403);
   }
 
-  // 6. Verify user membership in organization (defends against revoked membership or stale selection)
-  const isMember = await verifyUserOrganizationMembership(payload.sub, payload.org);
+  // 6. Verify user membership in organization (platform superadmins have global oversight)
+  const isMember = Boolean(payload.isAdm) || (await verifyUserOrganizationMembership(payload.sub, payload.org));
   if (!isMember) {
     return c.json({ error: 'Forbidden: User is not an active member of the specified organization' }, 403);
   }
@@ -80,6 +81,29 @@ export async function authMiddleware(c: Context, next: Next): Promise<Response |
   // 7. Resolve durable tenant mapping using authoritative deployment and verified org ID
   try {
     const tenantCtx = await resolveTenantContext(payload.org, payload.dep);
+
+    // 8. Enforce organization subscription suspension / cancellation checks
+    const subWithPlan = await getSubscriptionWithPlan(tenantCtx.businessTenantId);
+    if (
+      subWithPlan &&
+      (subWithPlan.subscription.status === 'paused' || subWithPlan.subscription.status === 'canceled')
+    ) {
+      if (!payload.isAdm) {
+        // Suspended tenants may only read their subscription overview to review status or reactivate.
+        // All mutations, CRM, calls, profiles, and analytics operations are forbidden.
+        const isSubscriptionRead = c.req.method === 'GET' && c.req.path.startsWith('/api/subscription');
+        if (!isSubscriptionRead) {
+          return c.json(
+            {
+              error: `Forbidden: Organization subscription is ${subWithPlan.subscription.status}`,
+              status: subWithPlan.subscription.status,
+            },
+            403
+          );
+        }
+      }
+    }
+
     c.set('tenantContext', {
       ...tenantCtx,
       isPlatformAdmin: Boolean(payload.isAdm),
