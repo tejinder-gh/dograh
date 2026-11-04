@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
+import { parseRfc4180Csv } from "@/lib/csv/rfc4180";
 import type { CreateContactInput } from "./types";
 
 interface LeadUploadModalProps {
@@ -50,20 +51,12 @@ export function LeadUploadModal({
   const [importing, setImporting] = useState(false);
 
   const parseCsv = (text: string) => {
-    const lines = text
-      .split(/\r?\n/)
-      .map((l) => l.trim())
-      .filter(Boolean);
+    const { headers: rawHeaders, rows: rawRows } = parseRfc4180Csv(text);
 
-    if (lines.length < 2) {
+    if (rawHeaders.length === 0 || rawRows.length === 0) {
       toast.error("CSV must contain a header row and at least one data row");
       return;
     }
-
-    const rawHeaders = lines[0]!.split(",").map((h) => h.trim().replace(/^["']|["']$/g, ""));
-    const rawRows = lines.slice(1).map((line) =>
-      line.split(",").map((cell) => cell.trim().replace(/^["']|["']$/g, ""))
-    );
 
     setHeaders(rawHeaders);
     setRows(rawRows);

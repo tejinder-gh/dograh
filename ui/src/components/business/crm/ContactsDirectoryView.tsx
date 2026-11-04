@@ -1,6 +1,8 @@
 "use client";
 
 import {
+  ChevronLeft,
+  ChevronRight,
   Edit2,
   Loader2,
   Plus,
@@ -41,6 +43,9 @@ export function ContactsDirectoryView() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [total, setTotal] = useState(0);
 
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -53,17 +58,20 @@ export function ContactsDirectoryView() {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
       if (statusFilter !== "all") params.set("status", statusFilter);
+      params.set("limit", String(pageSize));
+      params.set("offset", String((page - 1) * pageSize));
 
       const res = await fetch(`/api/business/contacts?${params.toString()}`);
       if (!res.ok) throw new Error("Failed to load contacts");
       const json = await res.json();
       setContacts(json.data || []);
+      setTotal(json.total || 0);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error fetching contacts");
     } finally {
       setLoading(false);
     }
-  }, [search, statusFilter]);
+  }, [search, statusFilter, page, pageSize]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -71,6 +79,16 @@ export function ContactsDirectoryView() {
     }, 200);
     return () => clearTimeout(timer);
   }, [fetchContacts]);
+
+  const handleSearchChange = (val: string) => {
+    setSearch(val);
+    setPage(1);
+  };
+
+  const handleStatusChange = (val: string) => {
+    setStatusFilter(val);
+    setPage(1);
+  };
 
   const handleDelete = async (e: React.MouseEvent, id: string, name: string) => {
     e.stopPropagation();
@@ -116,12 +134,12 @@ export function ContactsDirectoryView() {
             <Input
               placeholder="Search leads, email, phone..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
               className="pl-8 h-8 text-xs"
             />
           </div>
 
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <Select value={statusFilter} onValueChange={handleStatusChange}>
             <SelectTrigger className="w-36 h-8 text-xs">
               <SelectValue />
             </SelectTrigger>
@@ -249,6 +267,67 @@ export function ContactsDirectoryView() {
           </TableBody>
         </Table>
       </div>
+
+      {/* Pagination Bar */}
+      {total > 0 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-1 py-2 text-xs text-muted-foreground">
+          <div className="flex items-center gap-3">
+            <span>
+              Showing <strong className="text-foreground">{(page - 1) * pageSize + 1}</strong> to{" "}
+              <strong className="text-foreground">{Math.min(page * pageSize, total)}</strong> of{" "}
+              <strong className="text-foreground">{total}</strong> contacts
+            </span>
+
+            <div className="flex items-center gap-1.5">
+              <span>Per page:</span>
+              <Select
+                value={String(pageSize)}
+                onValueChange={(val) => {
+                  setPageSize(Number(val));
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-16 h-7 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="25">25</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-xs">
+              Page <strong className="text-foreground">{page}</strong> of{" "}
+              <strong className="text-foreground">{Math.max(1, Math.ceil(total / pageSize))}</strong>
+            </span>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-7 w-7"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-7 w-7"
+                disabled={page * pageSize >= total}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modals & Drawers */}
       <ContactDetailDrawer
