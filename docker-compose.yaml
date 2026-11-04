@@ -291,6 +291,36 @@ services:
     networks:
       - app-network
 
+  business-api:
+    build:
+      context: ./extensions/business-api
+      dockerfile: Dockerfile
+    image: ${REGISTRY:-acuityai}/acuity-business-api:latest
+    environment:
+      NODE_ENV: "${ENVIRONMENT:-production}"
+      HOST: "0.0.0.0"
+      PORT: "4000"
+      DATABASE_URL: "postgresql://business_app_user:${POSTGRES_APP_PASSWORD:-business_app_password}@postgres:5432/postgres"
+      MIGRATION_DATABASE_URL: "postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/postgres"
+      BUSINESS_EXT_SECRET: "${BUSINESS_EXT_SECRET:?BUSINESS_EXT_SECRET must be set to a strong secret}"
+      ACUITY_DEPLOYMENT_ID: "${ACUITY_DEPLOYMENT_ID:-default}"
+      ACUITY_API_URL: "http://api:8000"
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://127.0.0.1:4000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - app-network
+
   ui:
     image: ${REGISTRY:-acuityai}/acuity-ui:latest
     environment:
@@ -299,6 +329,9 @@ services:
 
       # Server-side URL (SSR, internal Docker network)
       BACKEND_URL: "${BACKEND_URL:-http://api:8000}"
+      BUSINESS_API_URL: "${BUSINESS_API_INTERNAL_URL:-http://business-api:4000}"
+      BUSINESS_EXT_SECRET: "${BUSINESS_EXT_SECRET:-}"
+      ACUITY_DEPLOYMENT_ID: "${ACUITY_DEPLOYMENT_ID:-default}"
       NODE_ENV: "oss"
 
       # Flag to enable/ disable posthog
@@ -311,6 +344,8 @@ services:
       - "3010:3010"
     depends_on:
       api:
+        condition: service_healthy
+      business-api:
         condition: service_healthy
     healthcheck:
       test:
