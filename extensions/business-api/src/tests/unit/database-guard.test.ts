@@ -75,3 +75,4 @@ describe('Unit: Database Target Safety Guard', () => {
     }).toThrow(MigrationInTestEnvironmentError);
   });
 });
+

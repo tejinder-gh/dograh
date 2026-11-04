@@ -190,8 +190,8 @@ describe('Database Least-Privilege & Migration Safety Verification (P1-4)', () =
     it('two concurrent migration executions do not race or conflict', async () => {
       // Run two migration runs concurrently
       const [res1, res2] = await Promise.allSettled([
-        runMigrations(undefined, { approved: true }),
-        runMigrations(undefined, { approved: true }),
+        runMigrations(undefined, { approved: true, allowTestMigration: true }),
+        runMigrations(undefined, { approved: true, allowTestMigration: true }),
       ]);
 
       expect(res1.status).toBe('fulfilled');

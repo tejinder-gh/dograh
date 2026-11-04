@@ -37,10 +37,25 @@ export class MigrationInTestEnvironmentError extends Error {
 const PRODUCTION_HOST_PATTERNS = [
   'ep-wispy-truth-b5kkygdq',
   'br-twilight-base-b51aowww',
+  'b5kkygdq',
+  'b51aowww',
+  'wispy-truth',
+  'twilight-base',
   'ai_calling_owner',
 ];
 
 const LOCAL_SAFE_HOSTS = new Set(['localhost', '127.0.0.1', 'postgres', '::1']);
+
+export function normalizeTargetString(connectionStringOrHost?: string): string {
+  if (!connectionStringOrHost) return '';
+  let str = connectionStringOrHost.trim().toLowerCase();
+  try {
+    str = decodeURIComponent(str);
+  } catch {
+    // If malformed URI encoding, keep trimmed lowercase
+  }
+  return str;
+}
 
 export function extractDatabaseHost(connectionStringOrHost?: string): string {
   if (!connectionStringOrHost) return '';
@@ -60,8 +75,21 @@ export function extractDatabaseHost(connectionStringOrHost?: string): string {
 
 export function isProductionDatabaseTarget(connectionStringOrHost?: string): boolean {
   if (!connectionStringOrHost) return false;
-  const lower = connectionStringOrHost.toLowerCase();
-  return PRODUCTION_HOST_PATTERNS.some((pattern) => lower.includes(pattern));
+  const normalized = normalizeTargetString(connectionStringOrHost);
+  
+  // Direct pattern match across host, database name, and user
+  const matchesPattern = PRODUCTION_HOST_PATTERNS.some((pattern) => normalized.includes(pattern));
+  if (matchesPattern) return true;
+
+  // Additional check: ai_calling_os on neon.tech
+  if (normalized.includes('neon.tech') && normalized.includes('ai_calling_os')) {
+    // If it's on Neon and targets ai_calling_os without an explicit test branch identifier
+    if (!normalized.includes('test') && !normalized.includes('staging')) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 export function isLocalSafeTarget(connectionStringOrHost?: string): boolean {
@@ -80,16 +108,27 @@ export function assertSafeDatabaseTarget(
     context === 'test' ||
     process.env.NODE_ENV === 'test' ||
     process.env.BUN_ENV === 'test' ||
+    process.env.TEST === 'true' ||
     Boolean(process.env.VITEST);
 
-  const target = targetUrlOrHost || process.env.DATABASE_URL || '';
+  const target = targetUrlOrHost !== undefined ? targetUrlOrHost : (process.env.DATABASE_URL || '');
 
-  // 1. Production target check
+  if (!target || !target.trim()) {
+    if (isTestEnv) {
+      throw new UnsafeDatabaseTargetError(
+        'EMPTY_TARGET',
+        'Database target connection string is required during test execution.'
+      );
+    }
+    return;
+  }
+
+  // 1. Production target check: NEVER allowed in test mode, regardless of flags
   if (isProductionDatabaseTarget(target)) {
     if (isTestEnv) {
       throw new ProductionDatabaseTargetError(
         target.replace(/:[^@]+@/, ':***@'),
-        'Automated test execution against the production Neon database branch is strictly blocked.'
+        'Automated test execution against the production Neon database branch is strictly blocked under all circumstances.'
       );
     }
   }
@@ -98,6 +137,7 @@ export function assertSafeDatabaseTarget(
   if (isTestEnv) {
     const isExplicitlyAllowedTestBranch =
       process.env.ALLOW_ISOLATED_TEST_DB === 'true' &&
+      !isProductionDatabaseTarget(target) &&
       target.toLowerCase().includes('test');
 
     if (!isLocalSafeTarget(target) && !isExplicitlyAllowedTestBranch) {
@@ -112,6 +152,12 @@ export function assertSafeDatabaseTarget(
   if (context === 'migration') {
     if (isTestEnv) {
       throw new MigrationInTestEnvironmentError();
+    }
+    if (isProductionDatabaseTarget(target) && process.env.ALLOW_PRODUCTION_MIGRATION !== 'true') {
+      throw new ProductionDatabaseTargetError(
+        target.replace(/:[^@]+@/, ':***@'),
+        'Schema migrations targeting production require explicit operator confirmation (ALLOW_PRODUCTION_MIGRATION=true and --confirm-migration).'
+      );
     }
   }
 }

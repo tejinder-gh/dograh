@@ -28,7 +28,7 @@ from api.services.quota_service import check_business_organization_quota
 def reset_in_memory_rate_limiter(monkeypatch):
     """Ensure tests run against a clean in-memory concurrency manager."""
     monkeypatch.setenv("ENVIRONMENT", "test")
-    monkeypatch.delenv("USE_REDIS_IN_TEST", raising=False)
+    monkeypatch.setenv("USE_IN_MEMORY_CONCURRENCY", "true")
     rate_limiter._memory_slots.clear()
     rate_limiter._memory_mappings.clear()
     rate_limiter.redis_client = None
@@ -209,6 +209,9 @@ async def test_orphaned_reservation_recovery(monkeypatch):
     """
     org_id = 1004
 
+    monkeypatch.setenv("USE_IN_MEMORY_CONCURRENCY", "true")
+    rate_limiter.redis_client = None
+
     monkeypatch.setattr(
         call_concurrency,
         "get_org_concurrent_limit",
@@ -232,3 +235,4 @@ async def test_orphaned_reservation_recovery(monkeypatch):
     slots = rate_limiter._memory_slots[f"concurrent_calls:{org_id}"]
     assert stale_slot_id not in slots
     assert len(slots) == 1
+

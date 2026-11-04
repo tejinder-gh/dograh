@@ -357,5 +357,72 @@ async def test_unrecognized_area_code_denied(monkeypatch):
     assert code == "unverified_recipient_timezone"
 
 
+@pytest.mark.asyncio
+async def test_canadian_crtc_weekend_calling_window_strict_boundaries(monkeypatch):
+    """CRTC weekend hours are strictly 10:00 AM - 6:00 PM local time.
+    9:15 AM Saturday must be denied; 11:00 AM Saturday must be allowed; 6:30 PM Saturday must be denied.
+    """
+    from api.services.compliance import calling_controls
+
+    monkeypatch.setattr(
+        calling_controls.db_client,
+        "execute_raw_query",
+        AsyncMock(return_value=[]),
+    )
+
+    # Saturday Nov 14, 2026 at 9:15 AM Eastern (Toronto) - Before 10:00 AM weekend start
+    sat_morning = datetime.datetime(2026, 11, 14, 9, 15, tzinfo=ZoneInfo("America/Toronto"))
+    allowed, code, reason = await validate_outbound_call_compliance(
+        organization_id=1,
+        phone_number="+14165551234",
+        call_type="transactional",
+        reference_dt=sat_morning,
+    )
+    assert allowed is False
+    assert code == "outside_jurisdictional_hours"
+
+    # Saturday Nov 14, 2026 at 11:00 AM Eastern (Toronto) - Within 10:00 AM - 6:00 PM window
+    sat_midday = datetime.datetime(2026, 11, 14, 11, 0, tzinfo=ZoneInfo("America/Toronto"))
+    allowed, code, reason = await validate_outbound_call_compliance(
+        organization_id=1,
+        phone_number="+14165551234",
+        call_type="transactional",
+        reference_dt=sat_midday,
+    )
+    assert allowed is True
+
+    # Saturday Nov 14, 2026 at 6:30 PM Eastern (Toronto) - After 6:00 PM weekend end
+    sat_evening = datetime.datetime(2026, 11, 14, 18, 30, tzinfo=ZoneInfo("America/Toronto"))
+    allowed, code, reason = await validate_outbound_call_compliance(
+        organization_id=1,
+        phone_number="+14165551234",
+        call_type="transactional",
+        reference_dt=sat_evening,
+    )
+    assert allowed is False
+    assert code == "outside_jurisdictional_hours"
+
+
+@pytest.mark.asyncio
+async def test_canadian_opt_out_internal_suppression_enforced(monkeypatch):
+    """Numbers with 'opt_out' tag in database are strictly suppressed fail-closed."""
+    from api.services.compliance import calling_controls
+
+    monkeypatch.setattr(
+        calling_controls.db_client,
+        "execute_raw_query",
+        AsyncMock(return_value=[{"id": "1", "status": "active", "tags": ["opt_out"]}]),
+    )
+
+    allowed, code, reason = await validate_outbound_call_compliance(
+        organization_id=1,
+        phone_number="+14165551234",
+        call_type="transactional",
+    )
+    assert allowed is False
+    assert code == "phone_suppressed_or_dnc"
+
+
+
 
 

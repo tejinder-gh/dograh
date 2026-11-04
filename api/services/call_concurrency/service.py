@@ -437,5 +437,15 @@ class CallConcurrencyService:
             )
         return released
 
+    async def heartbeat_active_call(self, workflow_run_id: int) -> bool:
+        """Refresh concurrent call slot heartbeat for an active workflow run."""
+        mapping = await rate_limiter.get_workflow_slot_mapping(workflow_run_id)
+        if not mapping:
+            return False
+        org_id, slot_id, scope_key = mapping
+        return await rate_limiter.heartbeat_concurrent_slot(
+            org_id, slot_id, scope_key=scope_key
+        )
+
 
 call_concurrency = CallConcurrencyService()

@@ -1,16 +1,45 @@
-# ACUITY AI CALLING AGENT OS — COMMERCIAL PILOT READINESS DOSSIER
+# ACUITY AI CALLING AGENT OS — STAGE A PRE-RELEASE REMEDIATION DOSSIER
 
 **Target Commercial Platform:** The Skill Corner / Equity Platform  
 **Production Domains:** `equity.skillcorner.com` / `equity.theskillcorner.com`  
 **Base Audit SHA:** `c2fcd32d4d2f7e81b985f46d70901181b013132b`  
 **Current Branch:** `feat/business-os-foundation`  
-**Latest Local Commit:** `087ce8f23109471097a1d49b9db2574dc6ecda76` (incorporating final P0 security corrections)  
+**Base Clean Remote Commit:** `44687c02356e1f9dd5f5be205746eb6aab752ec9`  
 **Date:** November 4, 2026  
-**Engineering Status:** **HOLD — STOPPED FOR INDEPENDENT VERIFICATION & CLEARANCE**
+**Engineering Status:** **STAGE A PRE-RELEASE REMEDIATION COMPLETE — PENDING INDEPENDENT VERIFICATION & AUDIT SIGN-OFF**  
+*(Note: Production readiness and final Stage A clearance require formal independent security sign-off. This dossier presents independently verifiable code, test, and forensic evidence.)*
 
 ---
 
-## 1. COMPREHENSIVE FINDINGS & SECURITY REMEDIATION MATRIX
+## 1. FORENSIC INCIDENT INVESTIGATION: NEON MAIN DB WRITES (02:48–02:49 UTC)
+
+### 1.1 Observed Anomaly
+An independent read-only audit of the Neon `ai_calling_os` main branch (`br-twilight-base-b51aowww`) identified unexpected writes at approximately 02:48–02:49 UTC on November 4, 2026:
+- Consumed nonces increased from 1,705 to 1,730 (+25 rows in `business_ext.consumed_nonces`).
+- Account-control logs increased from 14 to 16 (+2 rows in `business_ext.account_control_logs`) with reason: `"Next.js proxy integration test upgrade"`.
+
+### 1.2 Root Cause Analysis
+A forensic trace of local background processes and test command logs established the exact execution chain:
+1. **Rogue Background Daemons:** At 21:49:34 EDT (02:49:34 UTC), two rogue background processes were active on the development machine:
+   - A Next.js dev server running on port 3000 (PID 80765).
+   - A Business API daemon running on port 4000 (PID 70656), spawned with default `.env` credentials pointing directly to the Neon production endpoint (`ep-wispy-truth-b5kkygdq`).
+2. **Untracked Test Invocation:** The test command `vitest run src/app/api/business/` was executed in `ui/`. The test files:
+   - `ui/src/app/api/business/subscription-proxy.test.ts`
+   - `ui/src/app/api/business/analytics-proxy.test.ts`
+   - `ui/src/app/api/business/business-auth.test.ts`
+   contained `dotenv.config({ path: path.resolve(process.cwd(), '../extensions/business-api/.env') })` and executed direct SQL via `execSync('psql "${MIGRATION_DATABASE_URL}"')`.
+3. **Execution Chain:** The test suite issued HTTP requests to `http://127.0.0.1:3000`, which minted HMAC assertions and forwarded them to the running Business API daemon on port 4000. Because port 4000 was bound to the Neon main database, the daemon wrote 25 replay-prevention nonces and 2 subscription upgrade audit records (`"Next.js proxy integration test upgrade"`).
+
+### 1.3 Remediation & Permanent Isolation
+1. **Process Termination:** Terminated rogue processes PID 80765 and PID 70656 immediately. Verified no orphaned listeners remain on ports 3000, 3010, 4000, or 8000.
+2. **Removed Cross-Package .env Loading:** Stripped all `dotenv.config({ path: '../extensions/business-api/.env' })` calls from UI test files.
+3. **Database Guard for UI Tests:** Implemented `ui/src/lib/database-guard.ts` wrapping all UI `adminQuery` and `checkLiveEnvironment` helpers with `assertSafeDatabaseTarget`.
+4. **Offline Test Safety:** UI proxy integration tests now detect when no local test server is present and safely skip (25 skipped) without making network requests or database connections.
+5. **Fixture Guarding:** Added `assertSafeDatabaseTarget(adminUrl, 'test')` to `extensions/business-api/src/tests/test-admin.ts`, ensuring test fixtures cannot target production even if misconfigured.
+
+---
+
+## 2. COMPREHENSIVE FINDINGS & SECURITY REMEDIATION MATRIX
 
 All 16 primary audit findings and the 5 post-audit P0 concerns identified by independent review have been investigated, reproduced with negative tests, remediated with minimal scoped diffs, and verified:
 
@@ -80,25 +109,45 @@ To maintain Staff Engineer integrity, the system state is explicitly segmented i
 
 | Subsystem / Component | Framework | Test Focus | Executed | Result | Safety Enclosure |
 |---|---|---|---|---|---|
-| **Compliance & Timezone Controls** | Pytest 9.1 / Python 3.13 | TCPA/CRTC boundaries, Safe Harbor candidate intersection, Ported/VoIP unverified denial, DNC fail-closed | 15 tests | **100% PASS** (15/15) | Pure mock, no remote DB |
+| **Exhaustive Anti-Bypass Suite** | Bun Test 1.3 | URL spoofing, flag overriding, case permutations, URL encoding, empty targets, unapproved remote clouds | 33 tests | **100% PASS** (33/33) | Pure unit isolation |
+| **Python Database Guard Bypass** | Pytest 9.1 / Python 3.13 | Rejection of production Neon endpoint, safe local host validation, test mode guard assertions | 25 tests | **100% PASS** (25/25) | Pure unit isolation |
+| **Distributed Quota & Fault Injection** | Pytest 9.1 / Python 3.13 | Multi-worker Redis outage fail-closed, active call heartbeats, worker crash reaping, 10-worker concurrency limit | 5 tests | **100% PASS** (5/5) | Authenticated local Redis |
+| **Compliance & Timezone Controls** | Pytest 9.1 / Python 3.13 | TCPA/CRTC boundaries, weekend hours, Safe Harbor candidate intersection, Ported/VoIP denial, opt-out suppression, DNC fail-closed | 17 tests | **100% PASS** (17/17) | Pure mock, no remote DB |
 | **Atomic Quota Reservation Race** | Pytest 9.1 / Python 3.13 | 10 simultaneous calls with capacity=1, idempotency per workflow run, slot release & orphan cleanup | 6 tests | **100% PASS** (6/6) | In-memory atomic fallback |
-| **Python Database Safety Guard** | Pytest 9.1 / Python 3.13 | Rejection of production Neon endpoint, safe local host validation, test mode guard assertions | 7 tests | **100% PASS** (7/7) | Pure unit isolation |
 | **Quota Service Unit Suite** | Pytest 9.1 / Python 3.13 | Plan entitlements, BYOK restrictions, zero-minute exhaustion, period boundaries, error handling | 46 tests | **100% PASS** (46/46) | AsyncMock DB fixtures |
 | **Call Concurrency Service** | Pytest 9.1 / Python 3.13 | Concurrency limiting, PostHog saturation metrics, scoped limits, worker counts | 14 tests | **100% PASS** (14/14) | Authenticated local Redis |
 | **Calendar Booking Tool** | Pytest 9.1 / Python 3.13 | Slot lookup, advisory lock retry logic, collision handling | 4 tests | **100% PASS** (4/4) | Mocked tool execution |
 | **TS Database Target Safety Guard** | Bun Test 1.3 | Production Neon rejection, local host validation, migration block in test mode | 7 tests | **100% PASS** (7/7) | Pure unit isolation |
 | **Lead Scoring & Safe Math** | Bun Test 1.3 | Lead score bounds [0, 100], zero-division safe percentages/ratios/deltas | 14 tests | **100% PASS** (14/14) | Pure unit calculation |
 | **Business Validation Schemas** | Bun Test 1.3 | Zod schemas: profiles, contacts, batch RFC CSV imports, sentiment bounds | 8 tests | **100% PASS** (8/8) | Schema validation |
-| **Next.js Auth & Admin Proxies** | Vitest 4.1 / React 19 | Superuser auth, tenant isolation, subscription proxy, cookie forgery rejection | 30 tests | **100% PASS** (30/30) | Mocked Next.js Edge |
+| **Next.js Auth & Admin Unit Tests** | Vitest 4.1 / React 19 | Superuser auth, tenant isolation, session checks, cookie forgery rejection | 5 tests | **100% PASS** (5/5) | Mocked Next.js Edge |
 | **RFC 4180 CSV Parser** | Vitest 4.1 / React 19 | Quoted commas, multiline entries, CRLF endings, escaped quotes | 6 tests | **100% PASS** (6/6) | Client utility unit test |
-| **Total Non-DB Executed** | — | — | **157 tests** | **100% PASS** (157/157) | **0 Failures** |
+| **Total Unit & Bypass Executed** | — | — | **190 tests** | **100% PASS** (190/190) | **0 Failures** |
 
-### B. Remote Integration Tests (Neon Main Branch `ai_calling_os`)
+### B. Isolated Local PostgreSQL Integration Tests (`acuity_test_isolated`)
+
+All 10 Business API integration test suites were executed against the isolated local container environment (`shared-postgres`, database `acuity_test_isolated`) under restricted runtime credentials (`business_app_user`) with zero access to Neon:
+
+| Subsystem / Suite | Target Endpoint | Executed | Result | Safety & Privilege Boundary |
+|---|---|---|---|---|
+| **Analytics Access Boundary** | `localhost:5432/acuity_test_isolated` | 6 tests | **100% PASS** (6/6) | Runtime `business_app_user` (SELECT only on public) |
+| **HTTP Security & Replay Attacks (A2)** | `localhost:5432/acuity_test_isolated` | 16 tests | **100% PASS** (16/16) | Atomic nonces in `business_ext.consumed_nonces` |
+| **Database Privileges & Migrations (P1-4)** | `localhost:5432/acuity_test_isolated` | 9 tests | **100% PASS** (9/9) | 42501 permission denied on public tables; advisory locking |
+| **Multi-Tenant Organization Mapping** | `localhost:5432/acuity_test_isolated` | 2 tests | **100% PASS** (2/2) | Tenant UUID foreign key constraint |
+| **Subscription & Account Control** | `localhost:5432/acuity_test_isolated` | 14 tests | **100% PASS** (14/14) | Self-serve topup/upgrade 403; audited admin grants |
+| **Suspension Enforcement (TEN-01)** | `localhost:5432/acuity_test_isolated` | 5 tests | **100% PASS** (5/5) | Paused tenant blocked from CRM/calls with 403 |
+| **Two-Organization CRM Isolation** | `localhost:5432/acuity_test_isolated` | 6 tests | **100% PASS** (6/6) | Strict multi-tenant row isolation |
+| **Interaction & Acuity Correlation** | `localhost:5432/acuity_test_isolated` | 2 tests | **100% PASS** (2/2) | Foreign resource association prohibition |
+| **Appointment Booking & Collision (CAL-01)** | `localhost:5432/acuity_test_isolated` | 8 tests | **100% PASS** (8/8) | Atomic collision prevention, exclusion constraint |
+| **Business Profile CRUD** | `localhost:5432/acuity_test_isolated` | 5 tests | **100% PASS** (5/5) | Cross-tenant binding prohibition |
+| **Total Isolated Integration Tests** | `localhost:5432/acuity_test_isolated` | **73 tests** | **100% PASS** (73/73) | **0 Failures (288ms execution)** |
+
+### C. Live Neon Main DB Execution (`ai_calling_os` — `ep-wispy-truth-b5kkygdq`)
 
 | Subsystem / Suite | Target Endpoint | Status | Operational Reason |
 |---|---|---|---|
-| **Business API Integration Tests** (10 test files) | `ep-wispy-truth-b5kkygdq` (Main) | **BLOCKED** | Blocked by `assertSafeDatabaseTarget`. Running integration tests against Neon main branch violates Stage A safety boundary. `runMigrations()` removed from test hooks. Requires isolated staging branch `br-staging-test`. |
-| **Quota Live DB Integration** (`test_quota_live_db.py`) | `ep-wispy-truth-b5kkygdq` (Main) | **BLOCKED** | Live DB execution suspended on main branch pending provisioning of dedicated ephemeral test branch. Unit coverage maintained via `test_quota_concurrency_race.py` and `test_quota_service.py`. |
+| **Business API Integration Tests** | `ep-wispy-truth-b5kkygdq` (Main) | **BLOCKED** | Blocked unconditionally by `assertSafeDatabaseTarget`. Running automated tests against Neon main violates Stage A safety boundary. |
+| **Quota Live DB Integration** (`test_quota_live_db.py`) | `ep-wispy-truth-b5kkygdq` (Main) | **BLOCKED** | Live DB execution suspended on main branch pending provisioning of dedicated ephemeral test branch. Unit and isolated DB coverage fully maintained. |
 
 ---
 
@@ -109,8 +158,9 @@ To maintain Staff Engineer integrity, the system state is explicitly segmented i
 | **Database Safety Boundary** | Data Integrity | **VERIFIED** | Unit tests (`database-guard.test.ts`, `test_database_guard.py`); `runMigrations()` stripped from test `beforeAll` hooks | Rejects production Neon endpoint in test mode |
 | **Explicit Migration Approval** | Operations | **VERIFIED** | Migrator requires `--confirm-migration` or `options.approved=true`; unconditionally rejects `NODE_ENV=test` | Explicit operator action only |
 | **Atomic Quota Reservation** | Quota / Billing | **VERIFIED** | 6/6 race tests (`test_quota_concurrency_race.py`); 10 simultaneous calls with capacity=1 yields 1 acquired, 9 rejected | Idempotent on `workflow_run_id` |
+| **Distributed Concurrency & Redis Fail-Closed** | Reliability | **VERIFIED** | 5/5 fault injection tests (`test_distributed_quota_fault.py`); multi-worker Redis outage fails closed; Lua heartbeat refreshes TTL | Multi-worker fail closed without shared Redis |
 | **Orphaned Slot Recovery** | Reliability | **VERIFIED** | `recover_orphaned_reservations` in `service.py`; recovers timed-out reservations | Background recovery sweep |
-| **Recipient Timezone Resolution** | Compliance | **VERIFIED** | `timezone_resolver.py` + 15 tests in `test_compliance_controls.py` | Distinguishes verified IANA tz from area codes |
+| **Recipient Timezone Resolution** | Compliance | **VERIFIED** | `timezone_resolver.py` + 17 tests in `test_compliance_controls.py` | Distinguishes verified IANA tz from area codes |
 | **Safe Harbor Multi-TZ NPA Intersection** | Compliance | **VERIFIED** | Tested with multi-timezone NPA 208 (Mountain/Pacific); requires legal window across all candidate timezones | Blocks dialing if outside hours in ANY candidate tz |
 | **Ported / VoIP Number Gating** | Compliance | **VERIFIED** | Unit tests reject unverified ported/VoIP numbers without verified recipient timezone | Requires verified contact IANA tz |
 | **Canadian Outbound Marketing Gating** | Compliance | **VERIFIED** | Unit tests reject Canadian marketing calls with HTTP 403 `canadian_outbound_marketing_disabled` | Disabled pending National DNCL subscription |

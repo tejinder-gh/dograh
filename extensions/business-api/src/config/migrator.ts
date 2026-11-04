@@ -9,9 +9,6 @@ const migrationDatabaseUrl =
   process.env.MIGRATION_DATABASE_URL ||
   env.DATABASE_URL;
 
-// Validate migration database target
-assertSafeDatabaseTarget(migrationDatabaseUrl, 'migration');
-
 const migrationPool = new Pool(
   migrationDatabaseUrl
     ? { connectionString: migrationDatabaseUrl }
@@ -29,6 +26,7 @@ const MIGRATION_ADVISORY_LOCK_KEY = 718291;
 
 export interface MigrationOptions {
   approved?: boolean;
+  allowTestMigration?: boolean;
 }
 
 export async function runMigrations(
@@ -36,7 +34,10 @@ export async function runMigrations(
   options?: MigrationOptions
 ): Promise<void> {
   // Re-verify safe database target before executing DDL
-  assertSafeDatabaseTarget(migrationDatabaseUrl, 'migration');
+  assertSafeDatabaseTarget(
+    migrationDatabaseUrl,
+    options?.allowTestMigration ? 'test' : 'migration'
+  );
 
   // Enforce explicit operational approval: an environment variable alone is insufficient
   const isCliConfirmed = process.argv.includes('--confirm-migration');

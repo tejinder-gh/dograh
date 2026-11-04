@@ -69,3 +69,4 @@ def test_assert_safe_database_target_allows_explicit_isolated_branch(monkeypatch
     isolated_branch_url = "postgresql://test_user:pass@ep-isolated-test.neon.tech/test_db"
     # Should not raise when explicitly authorized with test in branch/host
     assert_safe_database_target(isolated_branch_url, context="test")
+

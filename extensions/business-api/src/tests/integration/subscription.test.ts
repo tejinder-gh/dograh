@@ -19,6 +19,22 @@ describe('Multi-Tenant Subscription & Admin Account Control Boundary', () => {
   const testUserId = '701';
 
   beforeAll(async () => {
+    // Seed authoritative platform organization and test organization
+    await adminQuery(`
+      INSERT INTO public.organizations (id, provider_id)
+      VALUES (1, 'org_platform_admin'), (701, 'org_test_701')
+      ON CONFLICT (id) DO NOTHING;
+
+      INSERT INTO public.users (id, email, provider_id, selected_organization_id, is_superuser)
+      VALUES (1, 'admin@example.com', 'user_admin_1', 1, true),
+             (701, 'user701@example.com', 'user_701', 701, false)
+      ON CONFLICT (id) DO UPDATE SET is_superuser = EXCLUDED.is_superuser;
+
+      INSERT INTO public.organization_users (user_id, organization_id)
+      VALUES (1, 1), (701, 701)
+      ON CONFLICT (user_id, organization_id) DO NOTHING;
+    `);
+
     // Ensure mapping exists
     const mappingRes = await query<{ business_tenant_id: string }>(`
       SELECT business_tenant_id 

@@ -5,23 +5,21 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { beforeAll, describe, expect, it } from 'vitest';
 
+import { assertSafeDatabaseTarget } from '@/lib/database-guard';
+
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
-dotenv.config({ path: path.resolve(process.cwd(), '../extensions/business-api/.env') });
 
 const NEXTJS_URL = process.env.TEST_NEXTJS_URL || 'http://127.0.0.1:3000';
 const OSS_JWT_SECRET =
   process.env.OSS_JWT_SECRET || '6492a2ab59b7edc5a21071720f29313b91f6ccc3289b60b998fcdb03be8108ff';
 
 const MIGRATION_DATABASE_URL =
-  process.env.MIGRATION_DATABASE_URL ||
+  process.env.TEST_DATABASE_URL ||
   process.env.TEST_ADMIN_DATABASE_URL ||
-  process.env.DATABASE_URL ||
   '';
 
 function adminQuery(sql: string): string {
-  if (!MIGRATION_DATABASE_URL) {
-    throw new Error('MIGRATION_DATABASE_URL or TEST_ADMIN_DATABASE_URL must be configured in environment');
-  }
+  assertSafeDatabaseTarget(MIGRATION_DATABASE_URL, 'test');
   return execSync(`psql "${MIGRATION_DATABASE_URL}"`, {
     input: sql,
     encoding: 'utf-8',
@@ -31,6 +29,7 @@ function adminQuery(sql: string): string {
 function checkLiveEnvironment(): boolean {
   if (!MIGRATION_DATABASE_URL) return false;
   try {
+    assertSafeDatabaseTarget(MIGRATION_DATABASE_URL, 'test');
     execSync(`psql "${MIGRATION_DATABASE_URL}" -c "SELECT 1;"`, { stdio: 'ignore' });
     return true;
   } catch {
