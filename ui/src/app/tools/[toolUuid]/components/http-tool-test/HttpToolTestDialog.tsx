@@ -395,7 +395,7 @@ export function HttpToolTestDialog({
                             <div>
                                 <p className="text-sm font-medium">Preset Parameters</p>
                                 <p className="text-xs text-muted-foreground">
-                                    Resolved values that Dograh would normally derive from each configured preset.
+                                    Resolved values that Acuity would normally derive from each configured preset.
                                 </p>
                             </div>
                             <ParameterFields
@@ -457,11 +457,10 @@ export function HttpToolTestDialog({
                                 )}
                                 <div className="flex items-center gap-3">
                                     <span
-                                        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
-                                            isSuccess
+                                        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${isSuccess
                                                 ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
                                                 : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
-                                        }`}
+                                            }`}
                                     >
                                         <span>{isSuccess ? "✓" : "✗"}</span>
                                         {resultBadgeLabel}

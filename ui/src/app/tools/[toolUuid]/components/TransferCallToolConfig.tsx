@@ -353,7 +353,7 @@ export function TransferCallToolConfig({
                                     <Label>Dynamic Transfer Resolver</Label>
                                 </div>
                                 <p className="text-xs text-muted-foreground">
-                                    Dograh sends the resolved argument dictionary to this endpoint. The endpoint must return transfer_context.destination and may return transfer_context.custom_message.{" "}
+                                    Acuity sends the resolved argument dictionary to this endpoint. The endpoint must return transfer_context.destination and may return transfer_context.custom_message.{" "}
                                     <a
                                         href={`${DOCS_BASE}/voice-agent/tools/call-transfer#dynamic-resolver-response`}
                                         target="_blank"
@@ -374,7 +374,7 @@ export function TransferCallToolConfig({
                                     showValidation
                                 />
                                 <Label className="text-xs text-muted-foreground">
-                                    Dograh sends a POST request with the resolved argument dictionary.
+                                    Acuity sends a POST request with the resolved argument dictionary.
                                 </Label>
                             </div>
 
@@ -412,7 +412,7 @@ export function TransferCallToolConfig({
                                     rows={2}
                                 />
                                 <Label className="text-xs text-muted-foreground">
-                                    Spoken while Dograh waits for the resolver response.
+                                    Spoken while Acuity waits for the resolver response.
                                 </Label>
                             </div>
 
@@ -438,7 +438,7 @@ export function TransferCallToolConfig({
                             <div className="grid gap-2 pt-4 border-t">
                                 <Label>Preset Parameters</Label>
                                 <p className="text-xs text-muted-foreground">
-                                    Add values Dograh injects at runtime. These are not exposed to the LLM and can use templates like {`{{initial_context.state}}`} or {`{{gathered_context.state}}`}.{" "}
+                                    Add values Acuity injects at runtime. These are not exposed to the LLM and can use templates like {`{{initial_context.state}}`} or {`{{gathered_context.state}}`}.{" "}
                                     <a
                                         href={`${DOCS_BASE}/voice-agent/tools/call-transfer#dynamic-resolver-request`}
                                         target="_blank"
@@ -495,159 +495,159 @@ export function TransferCallToolConfig({
                                     </a>
                                 </p>
                             </div>
-                                {contextDestinationRules.map((rule, ruleIndex) => (
-                                    <div key={rule.id} className="space-y-4 rounded-lg border p-4">
+                            {contextDestinationRules.map((rule, ruleIndex) => (
+                                <div key={rule.id} className="space-y-4 rounded-lg border p-4">
+                                    <div className="flex items-center justify-between">
+                                        <Label>Rule {ruleIndex + 1}</Label>
+                                        <div className="flex items-center gap-1">
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                aria-label={`Move rule ${ruleIndex + 1} up`}
+                                                disabled={ruleIndex === 0}
+                                                onClick={() => moveRule(ruleIndex, -1)}
+                                            >
+                                                <ArrowUp className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                aria-label={`Move rule ${ruleIndex + 1} down`}
+                                                disabled={ruleIndex === contextDestinationRules.length - 1}
+                                                onClick={() => moveRule(ruleIndex, 1)}
+                                            >
+                                                <ArrowDown className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                aria-label={`Remove rule ${ruleIndex + 1}`}
+                                                onClick={() => onContextDestinationRulesChange(
+                                                    contextDestinationRules.filter((item) => item.id !== rule.id)
+                                                )}
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor={`context-path-${rule.id}`}>
+                                            Context Field
+                                        </Label>
+                                        <Input
+                                            id={`context-path-${rule.id}`}
+                                            aria-label={`Context field ${ruleIndex + 1}`}
+                                            value={rule.context_path}
+                                            onChange={(event) => updateRule(rule.id, (item) => ({
+                                                ...item,
+                                                context_path: event.target.value,
+                                            }))}
+                                            placeholder="department or initial_context.department"
+                                        />
+                                    </div>
+                                    <div className="space-y-3">
                                         <div className="flex items-center justify-between">
-                                            <Label>Rule {ruleIndex + 1}</Label>
-                                            <div className="flex items-center gap-1">
+                                            <Label>Value to Destination Mappings</Label>
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                aria-label={`Add mapping to rule ${ruleIndex + 1}`}
+                                                onClick={() => updateRule(rule.id, (item) => ({
+                                                    ...item,
+                                                    routes: [
+                                                        ...item.routes,
+                                                        createContextDestinationRouteRow(),
+                                                    ],
+                                                }))}
+                                            >
+                                                <Plus className="mr-1 h-4 w-4" /> Add mapping
+                                            </Button>
+                                        </div>
+                                        {rule.routes.map((route, index) => (
+                                            <div key={route.id} className="grid grid-cols-[1fr_1fr_auto] gap-2">
+                                                <Input
+                                                    aria-label={`Rule ${ruleIndex + 1} context value ${index + 1}`}
+                                                    value={route.context_value}
+                                                    onChange={(event) => updateRule(rule.id, (item) => ({
+                                                        ...item,
+                                                        routes: item.routes.map((existing) =>
+                                                            existing.id === route.id
+                                                                ? { ...existing, context_value: event.target.value }
+                                                                : existing
+                                                        ),
+                                                    }))}
+                                                    placeholder="Context value"
+                                                />
+                                                <Input
+                                                    aria-label={`Rule ${ruleIndex + 1} transfer destination ${index + 1}`}
+                                                    value={route.destination}
+                                                    onChange={(event) => updateRule(rule.id, (item) => ({
+                                                        ...item,
+                                                        routes: item.routes.map((existing) =>
+                                                            existing.id === route.id
+                                                                ? { ...existing, destination: event.target.value }
+                                                                : existing
+                                                        ),
+                                                    }))}
+                                                    placeholder="PJSIP/1001, +1234567890, or {{initial_context.destination}}"
+                                                />
                                                 <Button
                                                     type="button"
                                                     variant="ghost"
                                                     size="icon"
-                                                    aria-label={`Move rule ${ruleIndex + 1} up`}
-                                                    disabled={ruleIndex === 0}
-                                                    onClick={() => moveRule(ruleIndex, -1)}
-                                                >
-                                                    <ArrowUp className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    aria-label={`Move rule ${ruleIndex + 1} down`}
-                                                    disabled={ruleIndex === contextDestinationRules.length - 1}
-                                                    onClick={() => moveRule(ruleIndex, 1)}
-                                                >
-                                                    <ArrowDown className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    aria-label={`Remove rule ${ruleIndex + 1}`}
-                                                    onClick={() => onContextDestinationRulesChange(
-                                                        contextDestinationRules.filter((item) => item.id !== rule.id)
-                                                    )}
+                                                    aria-label={`Remove rule ${ruleIndex + 1} mapping ${index + 1}`}
+                                                    onClick={() => updateRule(rule.id, (item) => ({
+                                                        ...item,
+                                                        routes: item.routes.filter(
+                                                            (existing) => existing.id !== route.id
+                                                        ),
+                                                    }))}
                                                 >
                                                     <Trash2 className="h-4 w-4" />
                                                 </Button>
                                             </div>
-                                        </div>
-                                        <div className="grid gap-2">
-                                            <Label htmlFor={`context-path-${rule.id}`}>
-                                                Context Field
-                                            </Label>
-                                            <Input
-                                                id={`context-path-${rule.id}`}
-                                                aria-label={`Context field ${ruleIndex + 1}`}
-                                                value={rule.context_path}
-                                                onChange={(event) => updateRule(rule.id, (item) => ({
-                                                    ...item,
-                                                    context_path: event.target.value,
-                                                }))}
-                                                placeholder="department or initial_context.department"
-                                            />
-                                        </div>
-                                        <div className="space-y-3">
-                                            <div className="flex items-center justify-between">
-                                                <Label>Value to Destination Mappings</Label>
-                                                <Button
-                                                    type="button"
-                                                    variant="outline"
-                                                    size="sm"
-                                                    aria-label={`Add mapping to rule ${ruleIndex + 1}`}
-                                                    onClick={() => updateRule(rule.id, (item) => ({
-                                                        ...item,
-                                                        routes: [
-                                                            ...item.routes,
-                                                            createContextDestinationRouteRow(),
-                                                        ],
-                                                    }))}
-                                                >
-                                                    <Plus className="mr-1 h-4 w-4" /> Add mapping
-                                                </Button>
-                                            </div>
-                                            {rule.routes.map((route, index) => (
-                                                <div key={route.id} className="grid grid-cols-[1fr_1fr_auto] gap-2">
-                                                    <Input
-                                                        aria-label={`Rule ${ruleIndex + 1} context value ${index + 1}`}
-                                                        value={route.context_value}
-                                                        onChange={(event) => updateRule(rule.id, (item) => ({
-                                                            ...item,
-                                                            routes: item.routes.map((existing) =>
-                                                                existing.id === route.id
-                                                                    ? { ...existing, context_value: event.target.value }
-                                                                    : existing
-                                                            ),
-                                                        }))}
-                                                        placeholder="Context value"
-                                                    />
-                                                    <Input
-                                                        aria-label={`Rule ${ruleIndex + 1} transfer destination ${index + 1}`}
-                                                        value={route.destination}
-                                                        onChange={(event) => updateRule(rule.id, (item) => ({
-                                                            ...item,
-                                                            routes: item.routes.map((existing) =>
-                                                                existing.id === route.id
-                                                                    ? { ...existing, destination: event.target.value }
-                                                                    : existing
-                                                            ),
-                                                        }))}
-                                                        placeholder="PJSIP/1001, +1234567890, or {{initial_context.destination}}"
-                                                    />
-                                                    <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        aria-label={`Remove rule ${ruleIndex + 1} mapping ${index + 1}`}
-                                                        onClick={() => updateRule(rule.id, (item) => ({
-                                                            ...item,
-                                                            routes: item.routes.filter(
-                                                                (existing) => existing.id !== route.id
-                                                            ),
-                                                        }))}
-                                                    >
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
-                                                </div>
-                                            ))}
-                                            {rule.routes.length === 0 && (
-                                                <p className="text-xs text-muted-foreground">
-                                                    Add at least one mapping.
-                                                </p>
-                                            )}
-                                        </div>
+                                        ))}
+                                        {rule.routes.length === 0 && (
+                                            <p className="text-xs text-muted-foreground">
+                                                Add at least one mapping.
+                                            </p>
+                                        )}
                                     </div>
-                                ))}
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    className="w-fit"
-                                    onClick={() => onContextDestinationRulesChange([
-                                        ...contextDestinationRules,
-                                        createContextDestinationRuleRow(),
-                                    ])}
-                                >
-                                    <Plus className="mr-1 h-4 w-4" /> Add routing rule
-                                </Button>
-                                {contextDestinationRules.length === 0 && (
-                                    <p className="text-xs text-muted-foreground">
-                                        Add at least one routing rule.
-                                    </p>
-                                )}
-                                <div className="grid gap-2">
-                                    <Label htmlFor="context-fallback-destination">Fallback Destination (Optional)</Label>
-                                    <Input
-                                        id="context-fallback-destination"
-                                        value={fallbackDestination}
-                                        onChange={(event) => onFallbackDestinationChange(event.target.value)}
-                                        placeholder="Provider destination or {{initial_context.destination}}"
-                                    />
-                                    <Label className="text-xs text-muted-foreground">
-                                        Used only when no rule above matched.
-                                    </Label>
                                 </div>
+                            ))}
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="w-fit"
+                                onClick={() => onContextDestinationRulesChange([
+                                    ...contextDestinationRules,
+                                    createContextDestinationRuleRow(),
+                                ])}
+                            >
+                                <Plus className="mr-1 h-4 w-4" /> Add routing rule
+                            </Button>
+                            {contextDestinationRules.length === 0 && (
+                                <p className="text-xs text-muted-foreground">
+                                    Add at least one routing rule.
+                                </p>
+                            )}
+                            <div className="grid gap-2">
+                                <Label htmlFor="context-fallback-destination">Fallback Destination (Optional)</Label>
+                                <Input
+                                    id="context-fallback-destination"
+                                    value={fallbackDestination}
+                                    onChange={(event) => onFallbackDestinationChange(event.target.value)}
+                                    placeholder="Provider destination or {{initial_context.destination}}"
+                                />
+                                <Label className="text-xs text-muted-foreground">
+                                    Used only when no rule above matched.
+                                </Label>
+                            </div>
                         </TabsContent>
                     </Tabs>
                 </div>

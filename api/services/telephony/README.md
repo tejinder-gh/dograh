@@ -1,6 +1,6 @@
 # Telephony Provider Implementation
 
-This module implements the telephony provider abstraction for Dograh AI. For user-facing documentation, see the [Mintlify docs](https://docs.dograh.com/integrations/telephony/overview).
+This module implements the telephony provider abstraction for Acuity AI. For user-facing documentation, see the [Mintlify docs](https://docs.Acuity.com/integrations/telephony/overview).
 
 ## Architecture
 
@@ -49,7 +49,7 @@ telephony/
 
 ## Implementing a New Provider
 
-See the [Custom Provider Guide](https://docs.dograh.com/integrations/telephony/custom) in the documentation for detailed implementation instructions.
+See the [Custom Provider Guide](https://docs.Acuity.com/integrations/telephony/custom) in the documentation for detailed implementation instructions.
 
 Quick checklist:
 1. Create `providers/your_provider.py` implementing `TelephonyProvider`
@@ -63,19 +63,19 @@ Quick checklist:
 class TelephonyProvider(ABC):
     @abstractmethod
     async def initiate_call(self, to_number: str, webhook_url: str, workflow_run_id: Optional[int] = None, **kwargs: Any) -> Dict[str, Any]
-    
+
     @abstractmethod
     async def get_call_status(self, call_id: str) -> Dict[str, Any]
-    
+
     @abstractmethod
     async def get_available_phone_numbers(self) -> List[str]
-    
+
     @abstractmethod
     def validate_config(self) -> bool
-    
+
     @abstractmethod
     async def verify_webhook_signature(self, url: str, params: Dict[str, Any], signature: str) -> bool
-    
+
     @abstractmethod
     async def get_webhook_response(self, workflow_id: int, organization_id: int, workflow_run_id: int) -> str
 ```
@@ -170,7 +170,7 @@ await provider.initiate_call(...)
 
 ## Related Documentation
 
-- [User Documentation](https://docs.dograh.com/integrations/telephony/overview)
-- [Twilio Integration](https://docs.dograh.com/integrations/telephony/twilio)
-- [Custom Providers](https://docs.dograh.com/integrations/telephony/custom)
-- [Webhooks Guide](https://docs.dograh.com/integrations/telephony/webhooks)
+- [User Documentation](https://docs.Acuity.com/integrations/telephony/overview)
+- [Twilio Integration](https://docs.Acuity.com/integrations/telephony/twilio)
+- [Custom Providers](https://docs.Acuity.com/integrations/telephony/custom)
+- [Webhooks Guide](https://docs.Acuity.com/integrations/telephony/webhooks)

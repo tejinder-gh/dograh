@@ -705,7 +705,7 @@ export interface components {
             parameters?: components["schemas"]["ToolParameter"][] | null;
             /**
              * Preset Parameters
-             * @description Parameters injected by Dograh from fixed values or workflow context templates.
+             * @description Parameters injected by Acuity from fixed values or workflow context templates.
              */
             preset_parameters?: components["schemas"]["PresetToolParameter"][] | null;
             /**
@@ -790,7 +790,7 @@ export interface components {
             timeout_ms: number;
             /**
              * Wait Message
-             * @description Optional short message played while Dograh resolves routing.
+             * @description Optional short message played while Acuity resolves routing.
              */
             wait_message?: string | null;
             /**
@@ -800,7 +800,7 @@ export interface components {
             parameters?: components["schemas"]["ToolParameter"][] | null;
             /**
              * Preset Parameters
-             * @description Parameters injected by Dograh from fixed values or workflow context templates.
+             * @description Parameters injected by Acuity from fixed values or workflow context templates.
              */
             preset_parameters?: components["schemas"]["PresetToolParameter"][] | null;
         };
@@ -993,7 +993,7 @@ export interface components {
         };
         /**
          * PresetToolParameter
-         * @description A parameter injected by Dograh at runtime.
+         * @description A parameter injected by Acuity at runtime.
          */
         PresetToolParameter: {
             /**
@@ -1326,7 +1326,7 @@ export interface components {
          *
          *     Most of how a handoff sounds is fixed: the caller hears a ringer while the
          *     next agent is prepared. The handover line is configurable because it is
-         *     caller-facing and Dograh runs in more than one language, and so is how the
+         *     caller-facing and Acuity runs in more than one language, and so is how the
          *     next agent opens: an agent that greets callers on its own number should
          *     not re-introduce itself mid-conversation, and one that only ever answers
          *     handoffs needs a line of its own before it picks the conversation up.
@@ -1334,7 +1334,7 @@ export interface components {
         TransferAgentConfig: {
             /**
              * Workflow Id
-             * @description Id of the Dograh agent to transfer to. Must be in the same organization, and must not be a speech-to-speech agent.
+             * @description Id of the Acuity agent to transfer to. Must be in the same organization, and must not be a speech-to-speech agent.
              */
             workflow_id: number;
             /**
@@ -1412,7 +1412,7 @@ export interface components {
             timeout: number;
             /**
              * Call Disposition
-             * @description Optional disposition to record after a successful transfer. When omitted, Dograh records its provider-specific transfer default.
+             * @description Optional disposition to record after a successful transfer. When omitted, Acuity records its provider-specific transfer default.
              */
             call_disposition?: string | null;
             /**

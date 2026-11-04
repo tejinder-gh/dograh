@@ -14,14 +14,14 @@ jobs:
           # Check if the discussion is in the announcements category
           CATEGORY="${{ github.event.discussion.category.slug }}"
           echo "Category: $CATEGORY"
-          
+
           # Check for both possible variations
           if [ "$CATEGORY" = "announcements" ] || [ "$CATEGORY" = "announcement" ]; then
             echo "is_announcement=true" >> $GITHUB_OUTPUT
           else
             echo "is_announcement=false" >> $GITHUB_OUTPUT
           fi
-          
+
       - name: Checkout repository
         if: steps.check.outputs.is_announcement == 'true'
         uses: actions/checkout@v4
@@ -33,7 +33,7 @@ jobs:
           # Make script executable and run it
           chmod +x ./scripts/prepare-slack-message.sh
           PAYLOAD=$(./scripts/prepare-slack-message.sh)
-          
+
           # Set output for next step
           echo "slack_payload<<EOF" >> $GITHUB_OUTPUT
           echo "$PAYLOAD" >> $GITHUB_OUTPUT
@@ -50,4 +50,4 @@ jobs:
           custom_payload: |
             ${{ steps.prepare_message.outputs.slack_payload }}
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_DOGRAH_COMMUNITY_WEBHOOK_URL }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_Acuity_COMMUNITY_WEBHOOK_URL }}

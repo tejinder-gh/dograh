@@ -14,7 +14,7 @@ from api.db import db_client
 from api.db.models import WorkflowRunModel
 from api.enums import OrganizationConfigurationKey
 from api.errors.failure import (
-    DograhFailure,
+    AcuityFailure,
     ErrorSource,
     ErrorType,
     classify_exception,
@@ -171,6 +171,173 @@ async def _update_usage_info_with_qa_tokens(
         logger.error(f"Failed to update usage_info with QA tokens: {e}")
 
 
+async def sync_call_to_crm(
+    workflow_run: WorkflowRunModel,
+    organization_id: int,
+) -> None:
+    """Record completed voice workflow run as a CRM interaction (CRM-01).
+
+    Idempotent: matches on (tenant_id, acuity_run_id).
+    Links to contacts matching phone number or email, updates contact call metrics,
+    and captures sentiment, duration, and summary.
+    """
+    try:
+        map_rows = await db_client.execute_raw_query(
+            """
+            SELECT business_tenant_id 
+            FROM business_ext.organization_mappings 
+            WHERE acuity_organization_id = :org_id 
+            LIMIT 1;
+            """,
+            {"org_id": organization_id},
+        )
+        if not map_rows:
+            logger.debug(f"[CRM sync] No business tenant mapping for org {organization_id}")
+            return
+
+        tenant_id = map_rows[0]["business_tenant_id"]
+        run_id_str = str(workflow_run.id)
+
+        # Idempotency check
+        existing = await db_client.execute_raw_query(
+            """
+            SELECT id FROM business_ext.interactions 
+            WHERE tenant_id = :tenant_id AND acuity_run_id = :run_id 
+            LIMIT 1;
+            """,
+            {"tenant_id": tenant_id, "run_id": run_id_str},
+        )
+        if existing:
+            logger.debug(f"[CRM sync] Interaction already recorded for run {run_id_str}")
+            return
+
+        usage_info = workflow_run.usage_info or {}
+        duration_seconds = int(usage_info.get("call_duration_seconds") or 0)
+        channel = "call_outbound" if workflow_run.campaign_id is not None else "call_inbound"
+
+        # Extract context and annotations for summary and sentiment
+        annotations = workflow_run.annotations or {}
+        gathered = workflow_run.gathered_context or {}
+        extra = workflow_run.extra or {}
+
+        summary = (
+            annotations.get("summary")
+            or gathered.get("call_summary")
+            or gathered.get("summary")
+            or f"Completed call ({duration_seconds}s)"
+        )
+
+        sentiment_score = int(annotations.get("sentiment_score") or 50)
+        sentiment_score = max(-100, min(100, sentiment_score))
+
+        sentiment_category = annotations.get("sentiment_category") or "neutral"
+        if sentiment_category not in ("positive", "neutral", "frustrated", "critical"):
+            sentiment_category = "neutral"
+
+        was_escalated = bool(annotations.get("was_escalated") or gathered.get("escalated", False))
+        escalation_reason = annotations.get("escalation_reason") or gathered.get("escalation_reason")
+
+        # Contact matching
+        caller_phone = (
+            gathered.get("phone_number")
+            or gathered.get("to_phone")
+            or gathered.get("from_phone")
+            or extra.get("to_phone")
+            or extra.get("from_phone")
+        )
+        caller_email = gathered.get("email") or extra.get("email")
+
+        contact_id = None
+        if caller_phone or caller_email:
+            contact_rows = await db_client.execute_raw_query(
+                """
+                SELECT id, lifecycle_status, call_attempts FROM business_ext.contacts
+                WHERE tenant_id = :tenant_id
+                  AND (
+                    (:phone::text IS NOT NULL AND phone = :phone)
+                    OR (:email::text IS NOT NULL AND email = :email)
+                  )
+                LIMIT 1;
+                """,
+                {"tenant_id": tenant_id, "phone": caller_phone, "email": caller_email},
+            )
+            if contact_rows:
+                matched_contact = contact_rows[0]
+                contact_id = matched_contact["id"]
+
+                # Update contact call attempts, last contact time, and last result
+                await db_client.execute_raw_query(
+                    """
+                    UPDATE business_ext.contacts
+                    SET call_attempts = call_attempts + 1,
+                        last_contacted_at = NOW(),
+                        last_call_result = :call_result,
+                        updated_at = NOW()
+                    WHERE tenant_id = :tenant_id AND id = :contact_id;
+                    """,
+                    {
+                        "tenant_id": tenant_id,
+                        "contact_id": contact_id,
+                        "call_result": str(workflow_run.status),
+                    },
+                )
+
+                # Record timeline audit event
+                await db_client.execute_raw_query(
+                    """
+                    INSERT INTO business_ext.contact_timeline_events (
+                        tenant_id, contact_id, event, details, status
+                    ) VALUES (
+                        :tenant_id, :contact_id, 'call_completed',
+                        :details, :status
+                    );
+                    """,
+                    {
+                        "tenant_id": tenant_id,
+                        "contact_id": contact_id,
+                        "details": f"Call run {run_id_str}: duration {duration_seconds}s, sentiment {sentiment_category}",
+                        "status": matched_contact.get("lifecycle_status") or "contacted",
+                    },
+                )
+
+        import json
+        transcript_json = json.dumps(gathered.get("transcript") or [])
+
+        # Insert interaction into business_ext.interactions
+        await db_client.execute_raw_query(
+            """
+            INSERT INTO business_ext.interactions (
+                tenant_id, contact_id, acuity_workflow_id, acuity_definition_id,
+                acuity_run_id, channel, duration_seconds, sentiment_score,
+                sentiment_category, was_escalated, escalation_reason, summary, transcript
+            ) VALUES (
+                :tenant_id, :contact_id, :workflow_id, :definition_id,
+                :run_id, :channel, :duration, :sentiment_score,
+                :sentiment_category, :was_escalated, :escalation_reason, :summary, :transcript::jsonb
+            );
+            """,
+            {
+                "tenant_id": tenant_id,
+                "contact_id": contact_id,
+                "workflow_id": workflow_run.workflow_id,
+                "definition_id": getattr(workflow_run, "definition_id", None),
+                "run_id": run_id_str,
+                "channel": channel,
+                "duration": duration_seconds,
+                "sentiment_score": sentiment_score,
+                "sentiment_category": sentiment_category,
+                "was_escalated": was_escalated,
+                "escalation_reason": escalation_reason,
+                "summary": summary,
+                "transcript": transcript_json,
+            },
+        )
+        logger.info(f"[CRM sync] Recorded completed interaction for run {run_id_str} in tenant {tenant_id}")
+
+    except Exception as e:
+        logger.error(f"[CRM sync] Failed to sync call run {workflow_run.id} to CRM: {e}")
+
+
 async def run_integrations_post_workflow_run(_ctx, workflow_run_id: int):
     """
     Run integrations after a workflow run completes.
@@ -238,7 +405,8 @@ async def run_integrations_post_workflow_run(_ctx, workflow_run_id: int):
             and not has_registered_integrations
             and not has_campaign
         ):
-            logger.info("No integration nodes and no campaign, skipping")
+            logger.info("No integration nodes and no campaign; recording CRM interaction")
+            await sync_call_to_crm(workflow_run, organization_id)
             return
 
         public_token = await db_client.ensure_public_access_token(workflow_run_id)
@@ -301,6 +469,9 @@ async def run_integrations_post_workflow_run(_ctx, workflow_run_id: int):
                 workflow_run_id
             )
 
+        # Step 6.5: Authoritative CRM call interaction recording (CRM-01)
+        await sync_call_to_crm(workflow_run, organization_id)
+
         # Step 7: Execute webhooks
         if not webhook_nodes:
             logger.info("No webhook nodes in workflow")
@@ -318,7 +489,7 @@ async def run_integrations_post_workflow_run(_ctx, workflow_run_id: int):
                 webhook_node = WebhookRFNode.model_validate(node)
             except ValidationError as e:
                 log_failure(
-                    DograhFailure(
+                    AcuityFailure(
                         source=ErrorSource.WEBHOOK,
                         type=ErrorType.CONFIG_ERROR,
                         code="webhook-invalid-config",

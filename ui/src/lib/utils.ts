@@ -64,40 +64,40 @@ export async function getRedirectUrl(token: string, permissions: { id: string }[
     const hasAdminPermission = permissions.some(p => p.id === 'admin');
     console.log('[getRedirectUrl] Admin permission check:', { hasAdminPermission });
 
-  // If the user doesn't have admin permissions, redirect them to
-  // usage page
-  if (!hasAdminPermission) {
-    console.log('[getRedirectUrl] No admin permission, redirecting to /usage');
-    return "/usage";
-  }
+    // If the user doesn't have admin permissions, redirect them to
+    // usage page
+    if (!hasAdminPermission) {
+      console.log('[getRedirectUrl] No admin permission, redirecting to /usage');
+      return "/usage";
+    }
 
-  // Check if user has any workflows
-  try {
-    console.log('[getRedirectUrl] Checking for existing workflows...');
-    const countResponse = await getWorkflowCountApiV1WorkflowCountGet({
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    // Check if user has any workflows
+    try {
+      console.log('[getRedirectUrl] Checking for existing workflows...');
+      const countResponse = await getWorkflowCountApiV1WorkflowCountGet({
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-    console.log('[getRedirectUrl] Found workflows:', {
-      total: countResponse.data?.total,
-      active: countResponse.data?.active
-    });
+      console.log('[getRedirectUrl] Found workflows:', {
+        total: countResponse.data?.total,
+        active: countResponse.data?.active
+      });
 
-    if (countResponse.data && countResponse.data.active > 0) {
-      console.log('[getRedirectUrl] User has workflows, redirecting to /workflow');
-      return "/workflow";
-    } else {
-      console.log('[getRedirectUrl] No workflows found, redirecting to /workflow/create');
+      if (countResponse.data && countResponse.data.active > 0) {
+        console.log('[getRedirectUrl] User has workflows, redirecting to /workflow');
+        return "/workflow";
+      } else {
+        console.log('[getRedirectUrl] No workflows found, redirecting to /workflow/create');
+        return "/workflow/create";
+      }
+    } catch (error) {
+      console.error('[getRedirectUrl] Error checking workflows:', error);
+      // If we can't check workflows, default to /workflow/create
+      console.log('[getRedirectUrl] Defaulting to /workflow/create due to error');
       return "/workflow/create";
     }
-  } catch (error) {
-    console.error('[getRedirectUrl] Error checking workflows:', error);
-    // If we can't check workflows, default to /workflow/create
-    console.log('[getRedirectUrl] Defaulting to /workflow/create due to error');
-    return "/workflow/create";
-  }
   } catch (error) {
     console.error("[getRedirectUrl] Failed to fetch auth user:", error);
     // Re-throw the error so the caller can handle it
@@ -185,13 +185,13 @@ export async function impersonateAsSuperadmin(params: {
   // ---------------------------------------------------------------------------------
   // Instead of setting the cookie here (which would also affect the superadmin
   // sub-domain), redirect the browser to the dedicated impersonation helper route
-  // (served from the target sub-domain, e.g. app.dograh.com). The route will set the
+  // (served from the target sub-domain, e.g. app.Acuity.com). The route will set the
   // cookie for the *current* sub-domain only and then forward the user to the final
   // destination.
   // ---------------------------------------------------------------------------------
 
   // Determine the base URL that should handle the impersonation cookie. Configured
-  // via NEXT_PUBLIC_APP_URL (e.g. https://app.dograh.com); falls back to the current
+  // via NEXT_PUBLIC_APP_URL (e.g. https://app.Acuity.com); falls back to the current
   // origin (e.g. localhost, staging, or already on the app).
   const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
 

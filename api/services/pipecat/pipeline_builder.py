@@ -5,7 +5,7 @@ from loguru import logger
 from api.services.pipecat.agent_bridge import AGENT_EDGE_EXCLUDED_FRAMES, AgentWorker
 from api.services.pipecat.audio_config import AudioConfig
 from api.services.pipecat.call_audio_buffer import CallAudioBufferProcessor
-from api.services.pipecat.pipeline_worker import DograhPipelineWorker
+from api.services.pipecat.pipeline_worker import AcuityPipelineWorker
 from pipecat.observers.base_observer import BaseObserver
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.worker import (
@@ -289,13 +289,13 @@ def create_pipeline_task(
             f"out: {audio_config.transport_out_sample_rate}Hz"
         )
 
-    task = DograhPipelineWorker(
+    task = AcuityPipelineWorker(
         pipeline,
         name=name,
         params=pipeline_params,
         # Pipecat 1.8 replaces ErrorFrame.fatal with processor usability plus
         # a worker policy. A voice/text model that is permanently unusable
-        # cannot produce a meaningful Dograh run, so preserve the fork's old
+        # cannot produce a meaningful Acuity run, so preserve the fork's old
         # fatal-error cancellation behavior through the supported contract.
         processor_unusable_policy=ProcessorUnusablePolicy.CANCEL,
         enable_tracing=True,

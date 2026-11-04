@@ -3,12 +3,21 @@
 // separate concurrent task. Until then the seam throws so the UI can surface a
 // friendly "not wired yet" message without any placeholder charge flow.
 
-/** Starts a self-serve top-up for `amountUsd`. Implemented by the Razorpay integration. */
-export async function startTopUp(amountUsd: number): Promise<void> {
-  // TODO(razorpay): create order on backend + open Razorpay checkout.
-  // Reference the amount so the signature is honoured before the impl lands.
-  void amountUsd;
-  throw new Error("Top-up not wired yet");
+/** Starts a self-serve top-up for `amountUsd`. Disabled pending direct payment gateway integration. */
+export async function startTopUp(
+  amountUsd: number,
+  _paymentTransactionId?: string
+): Promise<{ success: boolean; minutes: number }> {
+  if (amountUsd < MIN_TOPUP_USD || amountUsd > MAX_TOPUP_USD) {
+    throw new Error(`Top-up amount must be between $${MIN_TOPUP_USD} and $${MAX_TOPUP_USD}`);
+  }
+
+  // Final P0 Security Rule: Client-declared payment transactions are untrusted.
+  // Self-serve balance top-up is disabled pending direct payment gateway integration.
+  throw new Error(
+    'Self-service credit top-up is disabled pending direct payment gateway integration. ' +
+    'Entitlements must be granted by platform administration for controlled pilots.'
+  );
 }
 
 // Minimum self-serve top-up amount in USD.

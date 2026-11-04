@@ -1,4 +1,4 @@
-"""Dograh worker setup cancellation stays compatible with unmodified Pipecat."""
+"""Acuity worker setup cancellation stays compatible with unmodified Pipecat."""
 
 import asyncio
 from unittest.mock import AsyncMock
@@ -13,7 +13,7 @@ from pipecat.utils.asyncio.task_manager import TaskManager
 from pipecat.workers.runner import WorkerRunner
 
 from api.services.pipecat.agent_bridge import AgentWorker
-from api.services.pipecat.pipeline_worker import DograhPipelineWorker
+from api.services.pipecat.pipeline_worker import AcuityPipelineWorker
 
 
 @pytest.fixture(params=["call", "agent"])
@@ -23,7 +23,7 @@ def make_worker(request):
         kwargs.setdefault("enable_rtvi", False)
         if request.param == "agent":
             return AgentWorker(pipeline, call_worker_name="call", **kwargs)
-        return DograhPipelineWorker(pipeline, **kwargs)
+        return AcuityPipelineWorker(pipeline, **kwargs)
 
     return create
 
@@ -81,7 +81,7 @@ async def test_cancel_during_setup_releases_partial_resources(make_worker, exit_
         assert service.cleaned.is_set()
         assert service.cleanup_count == 1
         assert not any(isinstance(frame, StartFrame) for frame in service.frames)
-        assert worker._dograh_setup_task is None
+        assert worker._Acuity_setup_task is None
         assert not manager.current_tasks()
     finally:
         running.cancel()
@@ -271,7 +271,7 @@ async def test_runner_shutdown_reaches_inactive_child_during_setup(
     if call_ready:
         call_service.release.set()
     child_service = ConnectingService()
-    call = DograhPipelineWorker(
+    call = AcuityPipelineWorker(
         Pipeline([call_service]), name="call", enable_rtvi=False
     )
     child = AgentWorker(

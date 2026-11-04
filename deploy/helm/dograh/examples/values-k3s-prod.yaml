@@ -1,4 +1,4 @@
-# Dograh — production values for k3s
+# Acuity — production values for k3s
 # Hosted-AI only (no local models). All state on the node's local disk via
 # k3s local-path StorageClass. TLS terminated at Cloudflare edge; re-encrypted
 # to origin using the shared *.yourdomain.com Cloudflare Origin CA cert

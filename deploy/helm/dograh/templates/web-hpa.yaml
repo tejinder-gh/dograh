@@ -8,16 +8,16 @@
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: {{ include "dograh.web.fullname" . }}
+  name: {{ include "Acuity.web.fullname" . }}
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "dograh.labels" . | nindent 4 }}
+    {{- include "Acuity.labels" . | nindent 4 }}
     app.kubernetes.io/component: web
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: {{ include "dograh.web.fullname" . }}
+    name: {{ include "Acuity.web.fullname" . }}
   minReplicas: {{ .Values.autoscaling.web.minReplicas }}
   maxReplicas: {{ .Values.autoscaling.web.maxReplicas }}
   metrics:

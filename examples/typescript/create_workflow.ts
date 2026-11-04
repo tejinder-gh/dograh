@@ -1,21 +1,21 @@
 // Create a new workflow using the TypeScript SDK.
 //
 // Requirements:
-//   npm install @dograh/sdk
+//   npm install @Acuity/sdk
 //
 // Environment variables:
-//   DOGRAH_API_ENDPOINT  - Dograh API base URL (e.g. http://localhost:8000)
-//   DOGRAH_API_TOKEN     - API token sent as X-API-Key
+//   Acuity_API_ENDPOINT  - Acuity API base URL (e.g. http://localhost:8000)
+//   Acuity_API_TOKEN     - API token sent as X-API-Key
 //
 // Run:
 //   npx tsx create_workflow.ts
 
-import { DograhClient } from "@dograh/sdk";
+import { AcuityClient } from "@Acuity/sdk";
 
 const WORKFLOW_NAME = "My SDK-created agent";
 
 // A minimal starter agent with a single `startCall` node that greets the user.
-// Open the new agent in the Dograh UI to extend it, or edit this object and
+// Open the new agent in the Acuity UI to extend it, or edit this object and
 // re-run to tweak the starting definition.
 const WORKFLOW_DEFINITION = {
     nodes: [
@@ -55,12 +55,12 @@ const WORKFLOW_DEFINITION = {
 };
 
 async function main(): Promise<void> {
-    const apiEndpoint = process.env.DOGRAH_API_ENDPOINT ?? "http://localhost:8000";
-    const apiToken = process.env.DOGRAH_API_TOKEN;
+    const apiEndpoint = process.env.Acuity_API_ENDPOINT ?? "http://localhost:8000";
+    const apiToken = process.env.Acuity_API_TOKEN;
 
-    if (!apiToken) throw new Error("DOGRAH_API_TOKEN is required");
+    if (!apiToken) throw new Error("Acuity_API_TOKEN is required");
 
-    const client = new DograhClient({
+    const client = new AcuityClient({
         baseUrl: apiEndpoint,
         apiKey: apiToken,
     });

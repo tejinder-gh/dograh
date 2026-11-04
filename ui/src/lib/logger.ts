@@ -30,11 +30,11 @@ function getCallerInfo(): string {
 
       // Skip logger.ts itself and node internals
       if (line.includes('logger.ts') ||
-          line.includes('logger.js') ||
-          line.includes('node_modules') ||
-          line.includes('node:') ||
-          line.includes('webpack-internal') ||
-          line.includes('<anonymous>')) continue;
+        line.includes('logger.js') ||
+        line.includes('node_modules') ||
+        line.includes('node:') ||
+        line.includes('webpack-internal') ||
+        line.includes('<anonymous>')) continue;
 
       // Try multiple patterns to extract file info
       const patterns = [
@@ -60,7 +60,7 @@ function getCallerInfo(): string {
             .replace(/^webpack-internal:\/\/\/(?:\.\/)?\(rsc\)\/(?:\.\/)/, '')
             .replace(/^webpack-internal:\/\/\/(?:\.\/)/, '')
             // Remove absolute paths to make them relative
-            .replace(/^.*\/dograh\/ui\//, '')
+            .replace(/^.*\/Acuity\/ui\//, '')
             // Remove .next build paths
             .replace(/.*\.next\/server\/app\//, 'app/')
             .replace(/.*\.next\/server\//, '')

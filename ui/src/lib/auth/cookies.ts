@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
 
-export const OSS_TOKEN_COOKIE = 'dograh_auth_token';
-export const OSS_USER_COOKIE = 'dograh_auth_user';
+export const OSS_TOKEN_COOKIE = 'Acuity_auth_token';
+export const OSS_USER_COOKIE = 'Acuity_auth_user';
 
 /**
  * Whether the browser reached this deployment over HTTPS.
@@ -36,11 +36,13 @@ export function isSecureRequest(request: NextRequest): boolean {
  * included, so logout derives the flag the same way.
  */
 export function sessionCookieOptions(request: NextRequest, maxAge: number) {
+  const cookieDomain = process.env.COOKIE_DOMAIN?.trim();
   return {
     httpOnly: true,
     secure: isSecureRequest(request),
     sameSite: 'lax' as const,
     maxAge,
     path: '/',
+    ...(cookieDomain ? { domain: cookieDomain } : {}),
   };
 }

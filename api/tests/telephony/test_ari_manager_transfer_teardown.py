@@ -35,9 +35,9 @@ class _RecordingARIConnection(ARIConnection):
             organization_id=1,
             telephony_configuration_id=10,
             ari_endpoint="http://asterisk.test:8088",
-            app_name="dograh",
+            app_name="Acuity",
             app_password="secret",
-            ws_client_name="dograh_ws",
+            ws_client_name="Acuity_ws",
         )
         self.deleted_bridges = []
         self.deleted_channels = []

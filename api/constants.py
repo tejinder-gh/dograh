@@ -73,9 +73,9 @@ ENABLE_SIGNUP = os.getenv("ENABLE_SIGNUP", "true").lower() == "true"
 # needs them baked into the bundle at build time.
 STACK_AUTH_PROJECT_ID = os.getenv("STACK_AUTH_PROJECT_ID")
 STACK_PUBLISHABLE_CLIENT_KEY = os.getenv("STACK_PUBLISHABLE_CLIENT_KEY")
-DOGRAH_MPS_SECRET_KEY = os.getenv("DOGRAH_MPS_SECRET_KEY", None)
-MPS_API_URL = os.getenv("MPS_API_URL", "https://services.dograh.com")
-DOGRAH_DEVOPS_SECRET = os.getenv("DOGRAH_DEVOPS_SECRET") or None
+Acuity_MPS_SECRET_KEY = os.getenv("Acuity_MPS_SECRET_KEY", None)
+MPS_API_URL = os.getenv("MPS_API_URL", "https://services.Acuity.com")
+Acuity_DEVOPS_SECRET = os.getenv("Acuity_DEVOPS_SECRET") or None
 ENABLE_PROMETHEUS_METRICS = (
     os.getenv("ENABLE_PROMETHEUS_METRICS", "false").lower() == "true"
 )
@@ -144,8 +144,18 @@ ENABLE_CALL_RECORDING_UPLOAD = (
 #   * secret set, enforce off -> tokens minted + verified; invalid ones only logged
 #   * secret set, enforce on  -> invalid/missing tokens rejected (WS close 4401)
 TELEPHONY_WS_TOKEN_SECRET = os.getenv("TELEPHONY_WS_TOKEN_SECRET") or None
+# Secure production defaults: when TELEPHONY_WS_TOKEN_SECRET is configured or running
+# in production, token enforcement is enabled by default unless explicitly disabled.
+_default_ws_enforce = (
+    "true"
+    if (
+        TELEPHONY_WS_TOKEN_SECRET
+        or ENVIRONMENT not in (Environment.LOCAL.value, Environment.TEST.value, "dev")
+    )
+    else "false"
+)
 TELEPHONY_WS_TOKEN_ENFORCE = (
-    os.getenv("TELEPHONY_WS_TOKEN_ENFORCE", "false").lower() == "true"
+    os.getenv("TELEPHONY_WS_TOKEN_ENFORCE", _default_ws_enforce).lower() == "true"
 )
 
 # Logging configuration
@@ -269,7 +279,21 @@ TURN_CREDENTIAL_TTL = int(os.getenv("TURN_CREDENTIAL_TTL", "86400"))
 FORCE_TURN_RELAY = os.getenv("FORCE_TURN_RELAY", "false").lower() == "true"
 
 # OSS Email/Password Auth
+KNOWN_INSECURE_JWT_SECRETS = {
+    "change-me-in-production",
+    "change-me",
+    "secret",
+    "default",
+    "test",
+}
 OSS_JWT_SECRET = os.getenv("OSS_JWT_SECRET", "change-me-in-production")
 OSS_JWT_EXPIRY_HOURS = int(os.getenv("OSS_JWT_EXPIRY_HOURS", "720"))  # 30 days
+
+if ENVIRONMENT not in (Environment.LOCAL.value, Environment.TEST.value, "dev"):
+    if not OSS_JWT_SECRET or len(OSS_JWT_SECRET) < 32 or OSS_JWT_SECRET in KNOWN_INSECURE_JWT_SECRETS:
+        raise RuntimeError(
+            "FATAL: Insecure or default OSS_JWT_SECRET configured in production environment. "
+            "Must be a cryptographically secure secret of at least 32 characters."
+        )
 
 TUNER_BASE_URL = os.getenv("TUNER_BASE_URL", "https://api.usetuner.ai")

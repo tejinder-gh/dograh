@@ -20,8 +20,8 @@ from pipecat.processors.frame_processor import FrameDirection, FrameProcessorSet
 from pipecat.utils.asyncio.task_manager import TaskManager
 
 from api.services.pipecat.service_factory import (
-    DograhGoogleLLMService,
-    DograhLLMService,
+    AcuityGoogleLLMService,
+    AcuityLLMService,
 )
 from api.services.workflow.pipecat_engine import PipecatEngine
 from api.tests import test_fallback_llm_processor as fallback
@@ -32,13 +32,13 @@ harness = fallback.harness
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("provider", ["dograh", "gemini"])
+@pytest.mark.parametrize("provider", ["Acuity", "gemini"])
 @pytest.mark.parametrize("recovered", ["save", "end_call", "both"])
 @pytest.mark.parametrize("ending", ["playback", "interruption", "new_response"])
 async def test_goodbye_accepts_saves_before_deferring_result_delivery(
     simple_workflow, provider, recovered, ending
 ):
-    service_class = DograhLLMService if provider == "dograh" else DograhGoogleLLMService
+    service_class = AcuityLLMService if provider == "Acuity" else AcuityGoogleLLMService
     service = service_class(api_key="offline-key")
     manager = TaskManager()
     await service.setup(
@@ -96,7 +96,7 @@ async def test_goodbye_accepts_saves_before_deferring_result_delivery(
                 if name == "save"
                 else "default_api:end_call{}"
             )
-        elif provider == "dograh":
+        elif provider == "Acuity":
             native_calls.append(
                 openai.chunk(
                     tools=[
@@ -110,7 +110,7 @@ async def test_goodbye_accepts_saves_before_deferring_result_delivery(
                     Part(function_call=FunctionCall(id="native", name=name, args=args))
                 )
             )
-    if provider == "dograh":
+    if provider == "Acuity":
         openai.install_stream(service, [text, *native_calls], finish="tool_calls")
     else:
         gemini.install_stream(service, [text, *native_calls])
@@ -170,7 +170,7 @@ async def test_goodbye_accepts_saves_before_deferring_result_delivery(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "harness", [DograhLLMService, DograhGoogleLLMService], indirect=True
+    "harness", [AcuityLLMService, AcuityGoogleLLMService], indirect=True
 )
 @pytest.mark.parametrize("interrupted", [False, True])
 async def test_only_fallback_winner_owns_save_before_goodbye(
@@ -210,7 +210,7 @@ async def test_only_fallback_winner_owns_save_before_goodbye(
             + '"} default_api:end_call{}'
         )
         steps = [asyncio.Event()] if index == 0 else []
-        if isinstance(service, DograhLLMService):
+        if isinstance(service, AcuityLLMService):
             stream = fallback.Stream(
                 *steps, openai.chunk(text), openai.chunk(finish="stop")
             )

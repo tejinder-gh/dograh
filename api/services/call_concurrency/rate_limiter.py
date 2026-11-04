@@ -1,3 +1,5 @@
+import asyncio
+import os
 import time
 import uuid
 from dataclasses import dataclass
@@ -28,13 +30,27 @@ class RateLimiter:
     def __init__(self):
         self.redis_client: Optional[aioredis.Redis] = None
         self.stale_call_timeout = 1200  # 20 minutes in seconds
+        self._memory_lock: Optional[asyncio.Lock] = None
+        self._memory_slots: dict[str, dict[str, float]] = {}
+        self._memory_mappings: dict[int, tuple[int, str, Optional[str]]] = {}
 
-    async def _get_redis(self) -> aioredis.Redis:
-        """Get or create Redis connection"""
+    def _get_memory_lock(self) -> asyncio.Lock:
+        if self._memory_lock is None:
+            self._memory_lock = asyncio.Lock()
+        return self._memory_lock
+
+    async def _get_redis(self) -> Optional[aioredis.Redis]:
+        """Get or create Redis connection, returning None if disabled or in offline test mode."""
+        if os.getenv("ENVIRONMENT") == "test" and os.getenv("USE_IN_MEMORY_CONCURRENCY") == "true":
+            return None
         if self.redis_client is None:
-            self.redis_client = await aioredis.from_url(
-                REDIS_URL, decode_responses=True
-            )
+            try:
+                self.redis_client = await aioredis.from_url(
+                    REDIS_URL, decode_responses=True
+                )
+            except Exception as e:
+                logger.error(f"Could not connect to Redis at {REDIS_URL}: {e}")
+                return None
         return self.redis_client
 
     async def acquire_token(
@@ -206,6 +222,34 @@ class RateLimiter:
         # Generate unique slot ID (timestamp + random component)
         slot_id = f"{int(now * 1000)}_{uuid.uuid4().hex[:8]}"
 
+        if redis_client is None:
+            if os.getenv("USE_IN_MEMORY_CONCURRENCY") == "true":
+                async with self._get_memory_lock():
+                    slots = self._memory_slots.setdefault(concurrent_key, {})
+                    expired = [sid for sid, ts in slots.items() if ts < stale_cutoff]
+                    for sid in expired:
+                        del slots[sid]
+                    if len(slots) >= max_concurrent:
+                        return None
+                    if scope_key:
+                        scope_slots = self._memory_slots.setdefault(scope_concurrent_key, {})
+                        expired_scope = [sid for sid, ts in scope_slots.items() if ts < stale_cutoff]
+                        for sid in expired_scope:
+                            del scope_slots[sid]
+                        if scope_max_concurrent is not None and len(scope_slots) >= scope_max_concurrent:
+                            return None
+                        scope_slots[slot_id] = now
+                    slots[slot_id] = now
+                    return ConcurrentSlotAcquisition(
+                        slot_id=slot_id,
+                        active_count=len(slots),
+                    )
+            logger.critical(
+                f"[CONCURRENCY SAFETY] Redis unavailable for org {organization_id}. "
+                "Failing closed to prevent multi-worker oversubscription."
+            )
+            return None
+
         try:
             result = await redis_client.eval(
                 lua_script,
@@ -250,6 +294,14 @@ class RateLimiter:
         redis_client = await self._get_redis()
         concurrent_key = f"concurrent_calls:{organization_id}"
 
+        if redis_client is None:
+            async with self._get_memory_lock():
+                slots = self._memory_slots.get(concurrent_key, {})
+                removed = bool(slots.pop(slot_id, None))
+                if scope_key:
+                    self._memory_slots.get(f"concurrent_calls:{scope_key}", {}).pop(slot_id, None)
+                return removed
+
         try:
             removed = await redis_client.zrem(concurrent_key, slot_id)
             await redis_client.zrem(
@@ -266,6 +318,81 @@ class RateLimiter:
             logger.error(f"Error releasing concurrent slot: {e}")
             return None
 
+    async def heartbeat_concurrent_slot(
+        self,
+        organization_id: int,
+        slot_id: str,
+        scope_key: str | None = None,
+    ) -> bool:
+        """Refresh the active timestamp of a concurrent call slot.
+        
+        Prevents long-running active calls from being reaped by the stale cutoff.
+        Returns True if the slot was refreshed, False if not found or Redis unavailable.
+        """
+        if not slot_id:
+            return False
+
+        redis_client = await self._get_redis()
+        now = time.time()
+        concurrent_key = f"concurrent_calls:{organization_id}"
+        scope_concurrent_key = f"concurrent_calls:{scope_key}" if scope_key else ""
+
+        if redis_client is None:
+            if os.getenv("USE_IN_MEMORY_CONCURRENCY") == "true":
+                async with self._get_memory_lock():
+                    slots = self._memory_slots.get(concurrent_key, {})
+                    if slot_id in slots:
+                        slots[slot_id] = now
+                        if scope_key:
+                            scope_slots = self._memory_slots.get(scope_concurrent_key, {})
+                            if slot_id in scope_slots:
+                                scope_slots[slot_id] = now
+                        return True
+                    return False
+            return False
+
+        lua_heartbeat = """
+        local key = KEYS[1]
+        local scope_key = KEYS[2]
+        local fleet_key = KEYS[3]
+        local now = tonumber(ARGV[1])
+        local slot_id = ARGV[2]
+        local fleet_member = ARGV[3]
+
+        local rank = redis.call('ZRANK', key, slot_id)
+        if not rank then
+            return 0
+        end
+
+        redis.call('ZADD', key, now, slot_id)
+        redis.call('EXPIRE', key, 3600)
+
+        if scope_key ~= '' then
+            redis.call('ZADD', scope_key, now, slot_id)
+            redis.call('EXPIRE', scope_key, 3600)
+        end
+
+        redis.call('ZADD', fleet_key, now, fleet_member)
+        redis.call('EXPIRE', fleet_key, 3600)
+        return 1
+        """
+
+        try:
+            res = await redis_client.eval(
+                lua_heartbeat,
+                3,
+                concurrent_key,
+                scope_concurrent_key,
+                FLEET_CONCURRENT_KEY,
+                now,
+                slot_id,
+                f"{organization_id}:{slot_id}",
+            )
+            return bool(res)
+        except Exception as e:
+            logger.error(f"Error heartbeating concurrent slot {slot_id} for org {organization_id}: {e}")
+            return False
+
     async def get_concurrent_count(
         self, organization_id: int, *, raise_on_error: bool = False
     ) -> int:
@@ -278,6 +405,15 @@ class RateLimiter:
         """
         redis_client = await self._get_redis()
         concurrent_key = f"concurrent_calls:{organization_id}"
+
+        if redis_client is None:
+            async with self._get_memory_lock():
+                slots = self._memory_slots.setdefault(concurrent_key, {})
+                stale_cutoff = time.time() - self.stale_call_timeout
+                expired = [sid for sid, ts in slots.items() if ts < stale_cutoff]
+                for sid in expired:
+                    del slots[sid]
+                return len(slots)
 
         try:
             # Clean up stale entries first
@@ -323,6 +459,10 @@ class RateLimiter:
         redis_client = await self._get_redis()
         mapping_key = f"workflow_slot_mapping:{workflow_run_id}"
 
+        if redis_client is None:
+            async with self._get_memory_lock():
+                return self._memory_mappings.get(workflow_run_id)
+
         try:
             # Store as a hash with TTL
             await redis_client.hset(
@@ -349,6 +489,18 @@ class RateLimiter:
         """
         redis_client = await self._get_redis()
         mapping_key = f"workflow_slot_mapping:{workflow_run_id}"
+
+        if redis_client is None:
+            if os.getenv("USE_IN_MEMORY_CONCURRENCY") == "true":
+                async with self._get_memory_lock():
+                    if workflow_run_id in self._memory_mappings:
+                        return False
+                    self._memory_mappings[workflow_run_id] = (organization_id, slot_id, scope_key)
+                    return True
+            logger.critical(
+                f"[CONCURRENCY SAFETY] Redis unavailable to store slot mapping for run {workflow_run_id}. Failing closed."
+            )
+            return False
 
         lua_script = """
         local key = KEYS[1]
@@ -394,6 +546,10 @@ class RateLimiter:
         """
         redis_client = await self._get_redis()
         mapping_key = f"workflow_slot_mapping:{workflow_run_id}"
+
+        if redis_client is None:
+            async with self._get_memory_lock():
+                return self._memory_mappings.get(workflow_run_id)
 
         try:
             mapping = await redis_client.hgetall(mapping_key)
@@ -445,6 +601,11 @@ class RateLimiter:
         """
         redis_client = await self._get_redis()
         mapping_key = f"workflow_slot_mapping:{workflow_run_id}"
+
+        if redis_client is None:
+            async with self._get_memory_lock():
+                self._memory_mappings.pop(workflow_run_id, None)
+                return True
 
         try:
             deleted = await redis_client.delete(mapping_key)

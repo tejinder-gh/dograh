@@ -330,7 +330,7 @@ async def test_tagged_words_arriving_before_output_start_are_not_lost():
     speech = tracker.create(greeting=True)
     first = TTSTextFrame("Hello", aggregated_by="word")
     first.pts = 1_000_000_000
-    first.metadata["dograh_greeting_id"] = speech.id
+    first.metadata["Acuity_greeting_id"] = speech.id
     tracker._capture_greeting_text(None, first)
     tracker.after_output(None, SpeechBoundaryFrame(speech.id, beginning=True))
     tracker.after_output(None, audio(0.5))

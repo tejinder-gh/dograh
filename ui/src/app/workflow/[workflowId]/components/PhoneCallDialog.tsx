@@ -375,7 +375,7 @@ export const PhoneCallDialog = ({
                 <DialogHeader>
                     <DialogTitle>Connect phone service</DialogTitle>
                     <DialogDescription>
-                        Dograh doesn&apos;t sell phone numbers or minutes. Choose how
+                        Acuity doesn&apos;t sell phone numbers or minutes. Choose how
                         this agent should place and receive calls.
                     </DialogDescription>
                 </DialogHeader>
@@ -409,7 +409,7 @@ export const PhoneCallDialog = ({
                         <div className="space-y-1">
                             <h3 className="text-sm font-medium">Bring your own SIP</h3>
                             <p className="text-sm text-muted-foreground">
-                                Already have a SIP trunk or a PBX? Point it at Dograh and
+                                Already have a SIP trunk or a PBX? Point it at Acuity and
                                 keep your existing carrier and numbers.
                                 {sipConfig
                                     ? ` “${sipConfig.name}” is provisioned and waiting for your carrier details.`
@@ -475,7 +475,7 @@ export const PhoneCallDialog = ({
                             {selectedConfig?.inactive
                                 ? "This configuration is disabled after repeated connection failures."
                                 : selectedConfig?.outbound_blocked_reason ??
-                                  "This configuration is not ready for outbound calls."}{" "}
+                                "This configuration is not ready for outbound calls."}{" "}
                             <button
                                 type="button"
                                 className="underline"

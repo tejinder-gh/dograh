@@ -54,7 +54,7 @@ from api.services.pipecat.pipeline_builder import build_pipeline
 from api.services.pipecat.pipeline_metrics_aggregator import (
     PipelineMetricsAggregator,
 )
-from api.services.pipecat.pipeline_worker import DograhPipelineWorker
+from api.services.pipecat.pipeline_worker import AcuityPipelineWorker
 from api.services.pipecat.realtime_feedback_observer import (
     RealtimeFeedbackObserver,
 )
@@ -314,7 +314,7 @@ class TransferHarness:
             metrics_aggregator,
             TerminationFunnelProcessor(),
         )
-        self.call_worker = DograhPipelineWorker(
+        self.call_worker = AcuityPipelineWorker(
             pipeline,
             name=call_worker_name,
             params=PipelineParams(audio_out_sample_rate=16000),

@@ -2,10 +2,10 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "dograh.ui.fullname" . }}
+  name: {{ include "Acuity.ui.fullname" . }}
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "dograh.labels" . | nindent 4 }}
+    {{- include "Acuity.labels" . | nindent 4 }}
     app.kubernetes.io/component: ui
 spec:
   type: {{ .Values.ui.service.type }}
@@ -15,6 +15,6 @@ spec:
       targetPort: http
       protocol: TCP
   selector:
-    {{- include "dograh.selectorLabels" . | nindent 4 }}
+    {{- include "Acuity.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: ui
 {{- end }}

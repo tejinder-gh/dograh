@@ -2,10 +2,10 @@
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  name: {{ include "dograh.fullname" . }}
+  name: {{ include "Acuity.fullname" . }}
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "dograh.labels" . | nindent 4 }}
+    {{- include "Acuity.labels" . | nindent 4 }}
 spec:
   gatewayClassName: {{ required "exposure.gatewayApi.gatewayClassName is required when createGateway=true" .Values.exposure.gatewayApi.gatewayClassName }}
   listeners:
@@ -27,7 +27,7 @@ spec:
       tls:
         mode: Terminate
         certificateRefs:
-          - name: {{ default (printf "%s-tls" (include "dograh.fullname" .)) .Values.exposure.ingress.tls.secretName }}
+          - name: {{ default (printf "%s-tls" (include "Acuity.fullname" .)) .Values.exposure.ingress.tls.secretName }}
       allowedRoutes:
         namespaces:
           from: Same

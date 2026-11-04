@@ -1,4 +1,4 @@
-Dograh has been installed.
+Acuity has been installed.
 
 Release:    {{ .Release.Name }}
 Namespace:  {{ .Release.Namespace }}
@@ -7,10 +7,10 @@ Chart:      {{ .Chart.Name }}-{{ .Chart.Version }}
 === HTTP exposure ({{ .Values.exposure.mode }}) ===
 {{- if eq .Values.exposure.mode "gatewayApi" }}
 {{- if .Values.exposure.gatewayApi.createGateway }}
-A Gateway named {{ include "dograh.fullname" . }} was created with class
+A Gateway named {{ include "Acuity.fullname" . }} was created with class
 "{{ .Values.exposure.gatewayApi.gatewayClassName }}". Find its address with:
 
-  kubectl get gateway {{ include "dograh.fullname" . }} -n {{ .Release.Namespace }} \
+  kubectl get gateway {{ include "Acuity.fullname" . }} -n {{ .Release.Namespace }} \
     -o jsonpath='{.status.addresses[0].value}'
 {{- else }}
 HTTPRoutes were attached to existing Gateway(s):
@@ -27,7 +27,7 @@ Host: {{ default "(unset — set exposure.ingress.host)" .Values.exposure.ingres
 {{- if .Values.coturn.enabled }}
 The coturn Service is type LoadBalancer. Find its external address:
 
-  kubectl get svc {{ include "dograh.coturn.fullname" . }} -n {{ .Release.Namespace }} \
+  kubectl get svc {{ include "Acuity.coturn.fullname" . }} -n {{ .Release.Namespace }} \
     -o jsonpath='{.status.loadBalancer.ingress[0].ip}{.status.loadBalancer.ingress[0].hostname}'
 
 IMPORTANT — chicken-and-egg with coturn.externalIp:
@@ -54,7 +54,7 @@ coturn is disabled. Set coturn.enabled=true to deploy media relay.
 {{- if .Values.migrate.enabled }}
 Alembic migrations run as a post-install / pre-upgrade hook. Inspect with:
 
-  kubectl logs job/{{ include "dograh.migrate.fullname" . }} -n {{ .Release.Namespace }}
+  kubectl logs job/{{ include "Acuity.migrate.fullname" . }} -n {{ .Release.Namespace }}
 {{- end }}
 
 === Singletons ===
@@ -77,4 +77,4 @@ ERROR: redis.mode=external but secrets.redisUrl is empty.
 {{- end }}
 
 For troubleshooting and topology examples see
-deploy/helm/dograh/README.md and examples/.
+deploy/helm/Acuity/README.md and examples/.

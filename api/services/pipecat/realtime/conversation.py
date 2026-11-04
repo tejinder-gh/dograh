@@ -1,4 +1,4 @@
-"""Conversation behavior shared by Dograh's realtime service adapters."""
+"""Conversation behavior shared by Acuity's realtime service adapters."""
 
 import asyncio
 from dataclasses import replace

@@ -29,14 +29,14 @@ class EffectiveAIModelConfiguration(BaseModel):
     def require_byok_llm_fallback(self):
         if not self.llm_fallback or not self.llm_fallback.rules:
             return self
-        if self.llm is None or self.llm.provider == ServiceProviders.DOGRAH:
-            raise ValueError("LLM fallbacks require a non-Dograh primary LLM")
+        if self.llm is None or self.llm.provider == ServiceProviders.Acuity:
+            raise ValueError("LLM fallbacks require a non-Acuity primary LLM")
         if any(
-            rule.target.provider == ServiceProviders.DOGRAH
+            rule.target.provider == ServiceProviders.Acuity
             for rule in self.llm_fallback.rules
         ):
             raise ValueError(
-                "Dograh manages its own fallbacks and cannot be a fallback target"
+                "Acuity manages its own fallbacks and cannot be a fallback target"
             )
         return self
 

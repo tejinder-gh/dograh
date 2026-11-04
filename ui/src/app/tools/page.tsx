@@ -338,7 +338,7 @@ export default function ToolsPage() {
     return (
         <>
             <PageLayout title="Tools" description={<>Manage reusable tools that can be used across your workflows.{" "}
-                <a href="https://docs.dograh.com/voice-agent/tools/introduction" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 underline">
+                <a href="https://docs.Acuity.com/voice-agent/tools/introduction" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 underline">
                     Learn more <ExternalLink className="h-3 w-3" />
                 </a></>}>
 

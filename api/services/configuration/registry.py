@@ -101,7 +101,7 @@ class ServiceProviders(str, Enum):
     GOOGLE = "google"
     AZURE = "azure"
     AZURE_SPEECH = "azure_speech"
-    DOGRAH = "dograh"
+    Acuity = "acuity"
     SARVAM = "sarvam"
     SPEECHMATICS = "speechmatics"
     CAMB = "camb"
@@ -164,7 +164,7 @@ class BaseServiceConfiguration(BaseModel):
         ServiceProviders.GOOGLE,
         ServiceProviders.AZURE,
         ServiceProviders.AZURE_SPEECH,
-        ServiceProviders.DOGRAH,
+        ServiceProviders.Acuity,
         ServiceProviders.AWS_BEDROCK,
         ServiceProviders.SPEACHES,
         ServiceProviders.HUGGINGFACE,
@@ -332,7 +332,14 @@ def get_provider_definition(provider_id: str) -> Provider | None:
     for configurations in REGISTRY.values():
         for runtime_id, cls in configurations.items():
             definition = cls.provider_definition
-            if provider_id in (runtime_id, definition.id):
+            if provider_id in (runtime_id, definition.id) or (
+                isinstance(provider_id, str)
+                and provider_id.lower()
+                in (
+                    getattr(runtime_id, "value", str(runtime_id)).lower(),
+                    definition.id.lower(),
+                )
+            ):
                 return definition
     return None
 
@@ -423,7 +430,7 @@ GOOGLE_PROVIDER = Provider("google", "Google")
 GROQ_PROVIDER = Provider("groq", "Groq")
 OPENROUTER_PROVIDER = Provider("openrouter", "Open Router")
 AZURE_OPENAI_PROVIDER = Provider("azure", "Azure OpenAI")
-DOGRAH_PROVIDER = Provider("dograh", "Dograh")
+Acuity_PROVIDER = Provider("acuity", "Acuity")
 AWS_BEDROCK_PROVIDER = Provider("aws_bedrock", "AWS Bedrock")
 GOOGLE_VERTEX_PROVIDER = Provider("google_vertex", "Google Vertex")
 GROK_REALTIME_PROVIDER = Provider("grok_realtime", "Grok")
@@ -528,7 +535,7 @@ OPENROUTER_MODELS = [
     "meta-llama/llama-3.3-70b-instruct",
     "deepseek/deepseek-chat-v3-0324",
 ]
-DOGRAH_LLM_MODELS = ["default", "accurate", "fast", "lite", "zen"]
+Acuity_LLM_MODELS = ["default", "accurate", "fast", "lite", "zen"]
 AWS_BEDROCK_MODELS = [
     "us.amazon.nova-pro-v1:0",
     "us.amazon.nova-lite-v1:0",
@@ -693,16 +700,16 @@ class AzureLLMService(BaseChatLLMConfiguration):
     )
 
 
-@register_llm(provider=DOGRAH_PROVIDER)
-class DograhLLMService(BaseChatLLMConfiguration):
-    temperature: float | None = temperature_field("dograh", None)
-    provider: Literal[ServiceProviders.DOGRAH] = ServiceProviders.DOGRAH
+@register_llm(provider=Acuity_PROVIDER)
+class AcuityLLMService(BaseChatLLMConfiguration):
+    temperature: float | None = temperature_field("Acuity", None)
+    provider: Literal[ServiceProviders.Acuity] = ServiceProviders.Acuity
     model: str = Field(
         default="default",
         title="LLM model",
-        description="Dograh-hosted model tier.",
+        description="Acuity-hosted model tier.",
         json_schema_extra={
-            "examples": DOGRAH_LLM_MODELS,
+            "examples": Acuity_LLM_MODELS,
             "option_labels": {"default": "default (recommended)"},
         },
     )
@@ -1238,7 +1245,7 @@ LLMConfig = Annotated[
         OpenRouterLLMConfiguration,
         GoogleLLMService,
         AzureLLMService,
-        DograhLLMService,
+        AcuityLLMService,
         AWSBedrockLLMConfiguration,
         SpeachesLLMConfiguration,
         HuggingFaceLLMConfiguration,
@@ -1443,7 +1450,7 @@ class GoogleTTSConfiguration(BaseTTSConfiguration):
     model: str = Field(
         default="chirp_3_hd",
         description=(
-            "Google Cloud low-latency TTS engine. Dograh maps this to Pipecat's "
+            "Google Cloud low-latency TTS engine. Acuity maps this to Pipecat's "
             "streaming Google TTS service for Chirp 3 HD and Journey voices."
         ),
         json_schema_extra={
@@ -1515,16 +1522,16 @@ class OpenAITTSService(BaseTTSConfiguration):
     )
 
 
-DOGRAH_TTS_MODELS = ["default"]
+Acuity_TTS_MODELS = ["default"]
 
 
-@register_tts(provider=DOGRAH_PROVIDER)
-class DograhTTSService(BaseTTSConfiguration):
-    provider: Literal[ServiceProviders.DOGRAH] = ServiceProviders.DOGRAH
+@register_tts(provider=Acuity_PROVIDER)
+class AcuityTTSService(BaseTTSConfiguration):
+    provider: Literal[ServiceProviders.Acuity] = ServiceProviders.Acuity
     model: str = Field(
         default="default",
-        description="Dograh TTS tier.",
-        json_schema_extra={"examples": DOGRAH_TTS_MODELS},
+        description="Acuity TTS tier.",
+        json_schema_extra={"examples": Acuity_TTS_MODELS},
     )
     voice: str = Field(
         default="default",
@@ -2008,7 +2015,7 @@ TTSConfig = Annotated[
         ElevenlabsTTSConfiguration,
         CartesiaTTSConfiguration,
         InworldTTSConfiguration,
-        DograhTTSService,
+        AcuityTTSService,
         SarvamTTSConfiguration,
         CambTTSConfiguration,
         RimeTTSConfiguration,
@@ -2174,27 +2181,27 @@ class GoogleSTTConfiguration(BaseSTTConfiguration):
     )
 
 
-# Dograh STT Service
-DOGRAH_STT_MODELS = ["default"]
-DOGRAH_STT_LANGUAGES = DEEPGRAM_LANGUAGES
-# Languages auto-detected when the Dograh STT language is "multi". Dograh STT runs
+# Acuity STT Service
+Acuity_STT_MODELS = ["default"]
+Acuity_STT_LANGUAGES = DEEPGRAM_LANGUAGES
+# Languages auto-detected when the Acuity STT language is "multi". Acuity STT runs
 # Deepgram Flux multilingual under the hood, which only auto-detects this subset —
-# not the full DOGRAH_STT_LANGUAGES list offered for explicit single-language selection.
-DOGRAH_MULTILINGUAL_AUTODETECT_LANGUAGES = DEEPGRAM_FLUX_MULTILINGUAL_LANGUAGES
+# not the full Acuity_STT_LANGUAGES list offered for explicit single-language selection.
+Acuity_MULTILINGUAL_AUTODETECT_LANGUAGES = DEEPGRAM_FLUX_MULTILINGUAL_LANGUAGES
 
 
-@register_stt(provider=DOGRAH_PROVIDER)
-class DograhSTTService(BaseSTTConfiguration):
-    provider: Literal[ServiceProviders.DOGRAH] = ServiceProviders.DOGRAH
+@register_stt(provider=Acuity_PROVIDER)
+class AcuitySTTService(BaseSTTConfiguration):
+    provider: Literal[ServiceProviders.Acuity] = ServiceProviders.Acuity
     model: str = Field(
         default="default",
-        description="Dograh STT tier.",
-        json_schema_extra={"examples": DOGRAH_STT_MODELS},
+        description="Acuity STT tier.",
+        json_schema_extra={"examples": Acuity_STT_MODELS},
     )
     language: str = Field(
         default="multi",
         description="Language code; use 'multi' for auto-detect, optionally guided by language hints.",
-        json_schema_extra={"examples": DOGRAH_STT_LANGUAGES},
+        json_schema_extra={"examples": Acuity_STT_LANGUAGES},
     )
     language_hints: list[str] = Field(
         default_factory=list,
@@ -2497,7 +2504,7 @@ STTConfig = Annotated[
         CartesiaSTTConfiguration,
         OpenAISTTConfiguration,
         GoogleSTTConfiguration,
-        DograhSTTService,
+        AcuitySTTService,
         SpeechmaticsSTTConfiguration,
         SarvamSTTConfiguration,
         SpeachesSTTConfiguration,
@@ -2568,16 +2575,16 @@ class AzureOpenAIEmbeddingsConfiguration(BaseEmbeddingsConfiguration):
     )
 
 
-DOGRAH_EMBEDDING_MODELS = ["dograh_embedding_v1"]
+Acuity_EMBEDDING_MODELS = ["Acuity_embedding_v1"]
 
 
-@register_embeddings(provider=DOGRAH_PROVIDER)
-class DograhEmbeddingsConfiguration(BaseEmbeddingsConfiguration):
-    provider: Literal[ServiceProviders.DOGRAH] = ServiceProviders.DOGRAH
+@register_embeddings(provider=Acuity_PROVIDER)
+class AcuityEmbeddingsConfiguration(BaseEmbeddingsConfiguration):
+    provider: Literal[ServiceProviders.Acuity] = ServiceProviders.Acuity
     model: str = Field(
-        default="dograh_embedding_v1",
-        description="Dograh-managed embedding model.",
-        json_schema_extra={"examples": DOGRAH_EMBEDDING_MODELS},
+        default="Acuity_embedding_v1",
+        description="Acuity-managed embedding model.",
+        json_schema_extra={"examples": Acuity_EMBEDDING_MODELS},
     )
 
 
@@ -2586,7 +2593,7 @@ EmbeddingsConfig = Annotated[
         OpenAIEmbeddingsConfiguration,
         OpenRouterEmbeddingsConfiguration,
         AzureOpenAIEmbeddingsConfiguration,
-        DograhEmbeddingsConfiguration,
+        AcuityEmbeddingsConfiguration,
     ],
     Field(discriminator="provider"),
 ]

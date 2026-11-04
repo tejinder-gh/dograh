@@ -1,2 +1,2 @@
-dograh-sdk
+Acuity-sdk
 python-dotenv

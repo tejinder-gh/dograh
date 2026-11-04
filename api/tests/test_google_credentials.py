@@ -12,9 +12,9 @@ from pipecat.services.google.llm import GoogleLLMService
 
 from api.services.pipecat import google_credentials as auth
 from api.services.pipecat.realtime.gemini_live_vertex import (
-    DograhGeminiLiveVertexLLMService,
+    AcuityGeminiLiveVertexLLMService,
 )
-from api.services.pipecat.service_factory import DograhGoogleVertexLLMService
+from api.services.pipecat.service_factory import AcuityGoogleVertexLLMService
 
 
 @pytest.fixture(autouse=True)
@@ -55,7 +55,7 @@ def delegate(monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "service_class", [DograhGoogleVertexLLMService, DograhGeminiLiveVertexLLMService]
+    "service_class", [AcuityGoogleVertexLLMService, AcuityGeminiLiveVertexLLMService]
 )
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
@@ -84,7 +84,7 @@ async def test_construction_never_loads_or_refreshes_credentials(
 async def test_text_and_live_share_auth_but_keep_separate_clients(delegate):
     services = [
         cls(project_id="test", location="global", credentials='{"key": "shared"}')
-        for cls in (DograhGoogleVertexLLMService, DograhGeminiLiveVertexLLMService)
+        for cls in (AcuityGoogleVertexLLMService, AcuityGeminiLiveVertexLLMService)
     ]
     try:
         text, live = services
@@ -166,8 +166,8 @@ async def test_failed_preparation_can_retry(delegate):
 async def test_text_requests_prepare_without_pipeline_setup(
     delegate, monkeypatch, method
 ):
-    monkeypatch.setattr(DograhGoogleVertexLLMService, "create_client", Mock())
-    service = DograhGoogleVertexLLMService(project_id="test", credentials="{}")
+    monkeypatch.setattr(AcuityGoogleVertexLLMService, "create_client", Mock())
+    service = AcuityGoogleVertexLLMService(project_id="test", credentials="{}")
 
     async def request(*args, **kwargs):
         assert service._credentials.valid
@@ -180,8 +180,8 @@ async def test_text_requests_prepare_without_pipeline_setup(
 
 @pytest.mark.asyncio
 async def test_live_prepares_each_connection_before_entering_sdk(delegate, monkeypatch):
-    monkeypatch.setattr(DograhGeminiLiveVertexLLMService, "create_client", Mock())
-    service = DograhGeminiLiveVertexLLMService(
+    monkeypatch.setattr(AcuityGeminiLiveVertexLLMService, "create_client", Mock())
+    service = AcuityGeminiLiveVertexLLMService(
         project_id="test", location="global", credentials="{}"
     )
 
@@ -197,8 +197,8 @@ async def test_live_prepares_each_connection_before_entering_sdk(delegate, monke
 
 @pytest.mark.asyncio
 async def test_live_auth_failure_uses_connection_error_policy(delegate, monkeypatch):
-    monkeypatch.setattr(DograhGeminiLiveVertexLLMService, "create_client", Mock())
-    service = DograhGeminiLiveVertexLLMService(
+    monkeypatch.setattr(AcuityGeminiLiveVertexLLMService, "create_client", Mock())
+    service = AcuityGeminiLiveVertexLLMService(
         project_id="test", location="global", credentials="{}"
     )
     delegate.refresh.side_effect = RuntimeError("auth failed")

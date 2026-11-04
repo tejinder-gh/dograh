@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 import time
 from dataclasses import dataclass
 
@@ -56,7 +57,50 @@ class CallConcurrencyService:
         self.default_concurrent_limit = int(DEFAULT_ORG_CONCURRENCY_LIMIT)
 
     async def get_org_concurrent_limit(self, organization_id: int) -> int:
-        """Get the concurrent call limit for an organization."""
+        """Get the authoritative concurrent call limit for an organization.
+        
+        Checks business_ext.organization_subscriptions:
+        - If subscription is paused, canceled, or suspended, limit is 0.
+        - If total voice minutes <= 0, limit is 0.
+        - Returns active subscription's concurrency_limit.
+        - Falls back to legacy organization configuration if no subscription mapping exists.
+        """
+        try:
+            if hasattr(db_client, "execute_raw_query"):
+                raw_call = db_client.execute_raw_query(
+                    """
+                    SELECT s.concurrency_limit, s.status, s.included_minutes, s.bonus_minutes
+                    FROM business_ext.organization_mappings om
+                    INNER JOIN business_ext.organization_subscriptions s ON s.tenant_id = om.business_tenant_id
+                    WHERE om.acuity_organization_id = :org_id
+                    LIMIT 1;
+                    """,
+                    {"org_id": organization_id},
+                )
+                if inspect.isawaitable(raw_call):
+                    sub_rows = await raw_call
+                elif isinstance(raw_call, list):
+                    sub_rows = raw_call
+                else:
+                    sub_rows = None
+
+                if sub_rows and isinstance(sub_rows, list):
+                    sub = sub_rows[0]
+                    if isinstance(sub, dict):
+                        if sub.get("status") != "active":
+                            return 0
+                        total_min = (sub.get("included_minutes") or 0) + (sub.get("bonus_minutes") or 0)
+                        if total_min <= 0:
+                            return 0
+                        limit = sub.get("concurrency_limit")
+                        if limit is not None:
+                            return int(limit)
+        except Exception as e:
+            logger.warning(
+                f"Error checking subscription concurrency limit for org {organization_id}: {e}"
+            )
+
+        # Fallback for legacy OSS or unmapped configurations
         try:
             config = await db_client.get_configuration(
                 organization_id,
@@ -148,7 +192,7 @@ class CallConcurrencyService:
                     f"{scope_note}, waited={wait_time:.1f}s"
                 )
                 properties = {
-                    "event_source": "dograh",
+                    "event_source": "Acuity",
                     "organization_id": organization_id,
                     "source": source,
                     "max_concurrent": max_concurrent,
@@ -241,6 +285,102 @@ class CallConcurrencyService:
         await self.bind_workflow_run(slot, workflow_run_id)
         return slot
 
+    async def reserve_workflow_run_slot(
+        self,
+        organization_id: int,
+        workflow_run_id: int,
+        *,
+        source: str = "quota_reservation",
+        timeout: float = 0,
+        scope_key: str | None = None,
+        scope_max_concurrent: int | None = None,
+    ) -> CallConcurrencySlot:
+        """Authoritative, idempotent slot reservation for a workflow run.
+        
+        Guarantees that:
+        1. If workflow_run_id already holds a live slot, returns it idempotently without consuming extra slots.
+        2. Acquires slot atomically against the organization's subscription concurrency limit.
+        3. Fails closed (raises CallConcurrencyLimitError) if capacity is reached.
+        """
+        # Idempotency check: does this workflow run already have a registered slot?
+        existing_mapping = await rate_limiter.get_workflow_slot_mapping(workflow_run_id)
+        if existing_mapping:
+            org_id, slot_id, mapped_scope = existing_mapping
+            if org_id == organization_id:
+                limit = await self.get_org_concurrent_limit(organization_id)
+                return CallConcurrencySlot(
+                    organization_id=organization_id,
+                    slot_id=slot_id,
+                    max_concurrent=limit,
+                    source=source,
+                    scope_key=mapped_scope,
+                )
+
+        max_concurrent = await self.get_org_concurrent_limit(organization_id)
+        if max_concurrent <= 0:
+            raise CallConcurrencyLimitError(
+                organization_id=organization_id,
+                source=source,
+                wait_time=0.0,
+                max_concurrent=0,
+            )
+
+        slot = await self.acquire_org_slot(
+            organization_id,
+            source=source,
+            timeout=timeout,
+            scope_key=scope_key,
+            scope_max_concurrent=scope_max_concurrent,
+        )
+
+        try:
+            await self.bind_workflow_run(slot, workflow_run_id)
+            return slot
+        except WorkflowRunSlotAlreadyBoundError:
+            # Another concurrent request already bound this workflow_run_id; return the bound slot
+            existing_mapping = await rate_limiter.get_workflow_slot_mapping(workflow_run_id)
+            if existing_mapping:
+                org_id, slot_id, mapped_scope = existing_mapping
+                return CallConcurrencySlot(
+                    organization_id=org_id,
+                    slot_id=slot_id,
+                    max_concurrent=max_concurrent,
+                    source=source,
+                    scope_key=mapped_scope,
+                )
+            raise
+
+    async def recover_orphaned_reservations(self, organization_id: int) -> int:
+        """Sweep and recover orphaned concurrency reservations.
+        
+        1. Prunes time-based expired slots in rate_limiter.
+        2. Releases slots held by runs that have reached terminal states in the database.
+        """
+        # Prune time-based stale entries
+        await rate_limiter.get_concurrent_count(organization_id)
+        cleaned = 0
+        try:
+            inactive_runs = await db_client.execute_raw_query(
+                """
+                SELECT wr.id FROM public.workflow_runs wr
+                INNER JOIN public.workflows w ON w.id = wr.workflow_id
+                WHERE w.organization_id = :org_id
+                  AND (wr.is_completed = true OR wr.state IN ('completed', 'failed', 'cancelled'));
+                """,
+                {"org_id": organization_id},
+            )
+            for row in inactive_runs:
+                run_id = row.get("id")
+                if run_id:
+                    released = await self.release_workflow_run_slot(run_id)
+                    if released:
+                        cleaned += 1
+        except Exception as e:
+            logger.warning(
+                f"Error cleaning terminated workflow run slots for org {organization_id}: {e}"
+            )
+        return cleaned
+
     async def unregister_active_call(self, workflow_run_id: int) -> bool:
         """Release the run's slot without ever raising.
 
@@ -296,6 +436,16 @@ class CallConcurrencyService:
                 "had no live slot; deleted stale mapping"
             )
         return released
+
+    async def heartbeat_active_call(self, workflow_run_id: int) -> bool:
+        """Refresh concurrent call slot heartbeat for an active workflow run."""
+        mapping = await rate_limiter.get_workflow_slot_mapping(workflow_run_id)
+        if not mapping:
+            return False
+        org_id, slot_id, scope_key = mapping
+        return await rate_limiter.heartbeat_concurrent_slot(
+            org_id, slot_id, scope_key=scope_key
+        )
 
 
 call_concurrency = CallConcurrencyService()

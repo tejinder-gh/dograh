@@ -1,8 +1,8 @@
 {
-  "uid": "dograh-runtime",
-  "title": "Dograh runtime",
+  "uid": "Acuity-runtime",
+  "title": "Acuity runtime",
   "tags": [
-    "dograh",
+    "Acuity",
     "observability"
   ],
   "schemaVersion": 39,
@@ -24,7 +24,7 @@
       "type": "stat",
       "datasource": {
         "type": "prometheus",
-        "uid": "dograh-prometheus"
+        "uid": "Acuity-prometheus"
       },
       "gridPos": {
         "x": 0,
@@ -53,11 +53,11 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(dograh_active_calls{job=\"dograh\"})",
+          "expr": "sum(Acuity_active_calls{job=\"Acuity\"})",
           "legendFormat": "calls",
           "datasource": {
             "type": "prometheus",
-            "uid": "dograh-prometheus"
+            "uid": "Acuity-prometheus"
           }
         }
       ]
@@ -68,7 +68,7 @@
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
-        "uid": "dograh-prometheus"
+        "uid": "Acuity-prometheus"
       },
       "gridPos": {
         "x": 6,
@@ -96,29 +96,29 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "histogram_quantile(0.5, sum by (le) (rate(dograh_response_latency_seconds_bucket{job=\"dograh\",kind=\"user_to_bot\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(Acuity_response_latency_seconds_bucket{job=\"Acuity\",kind=\"user_to_bot\"}[$__rate_interval])))",
           "legendFormat": "p50",
           "datasource": {
             "type": "prometheus",
-            "uid": "dograh-prometheus"
+            "uid": "Acuity-prometheus"
           }
         },
         {
           "refId": "B",
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(dograh_response_latency_seconds_bucket{job=\"dograh\",kind=\"user_to_bot\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(Acuity_response_latency_seconds_bucket{job=\"Acuity\",kind=\"user_to_bot\"}[$__rate_interval])))",
           "legendFormat": "p95",
           "datasource": {
             "type": "prometheus",
-            "uid": "dograh-prometheus"
+            "uid": "Acuity-prometheus"
           }
         },
         {
           "refId": "C",
-          "expr": "histogram_quantile(0.99, sum by (le) (rate(dograh_response_latency_seconds_bucket{job=\"dograh\",kind=\"user_to_bot\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(Acuity_response_latency_seconds_bucket{job=\"Acuity\",kind=\"user_to_bot\"}[$__rate_interval])))",
           "legendFormat": "p99",
           "datasource": {
             "type": "prometheus",
-            "uid": "dograh-prometheus"
+            "uid": "Acuity-prometheus"
           }
         }
       ]
@@ -129,7 +129,7 @@
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
-        "uid": "dograh-prometheus"
+        "uid": "Acuity-prometheus"
       },
       "gridPos": {
         "x": 0,
@@ -157,11 +157,11 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "histogram_quantile(0.95, sum by (le, service, model, kind) (rate(dograh_ai_latency_seconds_bucket{job=\"dograh\",conversation_type=\"voice\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.95, sum by (le, service, model, kind) (rate(Acuity_ai_latency_seconds_bucket{job=\"Acuity\",conversation_type=\"voice\"}[$__rate_interval])))",
           "legendFormat": "{{service}} / {{model}} / {{kind}}",
           "datasource": {
             "type": "prometheus",
-            "uid": "dograh-prometheus"
+            "uid": "Acuity-prometheus"
           }
         }
       ]

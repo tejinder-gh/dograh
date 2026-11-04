@@ -38,7 +38,7 @@ export function LoginForm({ signupEnabled }: { signupEnabled: boolean }) {
         body: JSON.stringify({ token: res.data.token, user: res.data.user }),
       });
 
-      window.location.href = "/after-sign-in";
+      window.location.href = "/dashboard";
     } catch {
       toast.error("An error occurred. Please try again.");
     } finally {

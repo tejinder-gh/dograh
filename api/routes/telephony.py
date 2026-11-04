@@ -19,9 +19,10 @@ from pipecat.utils.run_context import set_current_run_id
 from pydantic import BaseModel
 from starlette.websockets import WebSocketDisconnect
 
+from api import constants
 from api.db import db_client
 from api.db.models import UserModel
-from api.enums import CallType, WorkflowRunMode, WorkflowRunState
+from api.enums import CallType, Environment, WorkflowRunMode, WorkflowRunState
 from api.errors.failure import failure_already_reported
 from api.errors.telephony_errors import TelephonyError
 from api.sdk_expose import sdk_expose
@@ -71,6 +72,7 @@ class InitiateCallRequest(BaseModel):
     # Optional caller-ID phone number to dial out from. Must belong to the
     # resolved telephony configuration; otherwise the provider picks one.
     from_phone_number_id: int | None = None
+    recipient_timezone: str | None = None
 
 
 def _get_execution_user_id(workflow) -> int:
@@ -147,6 +149,28 @@ async def initiate_call(
         raise HTTPException(
             status_code=400,
             detail="Phone number must be provided in request or set in organization preferences",
+        )
+
+    # Compliance: DNC Suppression, Jurisdictional Calling Hours, and CRTC Marketing Prohibition
+    from api.services.compliance.calling_controls import validate_outbound_call_compliance
+
+    # Do not default to Eastern Time; allow timezone resolver to determine via verified profile or NPA safe harbor
+    recipient_tz = request.recipient_timezone or None
+    allowed, error_code, error_msg = await validate_outbound_call_compliance(
+        organization_id=user.selected_organization_id,
+        phone_number=phone_number,
+        call_type=getattr(request, "call_type", "transactional"),
+        recipient_timezone=recipient_tz,
+        is_ported_or_voip=getattr(request, "is_ported_or_voip", False),
+    )
+    if not allowed:
+        logger.warning(
+            f"[Compliance] Blocked outbound call to {phone_number}: {error_code} - {error_msg}"
+        )
+        status_code = 400 if error_code in ("unverified_recipient_timezone", "invalid_timezone") else 403
+        raise HTTPException(
+            status_code=status_code,
+            detail=error_code,
         )
 
     workflow = await db_client.get_workflow(
@@ -238,7 +262,7 @@ async def initiate_call(
         await call_concurrency.release_slot(concurrency_slot)
         raise
 
-    # Check Dograh quota after the run exists so hosted v2 can mint and store
+    # Check Acuity quota after the run exists so hosted v2 can mint and store
     # the MPS correlation id before initiating the call.
     quota_result = await authorize_workflow_run_start(
         workflow_id=workflow.id,
@@ -680,6 +704,17 @@ async def _handle_telephony_websocket(
                     f"(org {organization_id}); allowed because TELEPHONY_WS_TOKEN_ENFORCE "
                     f"is off — set it to enforce"
                 )
+        elif (
+            constants.ENVIRONMENT
+            not in (Environment.LOCAL.value, Environment.TEST.value, "dev")
+            and ws_auth.enforcement_enabled()
+        ):
+            logger.error(
+                f"[telephony ws] rejecting connection in production environment: "
+                f"TELEPHONY_WS_TOKEN_SECRET must be configured"
+            )
+            await websocket.close(code=4401, reason="Unauthorized")
+            return
 
         # Get workflow run to determine provider type
         workflow_run = await db_client.get_workflow_run(
@@ -776,10 +811,22 @@ async def _handle_telephony_websocket(
             await websocket.close(code=4400, reason="Provider mismatch")
             return
 
-        # Set workflow run state to 'running' before starting the pipeline
-        await db_client.update_workflow_run(
-            run_id=workflow_run_id, state=WorkflowRunState.RUNNING.value
+        # Atomically transition workflow run state to 'running' via compare-and-swap (CAS).
+        # This prevents concurrent media WebSockets from racing to claim and execute the same run.
+        swapped = await db_client.compare_and_swap_run_state(
+            run_id=workflow_run_id,
+            expected_state=WorkflowRunState.INITIALIZED.value,
+            new_state=WorkflowRunState.RUNNING.value,
         )
+        if not swapped:
+            logger.warning(
+                f"[telephony ws] Workflow run {workflow_run_id} state transition failed: "
+                f"expected '{WorkflowRunState.INITIALIZED.value}', run already claimed or transitioned"
+            )
+            await websocket.close(
+                code=4409, reason="Workflow run not available for connection"
+            )
+            return
 
         logger.info(
             f"[run {workflow_run_id}] Set workflow run state to 'running' for {provider_type} provider"

@@ -10,10 +10,10 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "dograh.web.fullname" . }}
+  name: {{ include "Acuity.web.fullname" . }}
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "dograh.labels" . | nindent 4 }}
+    {{- include "Acuity.labels" . | nindent 4 }}
     app.kubernetes.io/component: web
 spec:
   {{- /* Omit spec.replicas only when an autoscaler will actually own this
@@ -26,7 +26,7 @@ spec:
   {{- end }}
   selector:
     matchLabels:
-      {{- include "dograh.selectorLabels" . | nindent 6 }}
+      {{- include "Acuity.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: web
   strategy:
     type: RollingUpdate
@@ -36,7 +36,7 @@ spec:
   template:
     metadata:
       labels:
-        {{- include "dograh.selectorLabels" . | nindent 8 }}
+        {{- include "Acuity.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: web
       annotations:
         # Roll pods when the ConfigMap changes (e.g. `helm upgrade --set
@@ -48,7 +48,7 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
-      serviceAccountName: {{ include "dograh.serviceAccountName" . }}
+      serviceAccountName: {{ include "Acuity.serviceAccountName" . }}
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
@@ -59,7 +59,7 @@ spec:
       terminationGracePeriodSeconds: {{ .Values.web.terminationGracePeriodSeconds }}
       containers:
         - name: web
-          image: {{ include "dograh.image" . }}
+          image: {{ include "Acuity.image" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command: ["./scripts/run_web.sh"]
           ports:
@@ -67,7 +67,7 @@ spec:
               containerPort: {{ .Values.web.port }}
               protocol: TCP
           envFrom:
-            {{- include "dograh.backendEnvFrom" . | nindent 12 }}
+            {{- include "Acuity.backendEnvFrom" . | nindent 12 }}
           env:
             - name: WEB_PORT
               value: {{ .Values.web.port | quote }}
@@ -83,7 +83,7 @@ spec:
               value: {{ .Values.web.preStopSleepSeconds | quote }}
             - name: DRAIN_MAX_WAIT
               value: {{ .Values.web.drainMaxWaitSeconds | quote }}
-            {{- include "dograh.dbEnv" . | nindent 12 }}
+            {{- include "Acuity.dbEnv" . | nindent 12 }}
           # Distinct probes: readiness flips fast (drain), liveness is
           # slower (process aliveness).
           livenessProbe:

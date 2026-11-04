@@ -190,9 +190,9 @@ async def run_completion(
             "call_disposition"
         )
         if disposition:
-            trace_attributes["dograh.call_disposition"] = disposition
+            trace_attributes["Acuity.call_disposition"] = disposition
         if recording_url:
-            trace_attributes["dograh.recording_url"] = recording_url
+            trace_attributes["Acuity.recording_url"] = recording_url
         # The live-phase client ran with placeholder identity ("deferred" /
         # "development"); the wire export only fixes the TOP-LEVEL project and
         # environment fields, so overwrite the trace ATTRIBUTES with the
@@ -203,7 +203,7 @@ async def run_completion(
         # The agent version was stamped into the trace attributes in the live
         # phase; surface it as the trace's top-level service_version too (the
         # transport applies config.service_version at export time).
-        agent_version = trace_attributes.get("dograh.agent_version")
+        agent_version = trace_attributes.get("Acuity.agent_version")
 
         client = None
         try:

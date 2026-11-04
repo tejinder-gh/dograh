@@ -1,11 +1,7 @@
+import { branding } from "@/config/branding";
 import { cn } from "@/lib/utils";
 
-// Reusable Dograh wordmark. Theme-aware by default: the dark logo shows on light
-// surfaces and the light/cream logo shows on dark. Pass `inverse` to force the
-// light logo on an always-dark surface (e.g. the auth brand panel). Pass `mark`
-// to render the square logo mark instead of the full wordmark (e.g. the app
-// sidebar header). Height is controlled by the caller via className (e.g.
-// "h-7"); width stays auto so each lockup keeps its aspect ratio.
+// Reusable product wordmark and logo mark. Theme-aware and bound to centralized branding configuration.
 export function BrandLogo({
   className,
   inverse = false,
@@ -17,22 +13,37 @@ export function BrandLogo({
 }) {
   if (mark) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img src="/dograh-mark.png" alt="Dograh" className={cn("w-auto select-none", className)} />
+      <div
+        className={cn(
+          "flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 via-primary to-violet-600 font-bold text-primary-foreground shadow-xs select-none shrink-0 ring-1 ring-white/10",
+          className
+        )}
+        title={branding.productName}
+        aria-label={branding.productName}
+      >
+        <span className="text-xs font-black tracking-tighter">A</span>
+      </div>
     );
   }
-  if (inverse) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img src="/dograh-logo-inverse.png" alt="Dograh" className={cn("w-auto select-none", className)} />
-    );
-  }
+
   return (
-    <>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/dograh-logo.png" alt="Dograh" className={cn("block w-auto select-none dark:hidden", className)} />
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/dograh-logo-inverse.png" alt="Dograh" className={cn("hidden w-auto select-none dark:block", className)} />
-    </>
+    <div
+      className={cn(
+        "inline-flex items-center gap-2.5 select-none",
+        inverse ? "text-white" : "text-foreground",
+        className
+      )}
+      title={branding.productName}
+      aria-label={branding.productName}
+    >
+      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 via-primary to-violet-600 font-bold text-primary-foreground shadow-xs shrink-0 ring-1 ring-white/10">
+        <span className="text-xs font-black tracking-tighter">A</span>
+      </div>
+      <div className="flex flex-col leading-none">
+        <span className="text-sm font-bold tracking-tight">
+          {branding.productName}
+        </span>
+      </div>
+    </div>
   );
 }

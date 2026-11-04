@@ -56,7 +56,7 @@ async def test_bridge_swap_preserves_context_saved_after_its_read(monkeypatch):
         {
             "channel_id": "caller-chan",
             "ari_endpoint": "http://asterisk.test:8088",
-            "app_name": "dograh",
+            "app_name": "Acuity",
             "app_password": "secret",
         }
     )

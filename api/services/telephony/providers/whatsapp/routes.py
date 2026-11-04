@@ -4,7 +4,7 @@ Meta's WhatsApp Business Calling API announces calls here: the GET handshake
 that verifies the webhook, then ``connect`` events carrying an SDP offer and
 ``terminate`` events when the caller hangs up. Pipecat's ``WhatsAppClient``
 answers a ``connect`` over WebRTC and closes the peer connection on
-``terminate``; the call itself runs through Dograh's WebRTC voice pipeline.
+``terminate``; the call itself runs through Acuity's WebRTC voice pipeline.
 
 Meta posts every event to one URL, so with several API workers a call's
 ``terminate`` can land on a worker that does not hold its peer connection.
@@ -799,7 +799,7 @@ async def _run_whatsapp_pipeline(
     phone_number_id: str,
     access_token: Optional[str],
 ) -> None:
-    """Execute Dograh's WebRTC AI pipeline over the active peer connection.
+    """Execute Acuity's WebRTC AI pipeline over the active peer connection.
 
     The pipeline ends either because Meta closed the call (the client dropped
     the peer connection on ``terminate``) or on its own — the agent hung up or

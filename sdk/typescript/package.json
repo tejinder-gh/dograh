@@ -1,17 +1,17 @@
 {
-  "name": "@dograh/sdk",
+  "name": "@Acuity/sdk",
   "version": "0.1.8",
-  "description": "Typed builder for Dograh voice-AI workflows",
+  "description": "Typed builder for Acuity voice-AI workflows",
   "license": "BSD-2-Clause",
   "author": "Zansat Technologies Private Limited",
-  "homepage": "https://dograh.com",
+  "homepage": "https://Acuity.com",
   "repository": {
     "type": "git",
-    "url": "https://github.com/dograh-hq/dograh.git",
+    "url": "https://github.com/Acuity-hq/Acuity.git",
     "directory": "sdk/typescript"
   },
   "keywords": [
-    "dograh",
+    "Acuity",
     "voice-ai",
     "workflow",
     "sdk",

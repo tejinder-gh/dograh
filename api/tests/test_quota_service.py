@@ -34,18 +34,22 @@ def run_model_resolution(monkeypatch):
     return resolve_mock
 
 
-def _dograh_config(
+def _acuity_config(
     api_key: str = "mps_sk_12345678",
     *,
     managed_service_version: int = 1,
 ):
     return SimpleNamespace(
         managed_service_version=managed_service_version,
-        llm=SimpleNamespace(provider=ServiceProviders.DOGRAH, api_key=api_key),
+        llm=SimpleNamespace(provider=ServiceProviders.Acuity, api_key=api_key),
         stt=None,
         tts=None,
         embeddings=None,
     )
+
+
+_Acuity_config = _acuity_config
+_dograh_config = _acuity_config
 
 
 def _byok_config():
@@ -116,6 +120,11 @@ def _patch_workflow_context(monkeypatch, *, workflow=_UNSET, owner=None):
         "get_user_by_id",
         AsyncMock(return_value=owner or _workflow_owner()),
     )
+    monkeypatch.setattr(
+        quota_service,
+        "check_business_organization_quota",
+        AsyncMock(return_value=QuotaCheckResult(has_quota=True)),
+    )
 
 
 @pytest.mark.asyncio
@@ -127,7 +136,7 @@ async def test_quota_uses_pinned_model_setup_without_resolving_lower_layers(
     monkeypatch.setattr(
         quota_service.db_client, "get_workflow_run", AsyncMock(return_value=run)
     )
-    effective = _dograh_config("frozen-key", managed_service_version=2)
+    effective = _Acuity_config("frozen-key", managed_service_version=2)
     run_model_resolution.side_effect = None
     run_model_resolution.return_value = effective
     legacy = AsyncMock(side_effect=AssertionError("must not re-resolve models"))
@@ -179,7 +188,7 @@ async def test_semantic_configuration_failure_precedes_billing(
 async def test_authorize_workflow_run_uses_workflow_org_for_hosted_v2(
     monkeypatch,
 ):
-    get_config = AsyncMock(return_value=_dograh_config())
+    get_config = AsyncMock(return_value=_Acuity_config())
     authorize = AsyncMock(
         return_value={
             "allowed": True,
@@ -223,9 +232,9 @@ async def test_authorize_workflow_run_uses_workflow_org_for_hosted_v2(
         workflow_run_id=None,
         service_key=None,
         require_correlation_id=False,
-        minimum_credits=quota_service.MINIMUM_DOGRAH_CREDITS_FOR_CALL,
+        minimum_credits=quota_service.MINIMUM_Acuity_CREDITS_FOR_CALL,
         created_by="provider-123",
-        metadata={"dograh_user_id": "123", "workflow_id": 7},
+        metadata={"Acuity_user_id": "123", "workflow_id": 7},
     )
     check_usage.assert_not_awaited()
 
@@ -271,7 +280,7 @@ async def test_authorize_workflow_run_v2_insufficient_credits_prompts_billing(
     assert result.has_quota is False
     assert result.error_code == "insufficient_credits"
     assert "/billing" in result.error_message
-    assert "founders@dograh.com" not in result.error_message
+    assert "founders@Acuity.com" not in result.error_message
     authorize.assert_awaited_once()
     check_usage.assert_not_awaited()
 
@@ -281,7 +290,7 @@ async def test_authorize_workflow_run_oss_exhausted_key_blocks_run(
     monkeypatch,
 ):
     api_key = "mps_sk_12345678"
-    get_config = AsyncMock(return_value=_dograh_config(api_key))
+    get_config = AsyncMock(return_value=_Acuity_config(api_key))
     check_usage = AsyncMock(
         return_value={"total_credits_used": 500.0, "remaining_credits": 0.0}
     )
@@ -306,7 +315,7 @@ async def test_authorize_workflow_run_oss_exhausted_key_blocks_run(
 
     assert result.has_quota is False
     assert result.error_code == "quota_exceeded"
-    assert "app.dograh.com" in result.error_message
+    assert "app.Acuity.com" in result.error_message
     assert "/billing" not in result.error_message
     check_usage.assert_awaited_once_with(api_key)
 
@@ -318,7 +327,7 @@ async def test_authorize_workflow_run_managed_v2_stores_hosted_correlation(
     api_key = "mps_sk_12345678"
     workflow_run = SimpleNamespace(initial_context={"existing": "value"})
     get_config = AsyncMock(
-        return_value=_dograh_config(api_key, managed_service_version=2)
+        return_value=_Acuity_config(api_key, managed_service_version=2)
     )
     authorize = AsyncMock(
         return_value={
@@ -378,9 +387,9 @@ async def test_authorize_workflow_run_managed_v2_stores_hosted_correlation(
         workflow_run_id=88,
         service_key=api_key,
         require_correlation_id=True,
-        minimum_credits=quota_service.MINIMUM_DOGRAH_CREDITS_FOR_CALL,
+        minimum_credits=quota_service.MINIMUM_Acuity_CREDITS_FOR_CALL,
         created_by="provider-123",
-        metadata={"dograh_user_id": "123", "workflow_id": 7},
+        metadata={"Acuity_user_id": "123", "workflow_id": 7},
     )
     update_workflow_run.assert_awaited_once_with(
         88,
@@ -412,7 +421,7 @@ async def test_hosted_managed_v2_authorization_rejects_missing_correlation(
         organization_id=42,
         workflow_id=7,
         workflow_run_id=88,
-        user_config=_dograh_config(managed_service_version=2),
+        user_config=_Acuity_config(managed_service_version=2),
     )
 
     assert result.has_quota is False
@@ -425,7 +434,7 @@ async def test_authorize_workflow_run_service_token_from_wrong_org_prompts_new_t
 ):
     api_key = "mps_sk_12345678"
     get_config = AsyncMock(
-        return_value=_dograh_config(api_key, managed_service_version=2)
+        return_value=_Acuity_config(api_key, managed_service_version=2)
     )
     request = httpx.Request(
         "POST",
@@ -482,9 +491,9 @@ async def test_authorize_workflow_run_service_token_from_wrong_org_prompts_new_t
         workflow_run_id=88,
         service_key=api_key,
         require_correlation_id=True,
-        minimum_credits=quota_service.MINIMUM_DOGRAH_CREDITS_FOR_CALL,
+        minimum_credits=quota_service.MINIMUM_Acuity_CREDITS_FOR_CALL,
         created_by="provider-123",
-        metadata={"dograh_user_id": "123", "workflow_id": 7},
+        metadata={"Acuity_user_id": "123", "workflow_id": 7},
     )
 
 
@@ -495,7 +504,7 @@ async def test_authorize_workflow_run_oss_uses_key_paths_not_workflow_org(
     api_key = "mps_sk_12345678"
     workflow_run = SimpleNamespace(initial_context={})
     get_config = AsyncMock(
-        return_value=_dograh_config(api_key, managed_service_version=2)
+        return_value=_Acuity_config(api_key, managed_service_version=2)
     )
     hosted_authorize = AsyncMock()
     service_key_authorize = AsyncMock(
@@ -564,7 +573,7 @@ async def test_authorize_workflow_run_oss_uses_key_paths_not_workflow_org(
         service_key=api_key,
         workflow_run_id=88,
         require_correlation_id=True,
-        minimum_credits=quota_service.MINIMUM_DOGRAH_CREDITS_FOR_CALL,
+        minimum_credits=quota_service.MINIMUM_Acuity_CREDITS_FOR_CALL,
         metadata={"workflow_id": 7},
     )
     check_usage.assert_not_awaited()
@@ -600,7 +609,7 @@ async def test_oss_run_authorization_rejects_missing_correlation(monkeypatch):
         workflow_id=7,
         workflow_run_id=88,
         service_key="mps_sk_12345678",
-        user_config=_dograh_config(managed_service_version=2),
+        user_config=_Acuity_config(managed_service_version=2),
     )
 
     assert result.has_quota is False
@@ -627,7 +636,7 @@ async def test_oss_run_authorization_preserves_hosted_key_credit_denial(monkeypa
         workflow_id=7,
         workflow_run_id=88,
         service_key="mps_sk_12345678",
-        user_config=_dograh_config(managed_service_version=2),
+        user_config=_Acuity_config(managed_service_version=2),
     )
 
     assert result.has_quota is False
@@ -640,7 +649,7 @@ async def test_oss_run_authorization_falls_back_for_older_mps(monkeypatch):
     api_key = "mps_sk_12345678"
     request = httpx.Request(
         "POST",
-        "https://services.dograh.com/api/v1/service-keys/run-authorization/self",
+        "https://services.Acuity.com/api/v1/service-keys/run-authorization/self",
     )
     response = httpx.Response(404, request=request)
     combined_authorize = AsyncMock(
@@ -685,7 +694,7 @@ async def test_oss_run_authorization_falls_back_for_older_mps(monkeypatch):
         workflow_id=7,
         workflow_run_id=88,
         service_key=api_key,
-        user_config=_dograh_config(api_key, managed_service_version=2),
+        user_config=_Acuity_config(api_key, managed_service_version=2),
     )
 
     assert result.has_quota is True
@@ -712,7 +721,7 @@ async def test_legacy_oss_correlation_rejects_missing_id(monkeypatch):
     result = await quota_service._authorize_oss_managed_v2_correlation(
         workflow_id=7,
         workflow_run_id=88,
-        user_config=_dograh_config(managed_service_version=2),
+        user_config=_Acuity_config(managed_service_version=2),
     )
 
     assert result.has_quota is False
@@ -858,7 +867,7 @@ async def test_authorize_workflow_run_resolves_config_from_pinned_definition(
 
     workflow.workflow_configurations is synced to the draft on save, while the
     run executes its pinned definition — if the draft carries a different
-    Dograh service key, minting from the workflow column binds the correlation
+    Acuity service key, minting from the workflow column binds the correlation
     to a key the run never uses and MPS rejects every model service call.
     """
     draft_configs = {"model_configuration_v2_override": {"key": "draft"}}
@@ -1113,7 +1122,7 @@ async def test_authorize_workflow_run_opens_when_hosted_mps_is_unreachable(
 ):
     request = httpx.Request(
         "POST",
-        "https://services.dograh.com/api/v1/billing/accounts/42/run-authorization",
+        "https://services.Acuity.com/api/v1/billing/accounts/42/run-authorization",
     )
 
     monkeypatch.setattr(quota_service, "DEPLOYMENT_MODE", "saas")
@@ -1145,7 +1154,7 @@ async def test_authorize_workflow_run_fails_closed_on_hosted_mps_http_error(
 ):
     request = httpx.Request(
         "POST",
-        "https://services.dograh.com/api/v1/billing/accounts/42/run-authorization",
+        "https://services.Acuity.com/api/v1/billing/accounts/42/run-authorization",
     )
     response = httpx.Response(503, request=request)
 
@@ -1179,7 +1188,7 @@ async def test_authorize_workflow_run_fails_closed_on_hosted_mps_http_error(
 
 @pytest.mark.asyncio
 async def test_authorize_workflow_run_fails_closed_on_invalid_mps_url(monkeypatch):
-    request = httpx.Request("POST", "ftp://services.dograh.com/run-authorization")
+    request = httpx.Request("POST", "ftp://services.Acuity.com/run-authorization")
 
     monkeypatch.setattr(quota_service, "DEPLOYMENT_MODE", "saas")
     _patch_workflow_context(monkeypatch)
@@ -1214,7 +1223,7 @@ async def test_authorize_workflow_run_opens_when_oss_quota_mps_is_unreachable(
 ):
     request = httpx.Request(
         "GET",
-        "https://services.dograh.com/api/v1/service-keys/usage/self",
+        "https://services.Acuity.com/api/v1/service-keys/usage/self",
     )
 
     monkeypatch.setattr(quota_service, "DEPLOYMENT_MODE", "oss")
@@ -1222,7 +1231,7 @@ async def test_authorize_workflow_run_opens_when_oss_quota_mps_is_unreachable(
     monkeypatch.setattr(
         quota_service,
         "get_effective_ai_model_configuration_for_workflow",
-        AsyncMock(return_value=_dograh_config()),
+        AsyncMock(return_value=_Acuity_config()),
     )
     monkeypatch.setattr(
         quota_service.mps_service_key_client,
@@ -1244,7 +1253,7 @@ async def test_authorize_workflow_run_fails_closed_on_oss_quota_mps_http_error(
 ):
     request = httpx.Request(
         "GET",
-        "https://services.dograh.com/api/v1/service-keys/usage/self",
+        "https://services.Acuity.com/api/v1/service-keys/usage/self",
     )
     response = httpx.Response(503, request=request)
 
@@ -1253,7 +1262,7 @@ async def test_authorize_workflow_run_fails_closed_on_oss_quota_mps_http_error(
     monkeypatch.setattr(
         quota_service,
         "get_effective_ai_model_configuration_for_workflow",
-        AsyncMock(return_value=_dograh_config()),
+        AsyncMock(return_value=_Acuity_config()),
     )
     monkeypatch.setattr(
         quota_service.mps_service_key_client,
@@ -1282,7 +1291,7 @@ async def test_authorize_workflow_run_denies_when_oss_run_authorization_is_unrea
 ):
     request = httpx.Request(
         "POST",
-        "https://services.dograh.com/api/v1/service-keys/run-authorization/self",
+        "https://services.Acuity.com/api/v1/service-keys/run-authorization/self",
     )
 
     monkeypatch.setattr(quota_service, "DEPLOYMENT_MODE", "oss")
@@ -1295,7 +1304,7 @@ async def test_authorize_workflow_run_denies_when_oss_run_authorization_is_unrea
     monkeypatch.setattr(
         quota_service,
         "get_effective_ai_model_configuration_for_workflow",
-        AsyncMock(return_value=_dograh_config(managed_service_version=2)),
+        AsyncMock(return_value=_Acuity_config(managed_service_version=2)),
     )
     monkeypatch.setattr(
         quota_service.mps_service_key_client,
@@ -1334,7 +1343,7 @@ async def test_authorize_workflow_run_fails_closed_when_storing_oss_correlation(
     monkeypatch.setattr(
         quota_service,
         "get_effective_ai_model_configuration_for_workflow",
-        AsyncMock(return_value=_dograh_config(managed_service_version=2)),
+        AsyncMock(return_value=_Acuity_config(managed_service_version=2)),
     )
     monkeypatch.setattr(
         quota_service.mps_service_key_client,
@@ -1356,3 +1365,270 @@ async def test_authorize_workflow_run_fails_closed_when_storing_oss_correlation(
 
     assert result.has_quota is False
     assert result.error_code == "quota_check_failed"
+
+
+# ============================================================================
+# B2: BUSINESS SUBSCRIPTION, QUOTA & BYOK POLICY ENFORCEMENT TESTS (QUO-01)
+# ============================================================================
+
+@pytest.mark.asyncio
+async def test_quota_service_blocks_suspended_organization(monkeypatch):
+    """Verify that suspended ('paused' / 'canceled') organization subscriptions are blocked."""
+    mock_sub = [{
+        "status": "paused",
+        "included_minutes": 250,
+        "bonus_minutes": 0,
+        "concurrency_limit": 2,
+        "current_period_start": "2026-11-01T00:00:00Z",
+        "current_period_end": "2026-12-01T00:00:00Z",
+        "plan_id": "starter",
+        "supports_byok": False,
+        "additional_minute_rate_cents": 22,
+    }]
+    monkeypatch.setattr(
+        quota_service.db_client,
+        "execute_raw_query",
+        AsyncMock(return_value=mock_sub),
+    )
+
+    result = await quota_service.check_business_organization_quota(
+        organization_id=42,
+        is_byok=False,
+    )
+    assert result.has_quota is False
+    assert result.error_code == "subscription_suspended"
+    assert "suspended" in result.error_message
+
+
+@pytest.mark.asyncio
+async def test_quota_service_blocks_byok_on_starter_plan(monkeypatch):
+    """Verify QUO-01: Starter plan does not support BYOK; attempts to bypass limits are blocked."""
+    mock_sub = [{
+        "status": "active",
+        "included_minutes": 250,
+        "bonus_minutes": 0,
+        "concurrency_limit": 2,
+        "current_period_start": "2026-11-01T00:00:00Z",
+        "current_period_end": "2026-12-01T00:00:00Z",
+        "plan_id": "starter",
+        "supports_byok": False,
+        "additional_minute_rate_cents": 22,
+    }]
+    monkeypatch.setattr(
+        quota_service.db_client,
+        "execute_raw_query",
+        AsyncMock(return_value=mock_sub),
+    )
+
+    result = await quota_service.check_business_organization_quota(
+        organization_id=42,
+        is_byok=True,
+    )
+    assert result.has_quota is False
+    assert result.error_code == "byok_not_supported"
+    assert "not permitted on the Starter Plan" in result.error_message
+
+
+@pytest.mark.asyncio
+async def test_quota_service_blocks_exceeded_concurrency(monkeypatch):
+    """Verify that runs exceeding concurrency limit are blocked."""
+    mock_sub = [{
+        "status": "active",
+        "included_minutes": 250,
+        "bonus_minutes": 0,
+        "concurrency_limit": 2,
+        "current_period_start": "2026-11-01T00:00:00Z",
+        "current_period_end": "2026-12-01T00:00:00Z",
+        "plan_id": "starter",
+        "supports_byok": True,
+        "additional_minute_rate_cents": 22,
+    }]
+    monkeypatch.setattr(
+        quota_service.db_client,
+        "execute_raw_query",
+        AsyncMock(side_effect=[mock_sub, [{"active_count": 2}]]),
+    )
+
+    result = await quota_service.check_business_organization_quota(
+        organization_id=42,
+        is_byok=False,
+    )
+    assert result.has_quota is False
+    assert result.error_code == "concurrency_limit_exceeded"
+    assert "limit of 2 reached" in result.error_message
+
+
+@pytest.mark.asyncio
+async def test_quota_service_blocks_exhausted_monthly_minutes(monkeypatch):
+    """Verify that runs when voice minutes are exhausted are blocked."""
+    mock_sub = [{
+        "status": "active",
+        "included_minutes": 250,
+        "bonus_minutes": 50,
+        "concurrency_limit": 5,
+        "current_period_start": "2026-11-01T00:00:00Z",
+        "current_period_end": "2026-12-01T00:00:00Z",
+        "plan_id": "professional",
+        "supports_byok": True,
+        "additional_minute_rate_cents": 18,
+    }]
+    monkeypatch.setattr(
+        quota_service.db_client,
+        "execute_raw_query",
+        AsyncMock(side_effect=[mock_sub, [{"active_count": 0}], [{"total_minutes": 305.0}]]),
+    )
+
+    result = await quota_service.check_business_organization_quota(
+        organization_id=42,
+        is_byok=True,
+    )
+    assert result.has_quota is False
+    assert result.error_code == "quota_exhausted"
+    assert "exhausted for the current billing cycle" in result.error_message
+
+
+@pytest.mark.asyncio
+async def test_quota_service_authorizes_valid_professional_run(monkeypatch):
+    """Verify that active subscription with sufficient minutes and concurrency passes."""
+    mock_sub = [{
+        "status": "active",
+        "included_minutes": 1000,
+        "bonus_minutes": 0,
+        "concurrency_limit": 5,
+        "current_period_start": "2026-11-01T00:00:00Z",
+        "current_period_end": "2026-12-01T00:00:00Z",
+        "plan_id": "professional",
+        "supports_byok": True,
+        "additional_minute_rate_cents": 18,
+    }]
+    monkeypatch.setattr(
+        quota_service.db_client,
+        "execute_raw_query",
+        AsyncMock(side_effect=[mock_sub, [{"active_count": 1}], [{"total_minutes": 120.0}]]),
+    )
+
+    result = await quota_service.check_business_organization_quota(
+        organization_id=42,
+        is_byok=True,
+    )
+    assert result.has_quota is True
+
+
+@pytest.mark.asyncio
+async def test_quota_service_blocks_missing_subscription_record(monkeypatch):
+    """Negative test: Organization with no subscription record must NOT bypass quota."""
+    monkeypatch.setattr(
+        quota_service.db_client,
+        "execute_raw_query",
+        AsyncMock(return_value=[]),  # No subscription in business_ext
+    )
+
+    result = await quota_service.check_business_organization_quota(
+        organization_id=999,
+        is_byok=False,
+    )
+    assert result.has_quota is False, "Must fail closed if organization subscription record is missing"
+    assert result.error_code == "subscription_not_found"
+
+
+@pytest.mark.asyncio
+async def test_quota_service_blocks_zero_minute_allocation(monkeypatch):
+    """Negative test: Organization with 0 total allocated minutes must be blocked from calling."""
+    mock_sub = [{
+        "status": "active",
+        "included_minutes": 0,
+        "bonus_minutes": 0,
+        "concurrency_limit": 2,
+        "current_period_start": "2026-11-01T00:00:00Z",
+        "current_period_end": "2026-12-01T00:00:00Z",
+        "plan_id": "starter",
+        "supports_byok": False,
+        "additional_minute_rate_cents": 25,
+    }]
+    monkeypatch.setattr(
+        quota_service.db_client,
+        "execute_raw_query",
+        AsyncMock(side_effect=[mock_sub, [{"active_count": 0}], [{"total_minutes": 0.0}]]),
+    )
+
+    result = await quota_service.check_business_organization_quota(
+        organization_id=42,
+        is_byok=False,
+    )
+    assert result.has_quota is False, "Must block calls when total allocated minutes is 0"
+    assert result.error_code == "quota_exhausted"
+
+
+@pytest.mark.asyncio
+async def test_quota_service_blocks_expired_subscription_period(monkeypatch):
+    """Negative test: Organization whose billing period has expired must be blocked."""
+    mock_sub = [{
+        "status": "active",
+        "included_minutes": 500,
+        "bonus_minutes": 0,
+        "concurrency_limit": 2,
+        "current_period_start": "2026-09-01T00:00:00Z",
+        "current_period_end": "2026-10-01T00:00:00Z",  # Expired period!
+        "plan_id": "starter",
+        "supports_byok": False,
+        "additional_minute_rate_cents": 25,
+    }]
+    monkeypatch.setattr(
+        quota_service.db_client,
+        "execute_raw_query",
+        AsyncMock(return_value=mock_sub),
+    )
+
+    result = await quota_service.check_business_organization_quota(
+        organization_id=42,
+        is_byok=False,
+    )
+    assert result.has_quota is False, "Must block calling when billing period has expired"
+    assert result.error_code == "subscription_period_expired"
+
+
+@pytest.mark.asyncio
+async def test_quota_service_blocks_future_subscription_period(monkeypatch):
+    """Negative test: Organization whose subscription period has not started yet must be blocked."""
+    mock_sub = [{
+        "status": "active",
+        "included_minutes": 500,
+        "bonus_minutes": 0,
+        "concurrency_limit": 2,
+        "current_period_start": "2026-12-01T00:00:00Z",  # Future period!
+        "current_period_end": "2027-01-01T00:00:00Z",
+        "plan_id": "starter",
+        "supports_byok": False,
+        "additional_minute_rate_cents": 25,
+    }]
+    monkeypatch.setattr(
+        quota_service.db_client,
+        "execute_raw_query",
+        AsyncMock(return_value=mock_sub),
+    )
+
+    result = await quota_service.check_business_organization_quota(
+        organization_id=42,
+        is_byok=False,
+    )
+    assert result.has_quota is False, "Must block calling when subscription period is in the future"
+    assert result.error_code == "subscription_not_started"
+
+
+@pytest.mark.asyncio
+async def test_quota_service_fails_closed_on_db_exception(monkeypatch):
+    """Negative test: Quota service must fail closed on database exception in all environments."""
+    monkeypatch.setattr(
+        quota_service.db_client,
+        "execute_raw_query",
+        AsyncMock(side_effect=RuntimeError("Database failure")),
+    )
+
+    result = await quota_service.check_business_organization_quota(
+        organization_id=42,
+        is_byok=False,
+    )
+    assert result.has_quota is False, "Must fail closed on database exception"
+    assert result.error_code == "quota_check_failed"
+
+

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from api.constants import ENABLE_SIGNUP
 from api.db import db_client
@@ -6,6 +6,7 @@ from api.db.models import UserModel
 from api.enums import PostHogEvent
 from api.schemas.auth import AuthResponse, LoginRequest, SignupRequest, UserResponse
 from api.services.auth.depends import get_user, require_local_auth
+from api.services.auth.rate_limiter import auth_rate_limiter, enforce_rate_limit
 from api.services.organization_bootstrap import ensure_organization_bootstrapped
 from api.services.posthog_client import capture_event
 from api.utils.auth import create_jwt_token, hash_password, verify_password
@@ -21,9 +22,18 @@ router = APIRouter(
     response_model=AuthResponse,
     dependencies=[Depends(require_local_auth)],
 )
-async def signup(request: SignupRequest):
+async def signup(request: SignupRequest, raw_request: Request):
     if not ENABLE_SIGNUP:
         raise HTTPException(status_code=403, detail="Signup is disabled")
+
+    # Enforce IP-based rate limiting on signup (max 5 per 5 minutes per IP)
+    client_ip = auth_rate_limiter.get_client_ip(raw_request)
+    is_limited, retry_after = await auth_rate_limiter.is_rate_limited(
+        key=f"signup_ip:{client_ip}",
+        max_requests=5,
+        window_seconds=300,
+    )
+    enforce_rate_limit(is_limited, retry_after)
 
     # Check if email is already taken
     existing_user = await db_client.get_user_by_email(request.email)
@@ -87,15 +97,38 @@ async def signup(request: SignupRequest):
     response_model=AuthResponse,
     dependencies=[Depends(require_local_auth)],
 )
-async def login(request: LoginRequest):
+async def login(request: LoginRequest, raw_request: Request):
+    client_ip = auth_rate_limiter.get_client_ip(raw_request)
+
+    # 1. Enforce IP rate limiting on login (max 15 attempts per minute per IP)
+    is_ip_limited, ip_retry_after = await auth_rate_limiter.is_rate_limited(
+        key=f"login_ip:{client_ip}",
+        max_requests=15,
+        window_seconds=60,
+    )
+    enforce_rate_limit(is_ip_limited, ip_retry_after)
+
+    # 2. Enforce targeted email lockout protection (max 5 failed attempts per 5 minutes per email)
+    is_email_locked, email_retry_after = await auth_rate_limiter.check_email_failed_attempts(
+        email=request.email,
+        max_failed=5,
+        window_seconds=300,
+    )
+    enforce_rate_limit(is_email_locked, email_retry_after)
+
     # Look up user by email
     user = await db_client.get_user_by_email(request.email)
     if not user or not user.password_hash:
+        await auth_rate_limiter.record_failed_attempt(request.email)
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
     # Verify password
     if not verify_password(request.password, user.password_hash):
+        await auth_rate_limiter.record_failed_attempt(request.email)
         raise HTTPException(status_code=401, detail="Invalid email or password")
+
+    # Authentication succeeded: clear failed attempts for this email
+    await auth_rate_limiter.clear_failed_attempts(request.email)
 
     # Create JWT token
     token = create_jwt_token(user.id, user.email)
@@ -116,6 +149,7 @@ async def login(request: LoginRequest):
             email=user.email,
             organization_id=user.selected_organization_id,
             provider_id=user.provider_id,
+            is_superuser=bool(getattr(user, "is_superuser", False)),
         ),
     )
 
@@ -127,4 +161,5 @@ async def get_current_user(user: UserModel = Depends(get_user)):
         email=user.email,
         organization_id=user.selected_organization_id,
         provider_id=user.provider_id,
+        is_superuser=bool(getattr(user, "is_superuser", False)),
     )

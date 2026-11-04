@@ -1,12 +1,12 @@
 {{- if eq .Values.storage.mode "internalMinio" }}
 {{- /*
-Bundled MinIO for storage.mode=internalMinio, dograh's MinIO image. Single
+Bundled MinIO for storage.mode=internalMinio, Acuity's MinIO image. Single
 replica (Recreate strategy — the RWO volume can't be shared). The app creates
 its bucket on first use (bucket_exists → make_bucket), so no provisioning Job.
 
 The root credentials live in <release>-minio and are consumed BOTH by the MinIO
 server (MINIO_ROOT_USER / MINIO_ROOT_PASSWORD) and by the app (MINIO_ACCESS_KEY /
-MINIO_SECRET_KEY, wired in dograh.dbEnv) — one source of truth, so they can't
+MINIO_SECRET_KEY, wired in Acuity.dbEnv) — one source of truth, so they can't
 drift. For production use storage.mode=s3 or externalMinio.
 */}}
 apiVersion: v1
@@ -15,12 +15,12 @@ metadata:
   name: {{ .Release.Name }}-minio
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "dograh.labels" . | nindent 4 }}
+    {{- include "Acuity.labels" . | nindent 4 }}
     app.kubernetes.io/component: minio
 type: Opaque
 stringData:
   root-user: {{ .Values.minio.auth.rootUser | default "minioadmin" | quote }}
-  root-password: {{ include "dograh.minioRootPassword" . | quote }}
+  root-password: {{ include "Acuity.minioRootPassword" . | quote }}
 ---
 apiVersion: v1
 kind: Service
@@ -28,7 +28,7 @@ metadata:
   name: {{ .Release.Name }}-minio
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "dograh.labels" . | nindent 4 }}
+    {{- include "Acuity.labels" . | nindent 4 }}
     app.kubernetes.io/component: minio
 spec:
   type: ClusterIP
@@ -40,7 +40,7 @@ spec:
       port: 9001
       targetPort: console
   selector:
-    {{- include "dograh.selectorLabels" . | nindent 4 }}
+    {{- include "Acuity.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: minio
 ---
 apiVersion: v1
@@ -49,7 +49,7 @@ metadata:
   name: {{ .Release.Name }}-minio
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "dograh.labels" . | nindent 4 }}
+    {{- include "Acuity.labels" . | nindent 4 }}
     app.kubernetes.io/component: minio
 spec:
   accessModes: ["ReadWriteOnce"]
@@ -66,7 +66,7 @@ metadata:
   name: {{ .Release.Name }}-minio
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "dograh.labels" . | nindent 4 }}
+    {{- include "Acuity.labels" . | nindent 4 }}
     app.kubernetes.io/component: minio
 spec:
   replicas: 1
@@ -74,12 +74,12 @@ spec:
     type: Recreate
   selector:
     matchLabels:
-      {{- include "dograh.selectorLabels" . | nindent 6 }}
+      {{- include "Acuity.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: minio
   template:
     metadata:
       labels:
-        {{- include "dograh.selectorLabels" . | nindent 8 }}
+        {{- include "Acuity.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: minio
     spec:
       securityContext:

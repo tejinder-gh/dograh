@@ -18,7 +18,7 @@ export function GitHubStarBadge({ className, label, showCount, source }: GitHubS
 
   useEffect(() => {
     if (!showCount) return;
-    fetch("https://api.github.com/repos/dograh-hq/dograh")
+    fetch("https://api.github.com/repos/Acuity-hq/Acuity")
       .then((res) => res.json())
       .then((data) => {
         if (data.stargazers_count != null) {
@@ -26,14 +26,14 @@ export function GitHubStarBadge({ className, label, showCount, source }: GitHubS
           setStarCount(count >= 1000 ? `${(count / 1000).toFixed(1)}k` : String(count));
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   }, [showCount]);
 
   const hasCount = showCount && starCount;
 
   return (
     <a
-      href="https://github.com/dograh-hq/dograh"
+      href="https://github.com/Acuity-hq/Acuity"
       target="_blank"
       rel="noopener noreferrer"
       onClick={() => posthog.capture(PostHogEvent.GITHUB_STAR_CLICKED, { source })}

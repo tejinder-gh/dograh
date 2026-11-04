@@ -216,6 +216,24 @@ class CampaignCallDispatcher:
             phone_number = queued_run.context_variables.get("phone_number")
             if not phone_number:
                 raise ValueError(f"No phone number in queued run {queued_run.id}")
+
+            # Compliance: DNC Suppression, Jurisdictional Calling Hours, and CRTC Marketing Prohibition
+            from api.services.compliance.calling_controls import validate_outbound_call_compliance
+
+            recipient_tz = queued_run.context_variables.get("timezone") or None
+            allowed, error_code, error_msg = await validate_outbound_call_compliance(
+                organization_id=campaign.organization_id,
+                phone_number=phone_number,
+                call_type="marketing",
+                recipient_timezone=recipient_tz,
+                is_ported_or_voip=queued_run.context_variables.get("is_ported_or_voip", False),
+            )
+            if not allowed:
+                logger.warning(
+                    f"[Campaign {campaign.id}] Compliance check blocked {phone_number}: {error_code} - {error_msg}"
+                )
+                raise ValueError(f"Compliance violation ({error_code}): {error_msg}")
+
             split = campaign_split(campaign)
             variant = pick_variant(split, phone_number)
             workflow_id = variant["workflow_id"]

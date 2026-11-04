@@ -120,7 +120,10 @@ TEMPERATURE_POLICIES = {
         "docs_url": "https://learn.microsoft.com/azure/foundry/openai/how-to/reasoning",
         "model_constraints": [AZURE_REASONING_RULE],
     },
-    "dograh": {
+    "acuity": {
+        "description": TEMPERATURE_DESCRIPTION + " Limits depend on the hosted model.",
+    },
+    "Acuity": {
         "description": TEMPERATURE_DESCRIPTION + " Limits depend on the hosted model.",
     },
     "aws_bedrock": {
@@ -177,7 +180,11 @@ def resolve_temperature(
     base_url: str | None = None,
 ) -> float | None:
     """Apply model restrictions, including after model_copy-based overrides."""
-    policy = TEMPERATURE_POLICIES[provider]
+    provider_key = str(getattr(provider, "value", provider))
+    policy = (
+        TEMPERATURE_POLICIES.get(provider_key)
+        or TEMPERATURE_POLICIES[provider_key.lower()]
+    )
     custom_endpoint = policy.get("custom_endpoint")
     hostname = urlsplit(base_url).hostname if custom_endpoint and base_url else None
     if custom_endpoint and hostname and hostname != custom_endpoint["default_hostname"]:

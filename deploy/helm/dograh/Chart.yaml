@@ -1,14 +1,14 @@
 apiVersion: v2
-name: dograh
+name: Acuity
 description: |
-  Dograh — open-source voice AI platform. Deploys the FastAPI backend
+  Acuity — open-source voice AI platform. Deploys the FastAPI backend
   (decomposed into web, ARQ worker, ARI manager singleton, and campaign
   orchestrator singleton), the Next.js UI, and coturn for WebRTC media
   relay. Optional bundled PostgreSQL, Redis, and MinIO via subcharts.
 type: application
 
 # version: chart version. Bump for any chart change.
-# appVersion: Dograh application version. Tracks the image tag.
+# appVersion: Acuity application version. Tracks the image tag.
 version: 0.1.0
 appVersion: "0.1.0"
 
@@ -20,12 +20,12 @@ keywords:
   - telephony
   - fastapi
 
-home: https://dograh.com
+home: https://Acuity.com
 sources:
-  - https://github.com/dograh-hq/dograh
+  - https://github.com/Acuity-hq/Acuity
 
 maintainers:
-  - name: Dograh
+  - name: Acuity
 
 # The bundled stateful deps (PostgreSQL, Redis, MinIO) for the internal/all-in-one
 # modes are plain in-chart manifests (templates/internal-*.yaml) built on official

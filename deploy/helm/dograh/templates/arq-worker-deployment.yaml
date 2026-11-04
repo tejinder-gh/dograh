@@ -1,10 +1,10 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "dograh.arqWorker.fullname" . }}
+  name: {{ include "Acuity.arqWorker.fullname" . }}
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "dograh.labels" . | nindent 4 }}
+    {{- include "Acuity.labels" . | nindent 4 }}
     app.kubernetes.io/component: arq-worker
 spec:
   {{- /* Omit spec.replicas only when the HPA object will actually render — matches
@@ -16,7 +16,7 @@ spec:
   {{- end }}
   selector:
     matchLabels:
-      {{- include "dograh.selectorLabels" . | nindent 6 }}
+      {{- include "Acuity.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: arq-worker
   minReadySeconds: {{ .Values.workers.minReadySeconds }}
   strategy:
@@ -27,7 +27,7 @@ spec:
   template:
     metadata:
       labels:
-        {{- include "dograh.selectorLabels" . | nindent 8 }}
+        {{- include "Acuity.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: arq-worker
       annotations:
         # Roll pods when the ConfigMap changes. See web-deployment.yaml for
@@ -37,20 +37,20 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
-      serviceAccountName: {{ include "dograh.serviceAccountName" . }}
+      serviceAccountName: {{ include "Acuity.serviceAccountName" . }}
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       containers:
         - name: arq-worker
-          image: {{ include "dograh.image" . }}
+          image: {{ include "Acuity.image" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command: ["./scripts/run_arq_worker.sh"]
           envFrom:
-            {{- include "dograh.backendEnvFrom" . | nindent 12 }}
+            {{- include "Acuity.backendEnvFrom" . | nindent 12 }}
           env:
-            {{- include "dograh.dbEnv" . | nindent 12 }}
+            {{- include "Acuity.dbEnv" . | nindent 12 }}
           livenessProbe:
             {{- toYaml .Values.workers.livenessProbe | nindent 12 }}
           readinessProbe:

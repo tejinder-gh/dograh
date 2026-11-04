@@ -33,7 +33,7 @@ from api.services.configuration.registry import (
 from api.services.configuration.temperature import resolve_temperature
 from api.services.pipecat.fallback_llm import FallbackLLMProcessor, FallbackRoute
 from api.services.pipecat.gemini_json_schema_adapter import (
-    DograhGeminiJSONSchemaAdapter,
+    AcuityGeminiJSONSchemaAdapter,
 )
 from api.services.pipecat.gemini_spoken_tool_calls import GeminiSpokenToolCallMixin
 from api.services.pipecat.google_credentials import (
@@ -72,10 +72,22 @@ from pipecat.services.deepgram.flux.tts import (
 )
 from pipecat.services.deepgram.stt import DeepgramSTTService, DeepgramSTTSettings
 from pipecat.services.deepgram.tts import DeepgramTTSService, DeepgramTTSSettings
-from pipecat.services.dograh.flux.stt import DograhFluxSTTService
-from pipecat.services.dograh.llm import DograhLLMService as BaseDograhLLMService
-from pipecat.services.dograh.stt import DograhSTTService, DograhSTTSettings
-from pipecat.services.dograh.tts import DograhTTSService, DograhTTSSettings
+from pipecat.services.dograh.flux.stt import (
+    DograhFluxSTTService as AcuityFluxSTTService,
+)
+from pipecat.services.dograh.llm import DograhLLMService as BaseAcuityLLMService
+from pipecat.services.dograh.stt import (
+    DograhSTTService as AcuitySTTService,
+)
+from pipecat.services.dograh.stt import (
+    DograhSTTSettings as AcuitySTTSettings,
+)
+from pipecat.services.dograh.tts import (
+    DograhTTSService as AcuityTTSService,
+)
+from pipecat.services.dograh.tts import (
+    DograhTTSSettings as AcuityTTSSettings,
+)
 from pipecat.services.elevenlabs.dialogue.tts import (
     ElevenLabsDialogueTTSService,
     ElevenLabsDialogueTTSSettings,
@@ -175,7 +187,7 @@ def _report_service_factory_failures(
 
             provider_value = getattr(provider, "value", provider)
             error_owner = (
-                "operator" if str(provider_value).lower() == "dograh" else "user"
+                "operator" if str(provider_value).lower() == "Acuity" else "user"
             )
             try:
                 service = factory(*args, **kwargs)
@@ -244,7 +256,7 @@ def _resolve_deepgram_flux_language_hints(
     )
 
 
-def dograh_stt_uses_flux_language(language: str | None) -> bool:
+def Acuity_stt_uses_flux_language(language: str | None) -> bool:
     if not language or language.lower() == "multi":
         return True
     return _resolve_deepgram_flux_language_hint(language) is not None
@@ -299,8 +311,8 @@ def _elevenlabs_realtime_stt_host(base_url: str) -> str:
 def stt_uses_external_turns(user_config) -> bool:
     if user_config.stt.provider == ServiceProviders.DEEPGRAM.value:
         return user_config.stt.model in DEEPGRAM_FLUX_MODELS
-    if user_config.stt.provider == ServiceProviders.DOGRAH.value:
-        return dograh_stt_uses_flux_language(getattr(user_config.stt, "language", None))
+    if user_config.stt.provider == ServiceProviders.Acuity.value:
+        return Acuity_stt_uses_flux_language(getattr(user_config.stt, "language", None))
     if user_config.stt.provider == ServiceProviders.CARTESIA.value:
         return user_config.stt.model == "ink-2"
     return False
@@ -310,8 +322,8 @@ class AzureLLMService(OpenAISpokenToolCallMixin, BaseAzureLLMService):
     """Azure streaming service with spoken-tool recovery."""
 
 
-class DograhLLMService(OpenAISpokenToolCallMixin, BaseDograhLLMService):
-    """Dograh streaming service with spoken-tool recovery."""
+class AcuityLLMService(OpenAISpokenToolCallMixin, BaseAcuityLLMService):
+    """Acuity streaming service with spoken-tool recovery."""
 
 
 class GroqLLMService(OpenAISpokenToolCallMixin, BaseGroqLLMService):
@@ -342,14 +354,14 @@ class SpeachesLLMService(OpenAISpokenToolCallMixin, BaseSpeachesLLMService):
     """Speaches streaming service with spoken-tool recovery."""
 
 
-class DograhGoogleLLMService(GeminiSpokenToolCallMixin, GoogleLLMService):
-    adapter_class = DograhGeminiJSONSchemaAdapter
+class AcuityGoogleLLMService(GeminiSpokenToolCallMixin, GoogleLLMService):
+    adapter_class = AcuityGeminiJSONSchemaAdapter
 
 
-class DograhGoogleVertexLLMService(GeminiSpokenToolCallMixin, GoogleVertexLLMService):
-    """Vertex text service with Dograh schemas and nonblocking authentication."""
+class AcuityGoogleVertexLLMService(GeminiSpokenToolCallMixin, GoogleVertexLLMService):
+    """Vertex text service with Acuity schemas and nonblocking authentication."""
 
-    adapter_class = DograhGeminiJSONSchemaAdapter
+    adapter_class = AcuityGeminiJSONSchemaAdapter
 
     # The upstream constructor dispatches through this hook. Return a lazy
     # credential object so it never discovers credentials or refreshes tokens.
@@ -462,11 +474,11 @@ def _stt_configurable_settings(config, *, for_update: bool = False) -> dict[str,
     """
     provider = config.provider
     language = getattr(config, "language", None)
-    if provider in {ServiceProviders.DEEPGRAM, ServiceProviders.DOGRAH}:
+    if provider in {ServiceProviders.DEEPGRAM, ServiceProviders.Acuity}:
         is_flux = (
             config.model in DEEPGRAM_FLUX_MODELS
             if provider == ServiceProviders.DEEPGRAM
-            else dograh_stt_uses_flux_language(language)
+            else Acuity_stt_uses_flux_language(language)
         )
         if is_flux:
             if (
@@ -546,7 +558,7 @@ def get_stt_settings_update(
     """Build a settings delta only for a compatible, live-updatable service.
 
     Having an inherited _update_settings method is not proof of support:
-    Gladia and legacy Dograh only change local state, while ink-2 cannot
+    Gladia and legacy Acuity only change local state, while ink-2 cannot
     switch languages. Supported services own applying/reconnecting their
     streams; the handoff must never call socket lifecycle methods itself.
     """
@@ -576,14 +588,14 @@ def get_stt_settings_update(
         )
         return None
     provider = destination_config.provider
-    if provider == ServiceProviders.DOGRAH and (
-        not dograh_stt_uses_flux_language(getattr(call_config, "language", None))
-        or not dograh_stt_uses_flux_language(
+    if provider == ServiceProviders.Acuity and (
+        not Acuity_stt_uses_flux_language(getattr(call_config, "language", None))
+        or not Acuity_stt_uses_flux_language(
             getattr(destination_config, "language", None)
         )
     ):
         logger.info(
-            "[transfer] STT settings update unavailable for legacy Dograh STT or a change of backend"
+            "[transfer] STT settings update unavailable for legacy Acuity STT or a change of backend"
         )
         return None
     if provider == ServiceProviders.GLADIA:
@@ -697,12 +709,12 @@ def create_stt_service(
             ),
             sample_rate=audio_config.transport_in_sample_rate,
         )
-    elif user_config.stt.provider == ServiceProviders.DOGRAH.value:
+    elif user_config.stt.provider == ServiceProviders.Acuity.value:
         base_url = MPS_API_URL.replace("http://", "ws://").replace("https://", "wss://")
         language = getattr(user_config.stt, "language", None) or "multi"
 
-        if dograh_stt_uses_flux_language(language):
-            # Dograh's Flux proxy only supports multilingual auto-detect and the
+        if Acuity_stt_uses_flux_language(language):
+            # Acuity's Flux proxy only supports multilingual auto-detect and the
             # same language hint subset as Deepgram Flux multilingual.
             settings_kwargs = {
                 "model": "flux-general-multi",
@@ -712,7 +724,7 @@ def create_stt_service(
                 "keyterm": keyterms or [],
                 **configurable_settings,
             }
-            return DograhFluxSTTService(
+            return AcuityFluxSTTService(
                 base_url=base_url,
                 api_key=user_config.stt.api_key,
                 correlation_id=correlation_id,
@@ -721,11 +733,11 @@ def create_stt_service(
                 sample_rate=audio_config.transport_in_sample_rate,
             )
 
-        return DograhSTTService(
+        return AcuitySTTService(
             base_url=base_url,
             api_key=user_config.stt.api_key,
             correlation_id=correlation_id,
-            settings=DograhSTTSettings(
+            settings=AcuitySTTSettings(
                 model=user_config.stt.model,
                 **configurable_settings,
             ),
@@ -1045,14 +1057,14 @@ def create_tts_service(
             skip_aggregator_types=["recording_router", "recording"],
             silence_time_s=1.0,
         )
-    elif user_config.tts.provider == ServiceProviders.DOGRAH.value:
+    elif user_config.tts.provider == ServiceProviders.Acuity.value:
         # Convert HTTP URL to WebSocket URL for TTS
         base_url = MPS_API_URL.replace("http://", "ws://").replace("https://", "wss://")
-        return DograhTTSService(
+        return AcuityTTSService(
             base_url=base_url,
             api_key=user_config.tts.api_key,
             correlation_id=correlation_id,
-            settings=DograhTTSSettings(
+            settings=AcuityTTSSettings(
                 model=user_config.tts.model,
                 voice=user_config.tts.voice,
                 speed=user_config.tts.speed,
@@ -1360,9 +1372,12 @@ def create_llm_service_from_provider(
 
     Args:
         usage_context: Optional tag describing what the LLM instance is used for
-            (e.g. "voicemail_detection"). Sent as request metadata by the Dograh
+            (e.g. "voicemail_detection"). Sent as request metadata by the Acuity
             provider; ignored by other providers.
     """
+    if isinstance(provider, str) and provider.lower() in ("acuity", "dograh"):
+        provider = ServiceProviders.Acuity.value
+
     # Vertex builds its endpoint from the location, so it is part of what this
     # service is, not a separate event. Resolved here to keep it on one line.
     vertex_location = (
@@ -1458,7 +1473,7 @@ def create_llm_service_from_provider(
         if not is_vertex:
             model = _migrate_deprecated_google_model(model)
         service_class = (
-            DograhGoogleVertexLLMService if is_vertex else DograhGoogleLLMService
+            AcuityGoogleVertexLLMService if is_vertex else AcuityGoogleLLMService
         )
         settings_class = GoogleVertexLLMSettings if is_vertex else GoogleLLMSettings
 
@@ -1486,7 +1501,7 @@ def create_llm_service_from_provider(
         # Gemini's opaque signatures may not transfer between platforms,
         # projects or models. Scope provider-specific context to this target;
         # standard text and tool history remains available to every adapter.
-        adapter = cast(DograhGeminiJSONSchemaAdapter, service.get_llm_adapter())
+        adapter = cast(AcuityGeminiJSONSchemaAdapter, service.get_llm_adapter())
         adapter.signature_scope = hashlib.sha256(
             json.dumps([provider, connection], sort_keys=True).encode()
         ).hexdigest()
@@ -1501,8 +1516,8 @@ def create_llm_service_from_provider(
             endpoint=endpoint,
             settings=AzureLLMSettings(model=model, **sampling_settings),
         )
-    elif provider == ServiceProviders.DOGRAH.value:
-        return DograhLLMService(
+    elif provider == ServiceProviders.Acuity.value:
+        return AcuityLLMService(
             base_url=f"{MPS_API_URL}/api/v1/llm",
             enable_direct_mode=enable_direct_mode,
             api_key=api_key,
@@ -1592,19 +1607,19 @@ def create_realtime_llm_service(user_config, audio_config: "AudioConfig"):
     )
 
     if provider == ServiceProviders.OPENAI_REALTIME.value and model == "gpt-live-1":
-        from api.services.pipecat.realtime.openai_live import DograhOpenAILiveLLMService
+        from api.services.pipecat.realtime.openai_live import AcuityOpenAILiveLLMService
 
-        return DograhOpenAILiveLLMService(
+        return AcuityOpenAILiveLLMService(
             api_key=api_key,
             backend_model=realtime_config.backend_model,
-            settings=DograhOpenAILiveLLMService.Settings(
+            settings=AcuityOpenAILiveLLMService.Settings(
                 model=model,
                 voice=voice or "marin",
             ),
         )
     elif provider == ServiceProviders.OPENAI_REALTIME.value:
         from api.services.pipecat.realtime.openai_realtime import (
-            DograhOpenAIRealtimeLLMService,
+            AcuityOpenAIRealtimeLLMService,
         )
         from pipecat.services.openai.realtime.events import (
             AudioConfiguration,
@@ -1621,9 +1636,9 @@ def create_realtime_llm_service(user_config, audio_config: "AudioConfig"):
         if language:
             transcription_kwargs["language"] = language
 
-        return DograhOpenAIRealtimeLLMService(
+        return AcuityOpenAIRealtimeLLMService(
             api_key=api_key,
-            settings=DograhOpenAIRealtimeLLMService.Settings(
+            settings=AcuityOpenAIRealtimeLLMService.Settings(
                 model=model,
                 session_properties=SessionProperties(
                     audio=AudioConfiguration(
@@ -1641,7 +1656,7 @@ def create_realtime_llm_service(user_config, audio_config: "AudioConfig"):
         )
     elif provider == ServiceProviders.GROK_REALTIME.value:
         from api.services.pipecat.realtime.grok_realtime import (
-            DograhGrokRealtimeLLMService,
+            AcuityGrokRealtimeLLMService,
         )
         from pipecat.services.xai.realtime.events import (
             AudioConfiguration,
@@ -1654,9 +1669,9 @@ def create_realtime_llm_service(user_config, audio_config: "AudioConfig"):
         if grok_voice.lower() in {"ara", "rex", "sal", "eve", "leo"}:
             grok_voice = grok_voice.lower()
 
-        return DograhGrokRealtimeLLMService(
+        return AcuityGrokRealtimeLLMService(
             api_key=api_key,
-            settings=DograhGrokRealtimeLLMService.Settings(
+            settings=AcuityGrokRealtimeLLMService.Settings(
                 model=model,
                 session_properties=SessionProperties(
                     voice=grok_voice,
@@ -1670,30 +1685,30 @@ def create_realtime_llm_service(user_config, audio_config: "AudioConfig"):
         )
     elif provider == ServiceProviders.ULTRAVOX_REALTIME.value:
         from api.services.pipecat.realtime.ultravox_realtime import (
-            DograhUltravoxOneShotInputParams,
-            DograhUltravoxRealtimeLLMService,
+            AcuityUltravoxOneShotInputParams,
+            AcuityUltravoxRealtimeLLMService,
         )
 
-        return DograhUltravoxRealtimeLLMService(
-            params=DograhUltravoxOneShotInputParams(
+        return AcuityUltravoxRealtimeLLMService(
+            params=AcuityUltravoxOneShotInputParams(
                 api_key=api_key,
                 model=model,
                 voice=voice,
                 output_medium="voice",
                 temperature=realtime_config.temperature,
             ),
-            settings=DograhUltravoxRealtimeLLMService.Settings(
+            settings=AcuityUltravoxRealtimeLLMService.Settings(
                 model=model,
                 output_medium="voice",
             ),
         )
     elif provider == ServiceProviders.AWS_NOVA_SONIC.value:
         from api.services.pipecat.realtime.aws_nova_sonic import (
-            DograhAWSNovaSonicLLMService,
+            AcuityAWSNovaSonicLLMService,
         )
         from pipecat.services.aws.nova_sonic.llm import AudioConfig as NovaAudioConfig
 
-        return DograhAWSNovaSonicLLMService(
+        return AcuityAWSNovaSonicLLMService(
             secret_access_key=realtime_config.aws_secret_key,
             access_key_id=realtime_config.aws_access_key,
             session_token=realtime_config.aws_session_token or None,
@@ -1702,7 +1717,7 @@ def create_realtime_llm_service(user_config, audio_config: "AudioConfig"):
                 input_sample_rate=audio_config.transport_in_sample_rate,
                 output_sample_rate=audio_config.transport_out_sample_rate,
             ),
-            settings=DograhAWSNovaSonicLLMService.Settings(
+            settings=AcuityAWSNovaSonicLLMService.Settings(
                 model=model,
                 voice=voice or "matthew",
                 endpointing_sensitivity=realtime_config.endpointing_sensitivity,
@@ -1713,7 +1728,7 @@ def create_realtime_llm_service(user_config, audio_config: "AudioConfig"):
         )
     elif provider == ServiceProviders.GOOGLE_REALTIME.value:
         from api.services.pipecat.realtime.gemini_live import (
-            DograhGeminiLiveLLMService,
+            AcuityGeminiLiveLLMService,
         )
 
         # Gemini Live enables input/output audio transcription by default
@@ -1724,13 +1739,13 @@ def create_realtime_llm_service(user_config, audio_config: "AudioConfig"):
         }
         if language:
             settings_kwargs["language"] = language
-        return DograhGeminiLiveLLMService(
+        return AcuityGeminiLiveLLMService(
             api_key=api_key,
-            settings=DograhGeminiLiveLLMService.Settings(**settings_kwargs),
+            settings=AcuityGeminiLiveLLMService.Settings(**settings_kwargs),
         )
     elif provider == ServiceProviders.GOOGLE_VERTEX_REALTIME.value:
         from api.services.pipecat.realtime.gemini_live_vertex import (
-            DograhGeminiLiveVertexLLMService,
+            AcuityGeminiLiveVertexLLMService,
         )
 
         project_id = getattr(realtime_config, "project_id", None)
@@ -1742,15 +1757,15 @@ def create_realtime_llm_service(user_config, audio_config: "AudioConfig"):
         }
         if language:
             settings_kwargs["language"] = language
-        return DograhGeminiLiveVertexLLMService(
+        return AcuityGeminiLiveVertexLLMService(
             credentials=credentials,
             project_id=project_id,
             location=vertex_location,
-            settings=DograhGeminiLiveVertexLLMService.Settings(**settings_kwargs),
+            settings=AcuityGeminiLiveVertexLLMService.Settings(**settings_kwargs),
         )
     elif provider == ServiceProviders.AZURE_REALTIME.value:
         from api.services.pipecat.realtime.azure_realtime import (
-            DograhAzureRealtimeLLMService,
+            AcuityAzureRealtimeLLMService,
         )
         from pipecat.services.openai.realtime.events import (
             AudioConfiguration,
@@ -1789,10 +1804,10 @@ def create_realtime_llm_service(user_config, audio_config: "AudioConfig"):
                 "",
             )
         )
-        return DograhAzureRealtimeLLMService(
+        return AcuityAzureRealtimeLLMService(
             api_key=api_key,
             base_url=wss_url,
-            settings=DograhAzureRealtimeLLMService.Settings(
+            settings=AcuityAzureRealtimeLLMService.Settings(
                 model=model,
                 session_properties=SessionProperties(
                     audio=AudioConfiguration(

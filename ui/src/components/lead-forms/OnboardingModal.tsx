@@ -181,7 +181,7 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
       open={open}
       // Hard gate: no outside/escape close, hide the built-in ×. Onboarding is
       // compulsory — the only exit is "Get started" once the questions are answered.
-      onOpenChange={() => {}}
+      onOpenChange={() => { }}
       contentProps={{
         className: "[&>button]:hidden",
         onEscapeKeyDown: (e) => e.preventDefault(),
@@ -190,7 +190,7 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
       }}
       icon={Rocket}
       eyebrow="Welcome"
-      title="Welcome to Dograh"
+      title="Welcome to Acuity"
       description="A few quick questions so we can tailor your experience. Takes ~20 seconds."
       primary={{ label: "Get started", onClick: handleSubmit, disabled: !canSubmit, loading: submitting }}
       overlay={captchaActive ? <CaptchaChallenge onVerified={submitWithOnPrem} onCancel={() => setCaptchaActive(false)} /> : undefined}

@@ -1,9 +1,10 @@
-"""Quota checking service for Dograh credits.
+"""Quota checking service for Acuity credits.
 
 This module provides reusable quota checking functionality that can be used
 across different endpoints (WebRTC signaling, telephony, public API triggers).
 """
 
+import datetime
 from dataclasses import dataclass
 from typing import Any
 
@@ -11,11 +12,12 @@ import httpx
 from fastapi import HTTPException
 from loguru import logger
 
-from api.constants import DEPLOYMENT_MODE
+from api.constants import DEPLOYMENT_MODE, ENVIRONMENT
+from api.enums import Environment
 from api.db import db_client
 from api.db.models import UserModel
 from api.errors.failure import (
-    DograhFailure,
+    AcuityFailure,
     ErrorSource,
     ErrorType,
     classify_exception,
@@ -30,12 +32,12 @@ from api.services.configuration.run_model_configuration import (
 )
 from api.services.managed_model_services import (
     MPS_CORRELATION_ID_CONTEXT_KEY,
-    get_dograh_service_api_key,
+    get_Acuity_service_api_key,
     uses_managed_model_services_v2,
 )
 from api.services.mps_service_key_client import mps_service_key_client
 
-MINIMUM_DOGRAH_CREDITS_FOR_CALL = 0.10
+MINIMUM_Acuity_CREDITS_FOR_CALL = 0.10
 
 _MPS_UNREACHABLE_ERRORS = (
     httpx.TimeoutException,
@@ -46,23 +48,23 @@ _MPS_UNREACHABLE_ERRORS = (
 
 OSS_QUOTA_EXCEEDED_MESSAGE = (
     "You have exhausted your trial credits. "
-    "Please sign up on app.dograh.com to create a "
+    "Please sign up on app.Acuity.com to create a "
     "new service key and set up in your model configurations."
 )
 
 HOSTED_QUOTA_EXCEEDED_MESSAGE = (
-    "You have exhausted your Dograh credits. "
+    "You have exhausted your Acuity credits. "
     "Please purchase more credits from /billing "
     "or change providers in Models configurations."
 )
 
 OSS_HOSTED_KEY_QUOTA_EXCEEDED_MESSAGE = (
-    "The organization linked to this Dograh service key has insufficient credits. "
-    "Please add credits at app.dograh.com or change providers in Models configurations."
+    "The organization linked to this Acuity service key has insufficient credits. "
+    "Please add credits at app.Acuity.com or change providers in Models configurations."
 )
 
 SERVICE_TOKEN_ORG_MISMATCH_MESSAGE = (
-    "The Dograh service token being used is created from another account. "
+    "The Acuity service token being used is created from another account. "
     "Please create a new service token from the Developers tab and use it in "
     "your model configuration."
 )
@@ -89,7 +91,7 @@ def _log_mps_exception(
         classify_exception(
             error,
             source=ErrorSource.PLATFORM,
-            provider="dograh",
+            provider="Acuity",
             error_owner="operator",
         ),
         organization_id=organization_id,
@@ -106,13 +108,13 @@ def _log_mps_system_failure(
     workflow_run_id: int | None = None,
 ) -> None:
     log_failure(
-        DograhFailure(
+        AcuityFailure(
             source=ErrorSource.PLATFORM,
             type=ErrorType.SYSTEM_ERROR,
-            code=f"dograh-{code}",
+            code=f"Acuity-{code}",
             internal_message=message,
-            external_message="Dograh could not verify managed model access.",
-            provider="dograh",
+            external_message="Acuity could not verify managed model access.",
+            provider="Acuity",
             error_owner="operator",
             retryable=None,
         ),
@@ -121,19 +123,19 @@ def _log_mps_system_failure(
     )
 
 
-def _log_insufficient_dograh_credits(
+def _log_insufficient_Acuity_credits(
     *,
     organization_id: int | None = None,
     workflow_run_id: int | None = None,
 ) -> None:
     log_failure(
-        DograhFailure(
+        AcuityFailure(
             source=ErrorSource.PLATFORM,
             type=ErrorType.QUOTA_ERROR,
-            code="dograh-insufficient-credits",
-            internal_message="Insufficient Dograh credits",
-            external_message="Your organization has insufficient Dograh credits.",
-            provider="dograh",
+            code="Acuity-insufficient-credits",
+            internal_message="Insufficient Acuity credits",
+            external_message="Your organization has insufficient Acuity credits.",
+            provider="Acuity",
             error_owner="user",
             retryable=False,
         ),
@@ -185,7 +187,7 @@ def _managed_v2_authorization_failed_result() -> QuotaCheckResult:
     return QuotaCheckResult(
         has_quota=False,
         error_code="quota_check_failed",
-        error_message="Could not verify Dograh credits. Please try again.",
+        error_message="Could not verify Acuity credits. Please try again.",
     )
 
 
@@ -214,18 +216,18 @@ def _oss_run_authorization_denied_result(
     return _insufficient_oss_quota_result()
 
 
-def _service_uses_dograh(service: Any) -> bool:
+def _service_uses_Acuity(service: Any) -> bool:
     provider = getattr(service, "provider", None)
     return (
-        provider == ServiceProviders.DOGRAH or provider == ServiceProviders.DOGRAH.value
+        provider == ServiceProviders.Acuity or provider == ServiceProviders.Acuity.value
     )
 
 
-def _dograh_api_keys(user_config: Any) -> set[str]:
+def _Acuity_api_keys(user_config: Any) -> set[str]:
     api_keys: set[str] = set()
     for section_name in ("llm", "stt", "tts", "embeddings"):
         service = getattr(user_config, section_name, None)
-        if not _service_uses_dograh(service):
+        if not _service_uses_Acuity(service):
             continue
         if hasattr(service, "get_all_api_keys"):
             all_api_keys = [
@@ -304,12 +306,12 @@ async def _authorize_hosted_workflow_run_start(
         workflow_run_id and uses_managed_model_services_v2(user_config)
     )
     service_key = (
-        get_dograh_service_api_key(user_config) if requires_correlation else None
+        get_Acuity_service_api_key(user_config) if requires_correlation else None
     )
     if requires_correlation and not service_key:
         _log_mps_system_failure(
             "invalid-service-key",
-            "Managed-v2 workflow configuration has no Dograh service key",
+            "Managed-v2 workflow configuration has no Acuity service key",
             organization_id=organization_id,
             workflow_run_id=workflow_run_id,
         )
@@ -328,14 +330,14 @@ async def _authorize_hosted_workflow_run_start(
             workflow_run_id=workflow_run_id,
             service_key=service_key,
             require_correlation_id=requires_correlation,
-            minimum_credits=MINIMUM_DOGRAH_CREDITS_FOR_CALL,
+            minimum_credits=MINIMUM_Acuity_CREDITS_FOR_CALL,
             created_by=(
                 str(workflow_owner.provider_id)
                 if workflow_owner.provider_id is not None
                 else None
             ),
             metadata={
-                "dograh_user_id": str(workflow_owner.id),
+                "Acuity_user_id": str(workflow_owner.id),
                 "workflow_id": workflow_id,
             },
         )
@@ -367,15 +369,15 @@ async def _authorize_hosted_workflow_run_start(
         return QuotaCheckResult(
             has_quota=False,
             error_code="quota_check_failed",
-            error_message="Could not verify Dograh credits. Please try again.",
+            error_message="Could not verify Acuity credits. Please try again.",
         )
 
     remaining = _safe_float(authorization.get("remaining_credits"))
     if (
         not authorization.get("allowed", False)
-        or remaining < MINIMUM_DOGRAH_CREDITS_FOR_CALL
+        or remaining < MINIMUM_Acuity_CREDITS_FOR_CALL
     ):
-        _log_insufficient_dograh_credits(
+        _log_insufficient_Acuity_credits(
             organization_id=organization_id,
             workflow_run_id=workflow_run_id,
         )
@@ -406,33 +408,33 @@ async def _authorize_hosted_workflow_run_start(
         return QuotaCheckResult(
             has_quota=False,
             error_code="quota_check_failed",
-            error_message="Could not verify Dograh credits. Please try again.",
+            error_message="Could not verify Acuity credits. Please try again.",
         )
     logger.info(
-        "Dograh run authorization passed for org {}: {:.2f} credits remaining",
+        "Acuity run authorization passed for org {}: {:.2f} credits remaining",
         organization_id,
         remaining,
     )
     return QuotaCheckResult(has_quota=True)
 
 
-async def _authorize_oss_dograh_keys(
+async def _authorize_oss_Acuity_keys(
     *,
-    dograh_api_keys: set[str],
+    Acuity_api_keys: set[str],
 ) -> QuotaCheckResult:
     """Check per-key MPS credits for OSS deployments before a run starts."""
-    for api_key in dograh_api_keys:
+    for api_key in Acuity_api_keys:
         try:
             usage = await mps_service_key_client.check_service_key_usage(api_key)
             remaining = usage.get("remaining_credits", 0.0)
 
             # Require at least $0.10 for a short call
-            if remaining < MINIMUM_DOGRAH_CREDITS_FOR_CALL:
-                _log_insufficient_dograh_credits()
+            if remaining < MINIMUM_Acuity_CREDITS_FOR_CALL:
+                _log_insufficient_Acuity_credits()
                 return _insufficient_oss_quota_result()
 
             logger.info(
-                f"Dograh quota check passed for key ...{api_key[-8:]}: "
+                f"Acuity quota check passed for key ...{api_key[-8:]}: "
                 f"{remaining:.2f} credits remaining"
             )
         except _MPS_UNREACHABLE_ERRORS as e:
@@ -449,7 +451,7 @@ async def _authorize_oss_dograh_keys(
             return QuotaCheckResult(
                 has_quota=False,
                 error_code="quota_check_failed",
-                error_message="Could not verify Dograh credits. Please try again.",
+                error_message="Could not verify Acuity credits. Please try again.",
             )
 
     return QuotaCheckResult(has_quota=True)
@@ -464,11 +466,11 @@ async def _authorize_oss_managed_v2_correlation(
     if not workflow_run_id or not uses_managed_model_services_v2(user_config):
         return QuotaCheckResult(has_quota=True)
 
-    service_key = get_dograh_service_api_key(user_config)
+    service_key = get_Acuity_service_api_key(user_config)
     if not service_key:
         _log_mps_system_failure(
             "invalid-service-key",
-            "OSS managed-v2 workflow configuration has no Dograh service key",
+            "OSS managed-v2 workflow configuration has no Acuity service key",
             workflow_run_id=workflow_run_id,
         )
         return QuotaCheckResult(
@@ -513,7 +515,7 @@ async def _authorize_oss_managed_v2_correlation(
         return QuotaCheckResult(
             has_quota=False,
             error_code="quota_check_failed",
-            error_message="Could not verify Dograh credits. Please try again.",
+            error_message="Could not verify Acuity credits. Please try again.",
         )
 
     return QuotaCheckResult(has_quota=True)
@@ -531,7 +533,7 @@ async def _authorize_oss_managed_v2_run(
             service_key=service_key,
             workflow_run_id=workflow_run_id,
             require_correlation_id=True,
-            minimum_credits=MINIMUM_DOGRAH_CREDITS_FOR_CALL,
+            minimum_credits=MINIMUM_Acuity_CREDITS_FOR_CALL,
             metadata={"workflow_id": workflow_id},
         )
     except httpx.HTTPStatusError as e:
@@ -545,15 +547,15 @@ async def _authorize_oss_managed_v2_run(
             return QuotaCheckResult(
                 has_quota=False,
                 error_code="quota_check_failed",
-                error_message="Could not verify Dograh credits. Please try again.",
+                error_message="Could not verify Acuity credits. Please try again.",
             )
 
         logger.info(
             "MPS service-key run authorization is unavailable; using legacy "
             "quota and correlation endpoints"
         )
-        legacy_quota = await _authorize_oss_dograh_keys(
-            dograh_api_keys={service_key},
+        legacy_quota = await _authorize_oss_Acuity_keys(
+            Acuity_api_keys={service_key},
         )
         if not legacy_quota.has_quota:
             return legacy_quota
@@ -578,15 +580,15 @@ async def _authorize_oss_managed_v2_run(
         return QuotaCheckResult(
             has_quota=False,
             error_code="quota_check_failed",
-            error_message="Could not verify Dograh credits. Please try again.",
+            error_message="Could not verify Acuity credits. Please try again.",
         )
 
     remaining = _safe_float(authorization.get("remaining_credits"))
     if (
         not authorization.get("allowed", False)
-        or remaining < MINIMUM_DOGRAH_CREDITS_FOR_CALL
+        or remaining < MINIMUM_Acuity_CREDITS_FOR_CALL
     ):
-        _log_insufficient_dograh_credits(workflow_run_id=workflow_run_id)
+        _log_insufficient_Acuity_credits(workflow_run_id=workflow_run_id)
         return _oss_run_authorization_denied_result(authorization)
 
     correlation_id = _required_correlation_id(authorization)
@@ -612,15 +614,201 @@ async def _authorize_oss_managed_v2_run(
         return QuotaCheckResult(
             has_quota=False,
             error_code="quota_check_failed",
-            error_message="Could not verify Dograh credits. Please try again.",
+            error_message="Could not verify Acuity credits. Please try again.",
         )
 
     logger.info(
-        "Dograh run authorization passed for key ...{}: {:.2f} credits remaining",
+        "Acuity run authorization passed for key ...{}: {:.2f} credits remaining",
         service_key[-8:],
         remaining,
     )
     return QuotaCheckResult(has_quota=True)
+
+
+async def check_business_organization_quota(
+    *,
+    organization_id: int,
+    is_byok: bool = False,
+    workflow_run_id: int | None = None,
+) -> QuotaCheckResult:
+    """Authoritative organization subscription, quota, and BYOK policy check.
+
+    Verifies against business_ext.organization_subscriptions:
+    1. Active status (blocks 'paused', 'canceled')
+    2. BYOK Commercial Policy (rejects BYOK if plan does not support it)
+    3. Concurrency limits (checks authoritative active reservations)
+    4. Monthly voice minute quota allocation
+    """
+    try:
+        sub_rows = await db_client.execute_raw_query(
+            """
+            SELECT 
+                s.status,
+                s.included_minutes,
+                s.bonus_minutes,
+                s.concurrency_limit,
+                s.current_period_start,
+                s.current_period_end,
+                p.id AS plan_id,
+                p.supports_byok,
+                p.additional_minute_rate_cents
+            FROM business_ext.organization_mappings om
+            INNER JOIN business_ext.organization_subscriptions s ON s.tenant_id = om.business_tenant_id
+            INNER JOIN business_ext.subscription_plans p ON p.id = s.plan_id
+            WHERE om.acuity_organization_id = :org_id
+            LIMIT 1;
+            """,
+            {"org_id": organization_id},
+        )
+        if not sub_rows:
+            return QuotaCheckResult(
+                has_quota=False,
+                error_code="subscription_not_found",
+                error_message=f"No active subscription found for organization {organization_id}. Calling is disabled.",
+            )
+
+        sub = sub_rows[0]
+        status = sub.get("status")
+
+        # 1. Status enforcement
+        if status in ("paused", "canceled"):
+            return QuotaCheckResult(
+                has_quota=False,
+                error_code="subscription_suspended",
+                error_message=f"Organization subscription is {status}. Calling access is suspended.",
+            )
+
+        # 2. BYOK Commercial Policy enforcement
+        supports_byok = sub.get("supports_byok", False)
+        if is_byok and not supports_byok:
+            return QuotaCheckResult(
+                has_quota=False,
+                error_code="byok_not_supported",
+                error_message=(
+                    "Bring-Your-Own-Key (BYOK) provider configuration is not permitted on the "
+                    f"{str(sub.get('plan_id', 'current')).capitalize()} Plan. Please upgrade to Professional or Enterprise."
+                ),
+            )
+
+        # 3. Concurrency limit enforcement via authoritative reservation manager & database
+        concurrency_limit = sub.get("concurrency_limit") or 2
+        from api.services.call_concurrency.rate_limiter import rate_limiter
+
+        is_already_reserved = False
+        if workflow_run_id is not None:
+            mapping = await rate_limiter.get_workflow_slot_mapping(workflow_run_id)
+            if mapping and mapping[0] == organization_id:
+                is_already_reserved = True
+
+        if not is_already_reserved:
+            active_count = await rate_limiter.get_concurrent_count(organization_id)
+            # If no active slot in rate limiter, check active workflow runs in DB for defense-in-depth
+            if active_count == 0:
+                active_runs_rows = await db_client.execute_raw_query(
+                    """
+                    SELECT COUNT(wr.id) AS active_count
+                    FROM public.workflows w
+                    INNER JOIN public.workflow_runs wr ON wr.workflow_id = w.id
+                    WHERE w.organization_id = :org_id
+                      AND (wr.state = 'running' OR (NOT wr.is_completed AND wr.state = 'initialized'));
+                    """,
+                    {"org_id": organization_id},
+                )
+                if active_runs_rows and isinstance(active_runs_rows[0], dict):
+                    active_count = active_runs_rows[0].get("active_count", 0)
+
+            if active_count >= concurrency_limit:
+                return QuotaCheckResult(
+                    has_quota=False,
+                    error_code="concurrency_limit_exceeded",
+                    error_message=f"Organization concurrent call limit of {concurrency_limit} reached.",
+                )
+
+        # 4. Period minute quota enforcement
+        total_allocated = (sub.get("included_minutes") or 0) + (sub.get("bonus_minutes") or 0)
+        if total_allocated <= 0:
+            return QuotaCheckResult(
+                has_quota=False,
+                error_code="quota_exhausted",
+                error_message="Voice minute allocation is 0 minutes. Please purchase voice minutes or upgrade plan.",
+            )
+
+        now = datetime.datetime.now(datetime.timezone.utc)
+        period_start = sub.get("current_period_start")
+        period_end = sub.get("current_period_end")
+
+        if period_start:
+            p_start = (
+                datetime.datetime.fromisoformat(str(period_start).replace("Z", "+00:00"))
+                if isinstance(period_start, str)
+                else period_start
+            )
+            if p_start.tzinfo is None:
+                p_start = p_start.replace(tzinfo=datetime.timezone.utc)
+            if now < p_start:
+                return QuotaCheckResult(
+                    has_quota=False,
+                    error_code="subscription_not_started",
+                    error_message=f"Subscription billing period does not start until {p_start.isoformat()}.",
+                )
+
+        if period_end:
+            p_end = (
+                datetime.datetime.fromisoformat(str(period_end).replace("Z", "+00:00"))
+                if isinstance(period_end, str)
+                else period_end
+            )
+            if p_end.tzinfo is None:
+                p_end = p_end.replace(tzinfo=datetime.timezone.utc)
+            if now > p_end:
+                return QuotaCheckResult(
+                    has_quota=False,
+                    error_code="subscription_period_expired",
+                    error_message=f"Subscription billing period expired at {p_end.isoformat()}. Renewal required.",
+                )
+
+        if period_start and period_end:
+            usage_rows = await db_client.execute_raw_query(
+                """
+                SELECT COALESCE(SUM((wr.usage_info->>'call_duration_seconds')::numeric) / 60.0, 0)::float AS total_minutes
+                FROM public.workflows w
+                INNER JOIN public.workflow_runs wr ON wr.workflow_id = w.id
+                WHERE w.organization_id = :org_id
+                  AND wr.created_at >= :period_start
+                  AND wr.created_at <= :period_end;
+                """,
+                {
+                    "org_id": organization_id,
+                    "period_start": period_start,
+                    "period_end": period_end,
+                },
+            )
+            used_minutes = (
+                usage_rows[0].get("total_minutes", 0.0)
+                if usage_rows and isinstance(usage_rows[0], dict)
+                else 0.0
+            )
+            if used_minutes >= total_allocated:
+                return QuotaCheckResult(
+                    has_quota=False,
+                    error_code="quota_exhausted",
+                    error_message=f"Monthly voice minute quota ({total_allocated} min) exhausted for the current billing cycle.",
+                )
+
+        return QuotaCheckResult(has_quota=True)
+
+    except Exception as e:
+        logger.error(
+            "Error evaluating business organization subscription quota for org {}: {}",
+            organization_id,
+            e,
+        )
+        # Authoritative: Fail closed in all environments to prevent unmetered dialing
+        return QuotaCheckResult(
+            has_quota=False,
+            error_code="quota_check_failed",
+            error_message="Unable to verify organization subscription status. Access denied.",
+        )
 
 
 async def authorize_workflow_run_start(
@@ -799,19 +987,36 @@ async def authorize_workflow_run_start(
                 user_config=user_config,
             )
 
-        dograh_api_keys = _dograh_api_keys(user_config)
+        Acuity_api_keys = _Acuity_api_keys(user_config)
+        is_byok = not bool(Acuity_api_keys)
+
+        # Check authoritative organization subscription quota & policy in business_ext
+        business_quota_result = await check_business_organization_quota(
+            organization_id=organization_id,
+            is_byok=is_byok,
+            workflow_run_id=workflow_run_id,
+        )
+        if not business_quota_result.has_quota:
+            logger.warning(
+                "Workflow start authorization denied by subscription policy: org {} code {} msg {}",
+                organization_id,
+                business_quota_result.error_code,
+                business_quota_result.error_message,
+            )
+            return business_quota_result
+
         if workflow_run_id is None or not uses_managed_model_services_v2(user_config):
-            if dograh_api_keys:
-                return await _authorize_oss_dograh_keys(
-                    dograh_api_keys=dograh_api_keys,
+            if Acuity_api_keys:
+                return await _authorize_oss_Acuity_keys(
+                    Acuity_api_keys=Acuity_api_keys,
                 )
             return QuotaCheckResult(has_quota=True)
 
-        correlation_service_key = get_dograh_service_api_key(user_config)
+        correlation_service_key = get_Acuity_service_api_key(user_config)
         if not correlation_service_key:
             _log_mps_system_failure(
                 "invalid-service-key",
-                "Managed-v2 workflow configuration has no Dograh service key",
+                "Managed-v2 workflow configuration has no Acuity service key",
                 organization_id=organization_id,
                 workflow_run_id=workflow_run_id,
             )
@@ -824,10 +1029,10 @@ async def authorize_workflow_run_start(
                 ),
             )
 
-        keys_requiring_legacy_check = dograh_api_keys - {correlation_service_key}
+        keys_requiring_legacy_check = Acuity_api_keys - {correlation_service_key}
         if keys_requiring_legacy_check:
-            oss_result = await _authorize_oss_dograh_keys(
-                dograh_api_keys=keys_requiring_legacy_check,
+            oss_result = await _authorize_oss_Acuity_keys(
+                Acuity_api_keys=keys_requiring_legacy_check,
             )
             if not oss_result.has_quota:
                 return oss_result
@@ -864,5 +1069,5 @@ async def authorize_workflow_run_start(
         return QuotaCheckResult(
             has_quota=False,
             error_code="quota_check_failed",
-            error_message="Could not verify Dograh credits. Please try again.",
+            error_message="Could not verify Acuity credits. Please try again.",
         )

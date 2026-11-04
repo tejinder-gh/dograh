@@ -2,10 +2,10 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "dograh.migrate.fullname" . }}
+  name: {{ include "Acuity.migrate.fullname" . }}
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "dograh.labels" . | nindent 4 }}
+    {{- include "Acuity.labels" . | nindent 4 }}
     app.kubernetes.io/component: migrate
   annotations:
     # post-install (not pre-install): when the bundled Postgres subchart is in
@@ -25,10 +25,10 @@ spec:
   template:
     metadata:
       labels:
-        {{- include "dograh.selectorLabels" . | nindent 8 }}
+        {{- include "Acuity.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: migrate
     spec:
-      serviceAccountName: {{ include "dograh.serviceAccountName" . }}
+      serviceAccountName: {{ include "Acuity.serviceAccountName" . }}
       restartPolicy: Never
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -42,27 +42,27 @@ spec:
       # pulled for the migrate container) so no extra image is needed.
       initContainers:
         - name: wait-for-postgres
-          image: {{ include "dograh.image" . }}
+          image: {{ include "Acuity.image" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command:
             - bash
             - -c
             - |
-              until (exec 3<>/dev/tcp/{{ include "dograh.postgresHost" . }}/5432) 2>/dev/null; do
-                echo "waiting for postgres at {{ include "dograh.postgresHost" . }}:5432 ..."
+              until (exec 3<>/dev/tcp/{{ include "Acuity.postgresHost" . }}/5432) 2>/dev/null; do
+                echo "waiting for postgres at {{ include "Acuity.postgresHost" . }}:5432 ..."
                 sleep 2
               done
               echo "postgres is reachable"
       {{- end }}
       containers:
         - name: migrate
-          image: {{ include "dograh.image" . }}
+          image: {{ include "Acuity.image" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command: ["./scripts/run_migrate.sh"]
           envFrom:
-            {{- include "dograh.backendEnvFrom" . | nindent 12 }}
+            {{- include "Acuity.backendEnvFrom" . | nindent 12 }}
           env:
-            {{- include "dograh.dbEnv" . | nindent 12 }}
+            {{- include "Acuity.dbEnv" . | nindent 12 }}
           resources:
             {{- toYaml .Values.migrate.resources | nindent 12 }}
 {{- end }}

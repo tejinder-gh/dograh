@@ -1,4 +1,4 @@
-"""Review gates for the private Pipecat contracts used by Dograh's worker.
+"""Review gates for the private Pipecat contracts used by Acuity's worker.
 
 The behavioral tests in test_pipeline_worker_startup.py prove shutdown and
 resource ownership. This fixture separately catches upstream method additions,
@@ -21,14 +21,14 @@ from pipecat.pipeline.worker import PipelineWorker
 from pipecat.workers.base_worker import BaseWorker
 from pipecat.workers.runner import WorkerRunner
 
-from api.services.pipecat.pipeline_worker import DograhPipelineWorker
+from api.services.pipecat.pipeline_worker import AcuityPipelineWorker
 
 CONTRACT_PATH = (
     Path(__file__).parent / "fixtures/pipecat_worker_lifecycle_contract.json"
 )
 
 # Include the runner and bus dispatch: setup can be cancelled before StartFrame
-# or activation, and those requests must still reach Dograh's _cancel override.
+# or activation, and those requests must still reach Acuity's _cancel override.
 LIFECYCLE_METHODS = {
     PipelineWorker: (
         "run",
@@ -153,7 +153,7 @@ def test_upstream_worker_lifecycle_contract_requires_review(cls):
         )
     )
     assert actual == expected, (
-        f"{cls.__name__} lifecycle changed. Review DograhPipelineWorker and AgentWorker, "
+        f"{cls.__name__} lifecycle changed. Review AcuityPipelineWorker and AgentWorker, "
         "add or adapt startup/shutdown scenarios, then update the reviewed fixture.\n"
         + diff
     )
@@ -162,6 +162,6 @@ def test_upstream_worker_lifecycle_contract_requires_review(cls):
 @pytest.mark.parametrize("name", ["_cancel", "_setup_within_timeout"])
 def test_worker_overrides_keep_upstream_hook_signatures(name):
     upstream = getattr(PipelineWorker, name)
-    local = getattr(DograhPipelineWorker, name)
+    local = getattr(AcuityPipelineWorker, name)
     assert inspect.iscoroutinefunction(upstream) and inspect.iscoroutinefunction(local)
     assert inspect.signature(upstream).parameters == inspect.signature(local).parameters

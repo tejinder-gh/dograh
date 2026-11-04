@@ -1,8 +1,8 @@
-# Dograh deployment stack — driven by the helper scripts, not by a bare
+# Acuity deployment stack — driven by the helper scripts, not by a bare
 # `docker compose up`.
 #
 # This stack needs a generated .env (secrets, public host/URL) and, for the
-# remote/TURN profiles, runtime nginx/coturn config rendered by the dograh-init
+# remote/TURN profiles, runtime nginx/coturn config rendered by the Acuity-init
 # service. The setup scripts create those for you — start with them:
 #
 #   Local:          ./start_docker.sh        (Windows: .\start_docker.ps1)
@@ -10,7 +10,7 @@
 #
 # Running `docker compose up` against a fresh checkout will fail or come up
 # misconfigured (e.g. OSS_JWT_SECRET is required). Full guide:
-# https://docs.dograh.com/deployment/docker
+# https://docs.Acuity.com/deployment/docker
 
 services:
   postgres:
@@ -57,9 +57,9 @@ services:
       - app-network
 
   minio:
-    # Built from the community MinIO fork by github.com/dograh-hq/minio; upstream
+    # Built from the community MinIO fork by github.com/Acuity-hq/minio; upstream
     # MinIO no longer publishes images.
-    image: ${REGISTRY:-dograhai}/minio:2026.09.22
+    image: ${REGISTRY:-acuityai}/minio:2026.09.22
     container_name: minio
     command: server /data --console-address ":9001"
     environment:
@@ -79,9 +79,9 @@ services:
     networks:
       - app-network
 
-  dograh-init:
+  Acuity-init:
     image: bash:5.2
-    container_name: dograh_init
+    container_name: Acuity_init
     profiles: ["remote", "local-turn"]
     environment:
       ENVIRONMENT: "${ENVIRONMENT:-local}"
@@ -100,14 +100,14 @@ services:
       - nginx-generated:/generated/nginx
       - coturn-generated:/generated/coturn
     command:
-      - /workspace/scripts/run_dograh_init.sh
+      - /workspace/scripts/run_Acuity_init.sh
 
   nginx:
     image: nginx:alpine
     container_name: nginx_https
     profiles: ["remote"]
     depends_on:
-      dograh-init:
+      Acuity-init:
         condition: service_completed_successfully
       ui:
         condition: service_started
@@ -126,7 +126,7 @@ services:
     restart: unless-stopped
     profiles: ["remote", "local-turn"]
     depends_on:
-      dograh-init:
+      Acuity-init:
         condition: service_completed_successfully
     ports:
       - "3478:3478/udp"
@@ -143,7 +143,7 @@ services:
       - app-network
 
   api:
-    image: ${REGISTRY:-dograhai}/dograh-api:latest
+    image: ${REGISTRY:-acuityai}/acuity-api:latest
     environment:
       # Core application config
       ENVIRONMENT: "${ENVIRONMENT:-local}"
@@ -205,7 +205,7 @@ services:
       MINIO_SECURE: "false"
 
       # Number of uvicorn worker processes (each is its own process bound to a
-      # distinct port starting at 8000). dograh-init renders nginx upstreams
+      # distinct port starting at 8000). Acuity-init renders nginx upstreams
       # from this value and nginx load-balances across them with least_conn.
       FASTAPI_WORKERS: "${FASTAPI_WORKERS:-1}"
 
@@ -219,7 +219,7 @@ services:
 
       # Scrape /api/v1/metrics on each worker's own port. See deploy/observability.
       ENABLE_PROMETHEUS_METRICS: "${ENABLE_PROMETHEUS_METRICS:-false}"
-      DOGRAH_DEVOPS_SECRET: "${DOGRAH_DEVOPS_SECRET:-}"
+      Acuity_DEVOPS_SECRET: "${Acuity_DEVOPS_SECRET:-}"
 
       # Trust X-Forwarded-* headers from any peer so uvicorn honors nginx's
       # `X-Forwarded-Proto: https`. nginx runs as its own container and reaches
@@ -291,14 +291,47 @@ services:
     networks:
       - app-network
 
+  business-api:
+    build:
+      context: ./extensions/business-api
+      dockerfile: Dockerfile
+    image: ${REGISTRY:-acuityai}/acuity-business-api:latest
+    environment:
+      NODE_ENV: "${ENVIRONMENT:-production}"
+      HOST: "0.0.0.0"
+      PORT: "4000"
+      DATABASE_URL: "postgresql://business_app_user:${POSTGRES_APP_PASSWORD:-business_app_password}@postgres:5432/postgres"
+      MIGRATION_DATABASE_URL: "postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/postgres"
+      BUSINESS_EXT_SECRET: "${BUSINESS_EXT_SECRET:?BUSINESS_EXT_SECRET must be set to a strong secret}"
+      ACUITY_DEPLOYMENT_ID: "${ACUITY_DEPLOYMENT_ID:-default}"
+      ACUITY_API_URL: "http://api:8000"
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://127.0.0.1:4000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - app-network
+
   ui:
-    image: ${REGISTRY:-dograhai}/dograh-ui:latest
+    image: ${REGISTRY:-acuityai}/acuity-ui:latest
     environment:
       # Bind the Next.js standalone server to all interfaces
       HOSTNAME: "0.0.0.0"
 
       # Server-side URL (SSR, internal Docker network)
       BACKEND_URL: "${BACKEND_URL:-http://api:8000}"
+      BUSINESS_API_URL: "${BUSINESS_API_INTERNAL_URL:-http://business-api:4000}"
+      BUSINESS_EXT_SECRET: "${BUSINESS_EXT_SECRET:-}"
+      ACUITY_DEPLOYMENT_ID: "${ACUITY_DEPLOYMENT_ID:-default}"
       NODE_ENV: "oss"
 
       # Flag to enable/ disable posthog
@@ -311,6 +344,8 @@ services:
       - "3010:3010"
     depends_on:
       api:
+        condition: service_healthy
+      business-api:
         condition: service_healthy
     healthcheck:
       test:

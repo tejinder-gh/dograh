@@ -1,5 +1,5 @@
 // Client-side validation of node data against a fetched spec. Mirrors
-// `sdk/python/src/dograh_sdk/_validation.py` byte-for-byte where possible
+// `sdk/python/src/Acuity_sdk/_validation.py` byte-for-byte where possible
 // so the two SDKs raise identical error messages for identical bad input.
 //
 // Intentionally lightweight: catch typos / missing required / obvious
@@ -99,7 +99,7 @@ export function validateNodeData(
     if (unknown.length > 0) {
         throw new ValidationError(
             `${spec.name}: unknown field(s) ${JSON.stringify(unknown.sort())}. ` +
-                `Allowed: ${JSON.stringify([...declared.keys()].sort())}`,
+            `Allowed: ${JSON.stringify([...declared.keys()].sort())}`,
         );
     }
 

@@ -729,13 +729,13 @@ export const useWebSocketRTC = ({ workflowId, workflowRunId, accessToken, initia
                 const message = detailFromError(
                     response.error,
                     isServiceUnavailable
-                        ? 'Dograh is temporarily unavailable. Please try again later.'
+                        ? 'Acuity is temporarily unavailable. Please try again later.'
                         : 'API Key Error',
                 );
 
                 if (isServiceUnavailable) {
-                    // MPS is a Dograh-owned dependency. Do not tell the customer
-                    // to change credentials when Dograh could not validate them.
+                    // MPS is a Acuity-owned dependency. Do not tell the customer
+                    // to change credentials when Acuity could not validate them.
                     setApiKeyModalOpen(false);
                     setApiKeyError(null);
                     setApiKeyErrorCode(null);
