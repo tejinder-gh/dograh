@@ -22,19 +22,21 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const localUser = user as LocalUser | undefined;
-    if (localUser?.is_superuser !== undefined) {
-      setIsSuperuser(Boolean(localUser.is_superuser));
-      setChecking(false);
-      return;
-    }
-
-    // Authoritative check via backend
-    fetch('/api/v1/user/auth/user')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        setIsSuperuser(Boolean(data?.is_superuser));
-        setChecking(false);
+    // Authoritative server-side verification using HttpOnly session cookie
+    fetch('/api/business/admin/session')
+      .then((res) => {
+        if (res.status === 200) {
+          setIsSuperuser(true);
+          setChecking(false);
+        } else if (res.status === 401) {
+          setIsSuperuser(false);
+          setChecking(false);
+          router.push('/auth/login');
+        } else {
+          // 403 Forbidden: authenticated but lacks superuser privilege
+          setIsSuperuser(false);
+          setChecking(false);
+        }
       })
       .catch(() => {
         setIsSuperuser(false);
@@ -74,3 +76,4 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
 
   return <>{children}</>;
 }
+

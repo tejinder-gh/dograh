@@ -35,12 +35,15 @@ export function AdminDashboardView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Authoritatively verify platform administrator status
+  // Authoritatively verify platform administrator status server-side
   useEffect(() => {
-    fetch('/api/v1/user/auth/user')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((user) => {
-        setIsSuperuser(Boolean(user?.is_superuser));
+    fetch('/api/business/admin/session')
+      .then((res) => {
+        if (res.status === 200) {
+          setIsSuperuser(true);
+        } else {
+          setIsSuperuser(false);
+        }
         setAuthChecking(false);
       })
       .catch(() => {
