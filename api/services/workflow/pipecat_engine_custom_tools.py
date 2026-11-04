@@ -35,6 +35,11 @@ from api.services.workflow.tool_messages import (
     tool_messages,
 )
 from api.services.workflow.tools.calculator import get_calculator_tools, safe_calculator
+from api.services.workflow.tools.calendar_booking import (
+    get_calendar_tools,
+    check_calendar_availability_impl,
+    book_calendar_appointment_impl,
+)
 from api.services.workflow.tools.custom_tool import (
     execute_http_tool,
     tool_to_function_schema,
@@ -168,6 +173,20 @@ class CustomToolManager:
                         )
                     continue
 
+                if tool.category in (ToolCategory.INTEGRATION.value, "calendar"):
+                    # Built-in calendar appointment booking schemas
+                    for tool_def in get_calendar_tools():
+                        func = tool_def["function"]
+                        schemas.append(
+                            get_function_schema(
+                                func["name"],
+                                func["description"],
+                                properties=func["parameters"]["properties"],
+                                required=func["parameters"]["required"],
+                            )
+                        )
+                    continue
+
                 if tool.category == ToolCategory.MCP.value:
                     session = self._agent.mcp_sessions.get(tool.tool_uuid)
                     if session is None or not session.available:
@@ -236,6 +255,14 @@ class CustomToolManager:
                     self._register_calculator_handler()
                     logger.debug(
                         f"Registered calculator tool handler "
+                        f"(tool_uuid: {tool.tool_uuid})"
+                    )
+                    continue
+
+                if tool.category in (ToolCategory.INTEGRATION.value, "calendar"):
+                    self._register_calendar_handlers()
+                    logger.debug(
+                        f"Registered calendar appointment tool handlers "
                         f"(tool_uuid: {tool.tool_uuid})"
                     )
                     continue
@@ -389,6 +416,45 @@ class CustomToolManager:
 
         self._agent.llm.register_function(
             "safe_calculator", self._agent.bind_tool(self._engine, calculate_func)
+        )
+
+    def _register_calendar_handlers(self) -> None:
+        """Register built-in calendar availability and booking functions with the LLM."""
+
+        async def check_avail_func(function_call_params: FunctionCallParams) -> None:
+            logger.info("LLM Function Call EXECUTED: check_calendar_availability")
+            args = function_call_params.arguments
+            res = await check_calendar_availability_impl(
+                organization_id=getattr(self._engine, "organization_id", 0),
+                start_date_str=args.get("start_date", ""),
+                duration_minutes=int(args.get("duration_minutes", 30)),
+            )
+            await function_call_params.result_callback(res)
+
+        async def book_appt_func(function_call_params: FunctionCallParams) -> None:
+            logger.info("LLM Function Call EXECUTED: book_calendar_appointment")
+            args = function_call_params.arguments
+            res = await book_calendar_appointment_impl(
+                organization_id=getattr(self._engine, "organization_id", 0),
+                workflow_id=getattr(self._engine, "workflow_id", None),
+                run_id=getattr(self._engine, "workflow_run_id", None),
+                title=args.get("title", "Consultation Call"),
+                start_time_str=args.get("start_time", ""),
+                end_time_str=args.get("end_time", ""),
+                contact_name=args.get("contact_name"),
+                contact_email=args.get("contact_email"),
+                contact_phone=args.get("contact_phone"),
+                notes=args.get("notes", ""),
+            )
+            await function_call_params.result_callback(res)
+
+        self._agent.llm.register_function(
+            "check_calendar_availability",
+            self._agent.bind_tool(self._engine, check_avail_func),
+        )
+        self._agent.llm.register_function(
+            "book_calendar_appointment",
+            self._agent.bind_tool(self._engine, book_appt_func),
         )
 
     def _create_http_tool_handler(self, tool: Any, function_name: str):

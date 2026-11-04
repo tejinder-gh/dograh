@@ -6,6 +6,7 @@ import { analyticsRouter } from './analytics.routes';
 import { adminAnalyticsRouter } from './admin-analytics.routes';
 import { subscriptionRouter } from './subscription.routes';
 import { adminAccountsRouter } from './admin-accounts.routes';
+import { appointmentRoutes } from './appointment.routes';
 import { authMiddleware } from '../middleware/auth.middleware';
 
 export const apiRouter = new Hono();
@@ -22,6 +23,7 @@ protectedRouter.route('/analytics', analyticsRouter);
 protectedRouter.route('/admin/analytics', adminAnalyticsRouter);
 protectedRouter.route('/admin/accounts', adminAccountsRouter);
 protectedRouter.route('/subscription', subscriptionRouter);
+protectedRouter.route('/appointments', appointmentRoutes);
 protectedRouter.route('/', crmRoutes);
 
 apiRouter.route('/api', protectedRouter);
